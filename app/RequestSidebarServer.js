@@ -1870,6 +1870,7 @@ function HR_addCopySetupMenu() {
   SpreadsheetApp.getUi()
     .createMenu('⚙️ 사본 설정')
     .addItem('✅ 설정 한 번에 점검', 'HR_showSystemCheck')
+    .addItem('📢 업데이트 소식 보기', 'HR_showUpdateNotice')
     .addSeparator()
     .addItem(
       '🔑 API 키 설정 (YES24 필수)',

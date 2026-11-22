@@ -96,6 +96,11 @@ function onOpen() {
     console.warn('옛 열기 트리거 정리 실패: ' + error);
   }
   try {
+    HR_showUpdateNoticeOnOpen_();
+  } catch (error) {
+    console.warn('업데이트 소식 표시 실패: ' + error);
+  }
+  try {
     ensureSelectionControls_();
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);
