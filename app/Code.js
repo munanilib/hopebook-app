@@ -68,6 +68,8 @@ function onOpen() {
     .addItem('🎨 희망도서 목록 디자인 다시 적용', 'styleRequestListSheet')
     .addSeparator()
     .addItem('⚙️ 실시간 자동화 권한 승인', 'installEditTrigger')
+    .addSeparator()
+    .addItem('🔐 관리자 · 새 희망도서 신청 시작', 'startNewRequestRound')
     .addToUi();
 
   SpreadsheetApp.getUi()
@@ -94,6 +96,114 @@ function onOpen() {
     console.warn('선택 버튼 표시 실패: ' + error);
   }
 }
+
+
+/**
+ * 기존 희망도서 신청 목록을 숨김 보관하고 새 신청 회차를 시작합니다.
+ * 구입 검토함, 서점 전달용, 소장도서와 설정은 변경하지 않습니다.
+ */
+function startNewRequestRound() {
+  const ui = SpreadsheetApp.getUi();
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName(TARGET_SHEET_NAME);
+
+  if (!sheet) {
+    ui.alert('「' + TARGET_SHEET_NAME + '」 시트를 찾지 못했습니다.');
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet
+    .getRange(HEADER_ROW, 1, 1, lastColumn)
+    .getDisplayValues()[0]
+    .map(function(value) {
+      return String(value || '').trim();
+    });
+  let titleIndex = headers.findIndex(function(header) {
+    return /^(도서명|책 ?제목|제목)$/.test(header);
+  });
+
+  if (titleIndex < 0) {
+    titleIndex = Math.min(1, lastColumn - 1);
+  }
+
+  const dataValues = lastRow >= FIRST_DATA_ROW
+    ? sheet
+        .getRange(
+          FIRST_DATA_ROW,
+          1,
+          lastRow - FIRST_DATA_ROW + 1,
+          lastColumn
+        )
+        .getDisplayValues()
+    : [];
+  const requestCount = dataValues.filter(function(row) {
+    return String(row[titleIndex] || '').trim() !== '';
+  }).length;
+  const response = ui.alert(
+    '🆕 새 희망도서 신청 시작',
+    '현재 신청 목록 ' + requestCount +
+      '건을 숨김 보관한 뒤 새 신청 목록으로 비웁니다.\n\n' +
+      '구입 검토함·서점 전달용·우리학교 소장도서·설정은 그대로 유지됩니다.\n' +
+      '계속할까요?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  const archiveName = buildRequestArchiveSheetName_(spreadsheet);
+  const archiveSheet = sheet.copyTo(spreadsheet);
+  archiveSheet.setName(archiveName);
+  archiveSheet.hideSheet();
+
+  if (lastRow >= FIRST_DATA_ROW) {
+    sheet
+      .getRange(
+        FIRST_DATA_ROW,
+        1,
+        lastRow - FIRST_DATA_ROW + 1,
+        lastColumn
+      )
+      .clearContent();
+  }
+
+  if (typeof ensureSelectionControls_ === 'function') {
+    ensureSelectionControls_();
+  }
+
+  spreadsheet.setActiveSheet(sheet);
+  sheet.getRange('A1').activate();
+  SpreadsheetApp.flush();
+
+  ui.alert(
+    '새 신청 회차를 시작했습니다.',
+    '이전 목록 ' + requestCount + '건은 「' + archiveName +
+      '」에 숨김 보관했습니다.\n' +
+      '필요하면 보기 → 숨겨진 시트에서 다시 확인할 수 있습니다.',
+    ui.ButtonSet.OK
+  );
+}
+
+function buildRequestArchiveSheetName_(spreadsheet) {
+  const timeZone =
+    spreadsheet.getSpreadsheetTimeZone() || Session.getScriptTimeZone();
+  const baseName =
+    '🗂 희망도서 ' +
+    Utilities.formatDate(new Date(), timeZone, 'yyyy.MM.dd HHmmss');
+  let name = baseName;
+  let suffix = 2;
+
+  while (spreadsheet.getSheetByName(name)) {
+    name = baseName + ' (' + suffix + ')';
+    suffix += 1;
+  }
+
+  return name.slice(0, 100);
+}
+
 
 
 
