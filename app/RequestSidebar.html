@@ -5940,7 +5940,7 @@
           select.appendChild(option);
         }
       }
-      fillOptions(classInput, 20);    // 반: 1~20
+      fillOptions(classInput, Number('<?= maxClasses ?>') || 20);    // 반: 학교 설정에서 정한 반 수까지(안 정했으면 20)
       fillOptions(numberInput, 40);   // 번호: 1~40
 
       function syncParentApplicant() {

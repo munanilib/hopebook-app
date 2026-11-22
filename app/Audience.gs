@@ -228,3 +228,10 @@ function HR_getParentQuota(grade, classNo, number) {
   result.known = true;
   return result;
 }
+
+// 학부모 화면의 「반」 선택칸에 보여 줄 최대 반 수 (학교 설정에서 정함, 안 정했으면 20)
+var HR_MAX_CLASSES_PROPERTY = 'HR_MAX_CLASSES';
+function HR_getMaxClasses_() {
+  var raw = Number(PropertiesService.getScriptProperties().getProperty(HR_MAX_CLASSES_PROPERTY));
+  return isFinite(raw) && raw >= 1 && raw <= 30 ? Math.floor(raw) : 20;
+}

@@ -337,6 +337,22 @@
         입력한 담당자 이름과 내선번호는 공개 희망도서 신청 페이지 맨 아래에 표시됩니다.
         필요하지 않으면 비워 두어도 됩니다.
       </p>
+
+      <div class="contact-divider"></div>
+
+      <label for="maxClasses">한 학년 최대 반 수</label>
+      <input
+        id="maxClasses"
+        type="number"
+        min="1"
+        max="30"
+        inputmode="numeric"
+        autocomplete="off"
+        placeholder="예: 8"
+      >
+      <p class="contact-help">
+        학부모가 신청할 때 「반」 선택칸에 이 숫자까지만 보입니다. 비워 두면 20반까지 보입니다.
+      </p>
     </div>
 
     <div class="card">
@@ -399,6 +415,8 @@
       document.getElementById('managerName');
     const managerExtension =
       document.getElementById('managerExtension');
+    const maxClasses =
+      document.getElementById('maxClasses');
     const spreadsheetName =
       document.getElementById('spreadsheetName');
     const statusList =
@@ -439,6 +457,7 @@
           schoolName.value = state.schoolName || '';
           managerName.value = state.managerName || '';
           managerExtension.value = state.managerExtension || '';
+          maxClasses.value = state.maxClasses || '';
           spreadsheetName.textContent =
             '현재 사본: ' + (state.spreadsheetName || '');
           renderStatus(state);
@@ -569,7 +588,8 @@
         .HR_runSchoolInitialSetup({
           schoolName: schoolName.value.trim(),
           managerName: managerName.value.trim(),
-          managerExtension: managerExtension.value.trim()
+          managerExtension: managerExtension.value.trim(),
+          maxClasses: maxClasses.value.trim()
         });
     }
 

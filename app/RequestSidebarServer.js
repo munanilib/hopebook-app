@@ -58,6 +58,7 @@ function doGet(e) {
   template.limitStaff = HR_getRequestLimit_('staff');
   template.limitParent = HR_getRequestLimit_('parent');
   template.staffCodeRequired = HR_isStaffCodeEnabled_();
+  template.maxClasses = HR_getMaxClasses_();
   template.managerName = managerName;
   template.managerExtension = managerExtension;
 
@@ -2371,6 +2372,7 @@ function HR_getCopySetupState() {
     managerExtension: String(
       properties.getProperty(HR_MANAGER_EXTENSION_PROPERTY) || ''
     ).trim(),
+    maxClasses: String(properties.getProperty(HR_MAX_CLASSES_PROPERTY) || '').trim(),
     yes24Key: '',
     yes24Ready: Boolean(yes24Key),
     nlkKey: '',
@@ -2439,6 +2441,9 @@ function HR_runSchoolInitialSetup(formData) {
   var managerExtension = String(
     formData && formData.managerExtension || ''
   ).trim();
+  var maxClassesText = String(
+    formData && formData.maxClasses || ''
+  ).trim();
   var targetSheet;
   var libraryStatus;
   var yes24Ready = Boolean(HR_getYes24Key_());
@@ -2452,6 +2457,10 @@ function HR_runSchoolInitialSetup(formData) {
 
   if (!schoolName) {
     throw new Error('학교 이름을 입력해 주세요.');
+  }
+
+  if (maxClassesText && !(/^\d{1,2}$/.test(maxClassesText) && Number(maxClassesText) >= 1 && Number(maxClassesText) <= 30)) {
+    throw new Error('한 학년 최대 반 수는 1~30 사이의 숫자로 입력해 주세요. (비워 두면 20반까지 보입니다.)');
   }
 
   targetSheet = spreadsheet.getSheetByName(
@@ -2470,6 +2479,7 @@ function HR_runSchoolInitialSetup(formData) {
     HR_SCHOOL_NAME: schoolName,
     HR_MANAGER_NAME: managerName,
     HR_MANAGER_EXTENSION: managerExtension,
+    HR_MAX_CLASSES: maxClassesText,
     HR_SETUP_COMPLETE: 'true'
   });
 
