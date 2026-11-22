@@ -2952,11 +2952,30 @@
     .audience-badge{padding:6px 15px;border-radius:999px;background:var(--blue-soft);color:var(--forest-dark);font-weight:800}
     .audience-bar .audience-switch{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;cursor:pointer;color:var(--sub);font-size:13px;text-decoration:none}
     .audience-bar .audience-switch[hidden]{display:none}
-    .parent-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .parent-fields label,.parent-name-label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
     .parent-fields input,.parent-fields select,#pName{width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink)}
-    .parent-name-label{margin-top:10px}
-    .parent-fields input,.parent-fields select{text-align:center}
+    .parent-fields label{font-size:13px;color:var(--sub);display:block}
+    .parent-fields input[type=number],.parent-fields select{text-align:center}
+
+    /* ===== 학부모/교직원 화면 정리 ===== */
+    .parent-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .parent-fields .pname{grid-column:1/-1}
+    .parent-fields label{margin:0 0 5px}
+    .parent-hint{font-weight:400;font-size:13px;color:var(--sub)}
+    #parentApplicantField[hidden],#staffApplicantField[hidden]{display:none}
+    .header .audience-bar{position:absolute;top:20px;right:22px;margin:0;gap:8px;z-index:2}
+    .header .audience-badge{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 14px}
+    .header .audience-bar .audience-switch{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.45)}
+    .header .audience-bar .audience-switch:hover{background:rgba(255,255,255,.14)}
+    body.aud-parent .view-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (min-width:760px){
+      body.aud-parent #requestForm{grid-template-columns:1fr 170px}
+      body.aud-parent #parentApplicantField{grid-column:1/-1}
+      .parent-fields{grid-template-columns:repeat(3,minmax(0,.55fr)) minmax(0,1.4fr)}
+      .parent-fields .pname{grid-column:auto}
+    }
+    @media (max-width:620px){
+      .header .audience-bar{position:static;margin:14px 0 0;justify-content:flex-start;flex-wrap:wrap}
+    }
 </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -2983,13 +3002,12 @@
       책 정보와 중복 여부는 자동으로 확인됩니다.
     </p>
 
-  
+    <div id="audienceBar" class="audience-bar" hidden>
+      <span id="audienceBadge" class="audience-badge"></span>
+      <a id="audienceSwitch" class="audience-switch" href="#" target="_top" hidden>← 처음 화면</a>
+    </div>
   </header>
 
-  <div id="audienceBar" class="audience-bar" hidden>
-    <span id="audienceBadge" class="audience-badge"></span>
-    <a id="audienceSwitch" class="audience-switch" href="#" target="_top" hidden>← 처음 화면</a>
-  </div>
 
   <section id="hrNoticeTicker" class="hr-notice-ticker" aria-label="도서관 공지 전광판" aria-live="polite" hidden>
     <div class="hr-notice-inner">
@@ -3068,25 +3086,27 @@
       </div>
 
       <div class="field" id="parentApplicantField" hidden>
-        <label>우리 아이 정보</label>
+        <label>우리 아이 정보 <span class="parent-hint">(학년·반·번호는 꼭 입력해 주세요)</span></label>
         <div class="parent-fields">
           <div>
-            <label for="pGrade">학년 (1~6)</label>
+            <label for="pGrade">학년</label>
             <select id="pGrade"><option value="">선택</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>
           </div>
           <div>
-            <label for="pClass">반 (숫자)</label>
+            <label for="pClass">반</label>
             <input id="pClass" type="number" min="1" max="30" inputmode="numeric" placeholder="2">
           </div>
           <div>
-            <label for="pNumber">번호 (숫자)</label>
+            <label for="pNumber">번호</label>
             <input id="pNumber" type="number" min="1" max="60" inputmode="numeric" placeholder="15">
           </div>
+          <div class="pname">
+            <label for="pName">학생 이름 (선택)</label>
+            <input id="pName" type="text" autocomplete="off" placeholder="예: 홍길동">
+          </div>
         </div>
-        <label class="parent-name-label" for="pName">학생 이름 (선택)</label>
-        <input id="pName" type="text" autocomplete="off" placeholder="예: 홍길동">
         <p class="help">
-          학년·반·번호는 신청 확인에만 쓰이고, 신청 목록에는 이름이 보이지 않아요.
+          입력한 정보는 신청 확인에만 쓰이고, 신청 목록에는 보이지 않아요.
         </p>
       </div>
 
@@ -5745,6 +5765,7 @@
       function applyAudience(audience) {
         var isParent = audience === 'parent';
         window.HR_AUDIENCE = audience;
+        document.body.classList.toggle('aud-parent', isParent);
         gate.hidden = true;
         bar.hidden = false;
         badge.textContent = isParent ? '👨‍👩‍👧 학부모 신청' : '🧑‍🏫 교직원 신청';
