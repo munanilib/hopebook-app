@@ -4742,7 +4742,11 @@
     ) {
       // 신청이 끝났으니 남은 신청 가능 권수를 다시 계산해서 보여 줍니다.
       submittedRequestsLoaded = false;
-      if (typeof window.HR_refreshQuota === 'function') window.HR_refreshQuota();
+      if (response && response.quota && typeof window.HR_setQuota === 'function') {
+        window.HR_setQuota(response.quota);          // 서버가 방금 센 값을 바로 보여 줍니다.
+      } else if (typeof window.HR_refreshQuota === 'function') {
+        window.HR_refreshQuota();
+      }
       const responseItems = Array.isArray(response.results)
         ? response.results
         : [];
@@ -6066,6 +6070,9 @@
           .HR_getParentQuota(gradeInput.value, classInput.value, numberInput.value);
       }
       window.HR_refreshQuota = refreshQuota;
+      window.HR_setQuota = renderQuota;
+      // 열어 둔 채로 다른 쪽에서 신청이 늘어도 맞게 보이도록 30초마다 다시 확인합니다.
+      window.setInterval(function () { if (!document.hidden) refreshQuota(); }, 30000);
 
       [gradeInput, classInput, numberInput].forEach(function (el) {
         el.addEventListener('change', function () {

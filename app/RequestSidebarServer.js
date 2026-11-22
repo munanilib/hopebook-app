@@ -812,13 +812,25 @@ function HR_submitBookRequests(formData) {
     }
   }
 
+  // 학부모는 신청이 끝난 지금 기준의 남은 권수를 함께 돌려줘서 화면이 바로 바뀌게 합니다.
+  var quota = null;
+  if (requestAudience === 'parent') {
+    try {
+      var parsedApplicant = HR_parseParentApplicant_(applicant);
+      quota = HR_getParentQuota(parsedApplicant.grade, parsedApplicant.classNo, parsedApplicant.number);
+    } catch (quotaError) {
+      quota = null;
+    }
+  }
+
   return {
     success: successCount > 0,
     successCount: successCount,
     duplicateCount: duplicateCount,
     ownedCount: ownedCount,
     errorCount: errorCount,
-    results: results
+    results: results,
+    quota: quota
   };
 }
 
