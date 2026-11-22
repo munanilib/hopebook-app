@@ -59,6 +59,11 @@
     <p style="margin:12px 0 0;font-size:15px">이미 배포했는데도 이 안내가 나오면, 「⚙️ 사본 설정 → 🔗 공개 링크 등록」에 /exec 주소를 붙여 넣은 뒤 다시 눌러 보세요.</p>
   </div>
 
+  <div id="mismatchNote" class="warn" hidden style="margin-bottom:14px;font-size:15px;line-height:1.6">
+    ⚠️ 「공개 링크 등록」에 저장된 주소를 쓰고 있어요. 이 주소가 지금 배포한 웹 앱과 다르면 링크가 안 열릴 수 있어요.
+    그럴 때는 Apps Script 「배포 → 배포 관리」에서 현재 웹 앱 주소를 복사해 「공개 링크 등록」에 다시 붙여 넣어 주세요.
+  </div>
+
   <div id="main" hidden>
     <div class="tabs" role="tablist">
       <button type="button" class="tab parent active" data-audience="parent" role="tab">👨‍👩‍👧 학부모용<small>가정통신문·알림장</small></button>
@@ -488,6 +493,7 @@ var QrCore = (function () {
     el('needDeploy').hidden = false;
   } else {
     el('main').hidden = false;
+    if (DATA.mismatch) el('mismatchNote').hidden = false;
     var panels = {};
     Array.prototype.forEach.call(document.querySelectorAll('.panel'), function (panel) {
       var audience = panel.getAttribute('data-audience'), input = panel.querySelector('input');

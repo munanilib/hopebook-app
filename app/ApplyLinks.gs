@@ -6,19 +6,19 @@
  */
 function HR_showApplyLinksDialog() {
   var props = PropertiesService.getScriptProperties();
-  var detected = HR_getWebAppBaseUrl_();
-  var saved = String(props.getProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY) || '').trim();
+  var registered = HR_getRegisteredWebAppUrl_();
+  var detected = HR_getDetectedWebAppUrl_();
 
-  // 배포된 웹 주소를 자동으로 찾았으면 「공개 링크」로도 저장해 둡니다.
-  if (detected && detected !== saved) {
+  // 등록한 주소가 없을 때만, 찾은 주소를 「공개 링크」로 저장해 둡니다. (등록한 주소는 절대 덮어쓰지 않습니다.)
+  if (!registered && detected) {
     props.setProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY, detected);
-    saved = detected;
   }
 
-  var baseUrl = detected || (/^https:\/\/script\.google\.com\/.+\/exec$/.test(saved) ? saved : '');
+  var baseUrl = registered || detected;
   var data = {
     baseUrl: baseUrl,
-    detected: !!detected,
+    detected: !!baseUrl,
+    mismatch: !!(registered && detected && registered !== detected),
     schoolName: String(props.getProperty(HR_SCHOOL_NAME_PROPERTY) || '').trim()
   };
 

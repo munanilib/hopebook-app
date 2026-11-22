@@ -64,14 +64,32 @@ function doGet(e) {
     );
 }
 
-// 이 웹 앱의 주소(…/exec). 못 구하면 빈 글자입니다.
-function HR_getWebAppBaseUrl_() {
+// 웹 앱 주소(…/exec) 모양인지 확인합니다.
+function HR_isWebAppExecUrl_(url) {
+  return /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+|macros)\/s\/[^/]+\/exec$/.test(String(url || ''));
+}
+
+// 「공개 링크 등록」에 저장한 주소(검사를 통과한 것만). 없으면 빈 글자입니다.
+function HR_getRegisteredWebAppUrl_() {
+  var saved = String(
+    PropertiesService.getScriptProperties().getProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY) || ''
+  ).trim().replace(/[?#].*$/, '');
+  return HR_isWebAppExecUrl_(saved) ? saved : '';
+}
+
+// 구글이 알려 주는 배포 주소. 못 구하면 빈 글자입니다.
+function HR_getDetectedWebAppUrl_() {
   try {
     var url = String(ScriptApp.getService().getUrl() || '');
-    return /^https:\/\/script\.google\.com\/.+\/exec$/.test(url) ? url : '';
+    return HR_isWebAppExecUrl_(url) ? url : '';
   } catch (error) {
     return '';
   }
+}
+
+// 이 웹 앱의 주소. 「공개 링크 등록」에 넣은 주소가 항상 먼저이고, 없을 때만 구글이 알려 주는 주소를 씁니다.
+function HR_getWebAppBaseUrl_() {
+  return HR_getRegisteredWebAppUrl_() || HR_getDetectedWebAppUrl_();
 }
 
 /**
