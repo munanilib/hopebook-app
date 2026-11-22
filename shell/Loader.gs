@@ -185,9 +185,24 @@ function shellSetupInner_() {
 
 // 설치형 열기 트리거: 최신 코드로 메뉴를 만들고 앱의 onOpen 을 실행합니다.
 function shellOnOpen(e) {
-  var app = shellApp_();
-  shellBuildMenus_(app);
-  if (app.has('onOpen')) app.call('onOpen', [e]);
+  try {
+    var app = shellApp_();
+    shellBuildMenus_(app);
+    PropertiesService.getScriptProperties().deleteProperty('SHELL_LAST_ERROR');
+    if (app.has('onOpen')) app.call('onOpen', [e]);
+  } catch (err) {
+    PropertiesService.getScriptProperties().setProperty('SHELL_LAST_ERROR', String(err && err.stack || err));
+    SpreadsheetApp.getUi()
+      .createMenu('⚠️ 시작하기 (오류)')
+      .addItem('🔍 오류 내용 보기', 'shellShowError')
+      .addItem('🔧 다시 설정', 'shellSetup')
+      .addToUi();
+  }
+}
+
+function shellShowError() {
+  var msg = PropertiesService.getScriptProperties().getProperty('SHELL_LAST_ERROR') || '(기록된 오류 없음)';
+  SpreadsheetApp.getUi().alert('열기 중 오류', msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 // 앱이 정한 메뉴를 슬롯(m01~m60)에 연결합니다. 슬롯→함수 이름은 저장해 두어
