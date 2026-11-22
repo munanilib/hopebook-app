@@ -8031,18 +8031,9 @@ function seriesFinderOnOpen_() {
   seriesAddMenu_();
 }
 
+// 시리즈 점검 메뉴는 「🧰 통합 도서업무」 안의 하위 메뉴로 합쳤습니다.
+// (예전 설치형 열기 트리거가 이 함수를 불러도 메뉴 줄에 따로 만들지 않습니다.)
 function seriesAddMenu_() {
-  SpreadsheetApp.getUi()
-    .createMenu('🔎 시리즈 점검')
-    .addItem('후속권·누락권 이어서 점검', 'refreshMissingSeriesBooks')
-    .addItem('현재 결과 절판 여부 확인', 'refreshSeriesSaleStatuses')
-    .addItem('저장된 점검 위치 초기화', 'resetSeriesFinderProgress')
-    .addItem('결과 시트 만들기·복구', 'setupSeriesFinder')
-    .addSeparator()
-    .addItem('체크한 도서를 구입 검토함으로 보내기', 'sendSelectedSeriesToReview')
-    .addSeparator()
-    .addItem('YES24 API 키 설정', 'setSeriesYes24Key')
-    .addToUi();
 }
 
 function seriesInstallOpenTrigger_() {
@@ -9777,6 +9768,16 @@ function unifiedAddMenu_() {
     .addItem('📥 업로드 목록을 열기', 'openUnifiedUploadSheet')
     .addSeparator()
     .addItem('📦 중복 확인 후 서점 전달용으로 보내기', 'buildUnifiedBookstoreExportSheet')
+    .addSeparator()
+    .addSubMenu(
+      SpreadsheetApp.getUi()
+        .createMenu('🔎 시리즈 점검 도구')
+        .addItem('현재 결과 절판 여부 확인', 'refreshSeriesSaleStatuses')
+        .addItem('결과 시트 만들기·복구', 'setupSeriesFinder')
+        .addItem('저장된 점검 위치 초기화', 'resetSeriesFinderProgress')
+        .addSeparator()
+        .addItem('YES24 API 키 설정', 'setSeriesYes24Key')
+    )
     .addToUi();
 }
 
