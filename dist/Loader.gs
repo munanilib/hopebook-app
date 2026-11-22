@@ -163,6 +163,15 @@ function onOpen(e) {
 }
 
 function shellSetup() {
+  try {
+    shellSetupInner_();
+  } catch (err) {
+    SpreadsheetApp.getUi().alert('설정 중 오류', String(err && err.stack || err), SpreadsheetApp.getUi().ButtonSet.OK);
+    throw err;
+  }
+}
+
+function shellSetupInner_() {
   var ss = SpreadsheetApp.getActive();
   var has = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'shellOnOpen';
