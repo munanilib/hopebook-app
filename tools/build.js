@@ -28,6 +28,11 @@ const htmls = names.filter(n => /\.html$/.test(n));
 let code = '';
 for (const f of scripts) code += `\n/* ===== ${f} ===== */\n` + fs.readFileSync(path.join(APP, f), 'utf8') + '\n';
 
+// 빌드 번호(한국 시간 YYMMDD-HHMM): 화면 맨 아래에 보여 줘서 지금 어떤 버전인지 알 수 있게 합니다.
+const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+const buildId = kst.slice(2, 4) + kst.slice(5, 7) + kst.slice(8, 10) + '-' + kst.slice(11, 13) + kst.slice(14, 16);
+code = code.split('__BUILD_ID__').join(buildId);
+
 // 최상위 함수 이름
 const fnNames = [...new Set([...code.matchAll(/^function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map(m => m[1]))];
 

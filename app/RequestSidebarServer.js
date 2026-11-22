@@ -50,6 +50,7 @@ function doGet(e) {
   template.audience = audience;
   template.fromGate = String(e && e.parameter && e.parameter.g || '') === '1';
   template.baseUrl = HR_getWebAppBaseUrl_();
+  template.buildId = HR_BUILD_ID;
   template.limitStaff = HR_getRequestLimit_('staff');
   template.limitParent = HR_getRequestLimit_('parent');
   template.managerName = managerName;
@@ -62,6 +63,13 @@ function doGet(e) {
       'viewport',
       'width=device-width, initial-scale=1'
     );
+}
+
+// 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
+var HR_BUILD_ID = '__BUILD_ID__';
+
+function HR_getBuildId() {
+  return HR_BUILD_ID;
 }
 
 // 웹 앱 주소(…/exec) 모양인지 확인합니다.
