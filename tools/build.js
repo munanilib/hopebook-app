@@ -28,9 +28,9 @@ const htmls = names.filter(n => /\.html$/.test(n));
 let code = '';
 for (const f of scripts) code += `\n/* ===== ${f} ===== */\n` + fs.readFileSync(path.join(APP, f), 'utf8') + '\n';
 
-// 빌드 번호(한국 시간 YYMMDD-HHMM): 화면 맨 아래에 보여 줘서 지금 어떤 버전인지 알 수 있게 합니다.
-const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
-const buildId = kst.slice(2, 4) + kst.slice(5, 7) + kst.slice(8, 10) + '-' + kst.slice(11, 13) + kst.slice(14, 16);
+// 빌드 번호: 소스 내용으로 만든 짧은 번호입니다. (시간이 아니라 내용 기준이라, 같은 소스면 언제 빌드해도 같습니다.
+// 그래서 배포 검사에서 「dist 가 최신인가」를 정확히 비교할 수 있고, 화면 맨 아래에서 버전이 같은지 확인할 수 있습니다.)
+const buildId = 'v' + require('crypto').createHash('sha1').update(code).digest('hex').slice(0, 7);
 code = code.split('__BUILD_ID__').join(buildId);
 
 // 최상위 함수 이름

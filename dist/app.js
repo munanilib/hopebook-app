@@ -3056,7 +3056,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = '261122-1952';
+var HR_BUILD_ID = 'vc0e1e38';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
