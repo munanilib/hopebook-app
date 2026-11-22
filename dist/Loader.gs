@@ -353,6 +353,7 @@ function m58(){return shellMenu_('m58');} function m59(){return shellMenu_('m59'
 function onEdit(e) { return shellSimple_('onEdit', e); }
 function onSelectionChange(e) { return shellSimple_('onSelectionChange', e); }
 function HR_deleteCopySetupSheet(e) { return shellTrigger_('HR_deleteCopySetupSheet', e); }
+function HR_openSidebarOnSpreadsheetOpen(e) { return shellTrigger_('HR_openSidebarOnSpreadsheetOpen', e); }
 function HR_showPublicWebAppUrlDialog(e) { return shellTrigger_('HR_showPublicWebAppUrlDialog', e); }
 function HR_showSchoolSetupDialog(e) { return shellTrigger_('HR_showSchoolSetupDialog', e); }
 function HR_showYes24KeyDialog(e) { return shellTrigger_('HR_showYes24KeyDialog', e); }

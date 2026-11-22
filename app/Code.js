@@ -91,6 +91,11 @@ function onOpen() {
     unifiedAddMenu_();
   }
   try {
+    HR_removeLegacyOpenTrigger_();
+  } catch (error) {
+    console.warn('옛 열기 트리거 정리 실패: ' + error);
+  }
+  try {
     ensureSelectionControls_();
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);

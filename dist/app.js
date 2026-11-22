@@ -97,6 +97,11 @@ function onOpen() {
     unifiedAddMenu_();
   }
   try {
+    HR_removeLegacyOpenTrigger_();
+  } catch (error) {
+    console.warn('옛 열기 트리거 정리 실패: ' + error);
+  }
+  try {
     ensureSelectionControls_();
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);
@@ -2656,8 +2661,20 @@ function HR_showRequestSidebar() {
  * 신청 메뉴를 추가하고 희망도서 목록 탭이면 사이드바를 자동으로 엽니다.
  */
 function HR_openSidebarOnSpreadsheetOpen() {
-  HR_addCopySetupMenu();
-  HR_showHopeRequestDialog();
+  // 예전에는 시트를 열 때마다 「희망도서 신청 바로가기」 창을 띄웠습니다.
+  // 지금은 창을 띄우지 않고, 남아 있는 옛 트리거를 지웁니다.
+  HR_removeLegacyOpenTrigger_();
+}
+
+/**
+ * 옛 사본에 남은 「열 때 신청 창 띄우기」 트리거를 지웁니다.
+ */
+function HR_removeLegacyOpenTrigger_() {
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === HR_SIDEBAR_TRIGGER_FUNCTION) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
 }
 
 /**
@@ -4966,7 +4983,7 @@ sheet.clear();
     .getRange('B3:L86')
     .setBackground('#FFFFFF')
     .setFontFamily('Jua')
-    .setFontColor('#27344A')
+    .setFontColor('#2E3A33')
     .setVerticalAlignment('middle')
     .setWrap(true);
 
@@ -4985,7 +5002,7 @@ sheet.clear();
   sheet
     .getRange('B7')
     .setValue('👣 컴퓨터가 익숙하지 않아도 괜찮아요! 위에서부터 그대로 따라 하세요')
-    .setBackground('#243B64')
+    .setBackground('#183D35')
     .setFontColor('#FFFFFF')
     .setFontSize(21)
     .setFontWeight('bold')
@@ -5065,9 +5082,9 @@ sheet.clear();
   HR_drawGuideSteps_(
     sheet,
     detailSteps,
-    '#5277C7',
-    '#F3F6FC',
-    '#D8E1F0'
+    '#244D42',
+    '#EAF3ED',
+    '#A8C8BB'
   );
 
   sheet.getRange('B19:L19').merge();
@@ -5078,8 +5095,8 @@ sheet.clear();
       HR_YES24_API_MANAGE_URL +
       '","🔗 YES24 API 키 발급 사이트 열기")'
     )
-    .setBackground('#EAF1FF')
-    .setFontColor('#315F9F')
+    .setBackground('#FBF1D6')
+    .setFontColor('#7A5A12')
     .setFontSize(15)
     .setFontWeight('bold')
     .setHorizontalAlignment('center')
@@ -5090,7 +5107,7 @@ sheet.clear();
       true,
       false,
       false,
-      '#BFD0EE',
+      '#E3C47A',
       SpreadsheetApp.BorderStyle.SOLID
     );
 
@@ -5102,8 +5119,8 @@ sheet.clear();
       '① 「희망도서 목록」 시트 이름은 변경하지 마세요. 새 목록으로 교체할 때는 기존 시트 이름을 바꾼 뒤, 새 시트를 반드시 「희망도서 목록」으로 만드세요.\n' +
       '② 「우리학교 소장도서」에는 책 제목과 ISBN13을 모두 넣어야 중복 소장 안내가 정확히 작동합니다.'
     )
-    .setBackground('#FFF0F0')
-    .setFontColor('#A33C3C')
+    .setBackground('#FFF6DA')
+    .setFontColor('#7A5A12')
     .setFontSize(14)
     .setFontWeight('bold')
     .setHorizontalAlignment('left')
@@ -5114,7 +5131,7 @@ sheet.clear();
       true,
       false,
       false,
-      '#E8B7B7',
+      '#E3C47A',
       SpreadsheetApp.BorderStyle.SOLID
     );
 
@@ -5122,7 +5139,7 @@ sheet.clear();
   sheet
     .getRange('B58')
     .setValue('🧰 설정 버튼 모음  ·  안내를 읽은 뒤 필요한 버튼을 누르세요')
-    .setBackground('#7A5128')
+    .setBackground('#183D35')
     .setFontColor('#FFFFFF')
     .setFontSize(20)
     .setFontWeight('bold')
@@ -5154,7 +5171,7 @@ sheet.clear();
     function(rangeA1) {
       sheet
         .getRange(rangeA1)
-        .setBackground('#5277C7')
+        .setBackground('#244D42')
         .setFontColor('#FFFFFF')
         .setFontSize(18)
         .setFontWeight('bold')
@@ -5166,7 +5183,7 @@ sheet.clear();
           true,
           false,
           false,
-          '#3E61AA',
+          '#B9852A',
           SpreadsheetApp.BorderStyle.SOLID_THICK
         );
     }
@@ -5187,8 +5204,8 @@ sheet.clear();
       '  ·  공개 링크 ' +
       (publicUrlReady ? '완료' : '필요')
     )
-    .setBackground('#F4F6FA')
-    .setFontColor('#3B4A64')
+    .setBackground('#F8F5ED')
+    .setFontColor('#34564D')
     .setFontSize(13)
     .setHorizontalAlignment('center');
 
@@ -5196,7 +5213,7 @@ sheet.clear();
   sheet
     .getRange('B77')
     .setValue('🗑️ 모든 설정을 마친 뒤 이 탭 삭제')
-    .setBackground('#6F7785')
+    .setBackground('#34564D')
     .setFontColor('#FFFFFF')
     .setFontSize(17)
     .setFontWeight('bold')
@@ -5209,23 +5226,23 @@ sheet.clear();
       'YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 없어도 됩니다.\n' +
       '이 시트의 프로그램은 저절로 최신 기능으로 바뀝니다. 따로 업데이트하지 않아도 돼요.'
     )
-    .setBackground('#EDF4FF')
-    .setFontColor('#284E86')
+    .setBackground('#EAF3ED')
+    .setFontColor('#244D42')
     .setFontSize(13)
     .setFontWeight('bold')
     .setHorizontalAlignment('left');
 
   sheet
     .getRange('B3:L4')
-    .setBackground('#7A5128')
+    .setBackground('#183D35')
     .setFontColor('#FFFFFF')
     .setFontSize(25)
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
   sheet
     .getRange('B5:L5')
-    .setBackground('#F3E9DA')
-    .setFontColor('#7A5128')
+    .setBackground('#F6EBCF')
+    .setFontColor('#183D35')
     .setFontSize(14)
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
@@ -7974,9 +7991,9 @@ function HR_showHopeRequestDialog() {
 
   const html = HtmlService.createHtmlOutput(
     '<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>' +
-    'body{margin:0;padding:28px;background:#f3f7ff;font-family:Arial,"Noto Sans KR",sans-serif;color:#17385d;text-align:center}' +
-    '.icon{font-size:48px;margin:4px 0 12px}.title{font-size:28px;font-weight:900;margin:0 0 12px}.desc{font-size:16px;color:#6b82a0;line-height:1.6;margin:0 0 26px}' +
-    '.open{display:block;padding:17px 20px;border-radius:16px;background:linear-gradient(135deg,#3b8df2,#2169d1);color:#fff;text-decoration:none;font-size:21px;font-weight:900;box-shadow:0 10px 24px rgba(33,105,209,.25)}' +
+    'body{margin:0;padding:28px;background:#f8f5ed;font-family:Arial,"Noto Sans KR",sans-serif;color:#183d35;text-align:center}' +
+    '.icon{font-size:48px;margin:4px 0 12px}.title{font-size:28px;font-weight:900;margin:0 0 12px}.desc{font-size:16px;color:#5b6f65;line-height:1.6;margin:0 0 26px}' +
+    '.open{display:block;padding:17px 20px;border-radius:16px;background:linear-gradient(135deg,#d9a441,#b9852a);color:#fff;text-decoration:none;font-size:21px;font-weight:900;box-shadow:0 10px 24px rgba(33,105,209,.25)}' +
     '.open:hover{filter:brightness(.97);transform:translateY(-1px)}' +
     '</style></head><body><div class="icon">📚</div><div class="title">희망도서 신청 바로가기</div>' +
     '<p class="desc">아래 버튼을 누르면 희망도서 신청 화면이 새 탭으로 열립니다.</p>' +
@@ -11978,6 +11995,7 @@ function verifyYes24Connection() {
     "HR_getNlkKey_": HR_getNlkKey_,
     "HR_showRequestSidebar": HR_showRequestSidebar,
     "HR_openSidebarOnSpreadsheetOpen": HR_openSidebarOnSpreadsheetOpen,
+    "HR_removeLegacyOpenTrigger_": HR_removeLegacyOpenTrigger_,
     "HR_installSidebarOpenTrigger": HR_installSidebarOpenTrigger,
     "HR_submitBookRequest": HR_submitBookRequest,
     "HR_appendRequestBackup_": HR_appendRequestBackup_,
