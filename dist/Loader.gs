@@ -145,9 +145,25 @@ function shellPrepareHtml_(html) {
 
 // 화면(HTML)에서 부르는 서버 함수. 앱이 허용한 이름만 실행합니다.
 function shellRpc(name, args) {
-  var app = shellApp_();
-  if (!app.rpc || app.rpc.indexOf(name) < 0) throw new Error('허용되지 않은 호출입니다: ' + name);
-  return app.call(name, args || []);
+  shellRpcLog_('받음 ' + name);
+  try {
+    var app = shellApp_();
+    if (!app.rpc || app.rpc.indexOf(name) < 0) throw new Error('허용되지 않은 호출입니다: ' + name);
+    var out = app.call(name, args || []);
+    shellRpcLog_('성공 ' + name + ' → ' + JSON.stringify(out));
+    return out;
+  } catch (err) {
+    shellRpcLog_('오류 ' + name + ' → ' + String(err && err.stack || err));
+    throw err;
+  }
+}
+
+function shellRpcLog_(msg) {
+  try {
+    var ss = SpreadsheetApp.getActive();
+    var sh = ss.getSheetByName('_rpc') || ss.insertSheet('_rpc');
+    sh.appendRow([new Date(), msg]);
+  } catch (e) {}
 }
 
 function doGet(e)  { return shellApp_().call('doGet', [e]); }
@@ -261,6 +277,7 @@ function shellMenu_(id) {
     return shellApp_().call(map[id], []);
   } catch (err) {
     shellLogError_('메뉴 ' + id, err);
+    try { SpreadsheetApp.getUi().alert('⚠️ 오류 (' + id + ')', String(err && err.stack || err), SpreadsheetApp.getUi().ButtonSet.OK); } catch (e3) {}
     throw err;
   }
 }
