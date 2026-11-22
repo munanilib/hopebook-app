@@ -15,10 +15,31 @@ function HR_showApplyLinksDialog() {
   }
 
   var baseUrl = registered || detected;
+  var problem = '';
+  var switched = false;
+
+  // 등록한 주소가 실제로 열리는지 확인합니다.
+  if (baseUrl) {
+    var status = HR_probeWebAppUrl_(baseUrl);
+    if (status === 'notfound' || status === 'restricted') {
+      // 등록한 주소는 안 열리는데 구글이 알려 주는 주소가 열리면, 그 주소로 바꿔서 보여 줍니다.
+      if (detected && detected !== baseUrl && HR_probeWebAppUrl_(detected) === 'ok') {
+        baseUrl = detected;
+        switched = true;
+        props.setProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY, detected);
+      } else {
+        problem = HR_probeProblemMessage_(status);
+      }
+    }
+  }
+
   var data = {
-    baseUrl: baseUrl,
+    baseUrl: problem ? '' : baseUrl,
     detected: !!baseUrl,
-    mismatch: !!(registered && detected && registered !== detected),
+    mismatch: !!(registered && detected && registered !== detected && !switched),
+    switched: switched,
+    problem: problem,
+    badUrl: problem ? baseUrl : '',
     schoolName: String(props.getProperty(HR_SCHOOL_NAME_PROPERTY) || '').trim()
   };
 

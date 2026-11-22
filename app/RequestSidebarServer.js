@@ -28,6 +28,10 @@ var HR_YES24_API_MANAGE_URL =
  * 권한 승인 없이 사용하는 공개 신청 웹앱 화면입니다.
  */
 function doGet(e) {
+  // 주소가 열리는지 확인하는 요청(?probe=1)에는 화면을 만들지 않고 짧게 답합니다.
+  if (e && e.parameter && e.parameter.probe === '1') {
+    return ContentService.createTextOutput('ok');
+  }
   var properties = PropertiesService.getScriptProperties();
   var audience = HR_audienceFromParameter_(e && e.parameter && e.parameter.type);
   var schoolName = String(
@@ -70,6 +74,40 @@ var HR_BUILD_ID = '__BUILD_ID__';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
+}
+
+// 웹 앱 주소가 실제로 열리는지 확인합니다.
+// 'ok' 열림 · 'notfound' 없는 주소(404) · 'restricted' 로그인이 필요함(공개 아님) · 'unknown' 확인 못 함
+function HR_probeWebAppUrl_(url) {
+  try {
+    var response = UrlFetchApp.fetch(String(url) + '?probe=1', {
+      muteHttpExceptions: true,
+      followRedirects: false
+    });
+    var code = response.getResponseCode();
+    if (code === 404) return 'notfound';
+    if (code === 401 || code === 403) return 'restricted';
+    if (code >= 300 && code < 400) {
+      var headers = response.getHeaders() || {};
+      var location = String(headers.Location || headers.location || '');
+      return /accounts\.google\.com/.test(location) ? 'restricted' : 'ok';
+    }
+    return code >= 200 && code < 300 ? 'ok' : 'unknown';
+  } catch (error) {
+    return 'unknown';
+  }
+}
+
+// 확인 결과를 사용자에게 보여 줄 말로 바꿉니다. (열리면 빈 글자)
+function HR_probeProblemMessage_(status) {
+  if (status === 'notfound') {
+    return '이 주소로는 접속이 안 돼요(페이지를 찾을 수 없음). 주소가 중간에 잘렸거나 지워진 배포일 수 있어요. ' +
+      'Apps Script 「배포 → 배포 관리」에서 현재 웹 앱 주소를 처음부터 끝까지 다시 복사해 주세요.';
+  }
+  if (status === 'restricted') {
+    return '이 주소는 로그인이 필요해요. Apps Script 「배포 → 배포 관리」에서 웹 앱의 액세스 권한을 「모든 사용자」로 바꿔 주세요.';
+  }
+  return '';
 }
 
 // 웹 앱 주소(…/exec) 모양인지 확인합니다.
@@ -2127,6 +2165,12 @@ function HR_savePublicWebAppUrl(formData) {
     throw new Error(
       '주소가 올바르지 않습니다. Apps Script 배포 관리의 웹 앱 주소를 붙여 넣어 주세요.'
     );
+  }
+
+  // 실제로 열리는 주소인지 확인합니다. 안 열리는 주소는 저장하지 않고 이유를 알려 줍니다.
+  var problem = HR_probeProblemMessage_(HR_probeWebAppUrl_(url));
+  if (problem) {
+    throw new Error(problem);
   }
 
   var properties = PropertiesService.getScriptProperties();

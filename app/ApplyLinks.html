@@ -59,6 +59,22 @@
     <p style="margin:12px 0 0;font-size:15px">이미 배포했는데도 이 안내가 나오면, 「⚙️ 사본 설정 → 🔗 공개 링크 등록」에 /exec 주소를 붙여 넣은 뒤 다시 눌러 보세요.</p>
   </div>
 
+  <div id="problemNote" class="warn" hidden style="margin-bottom:14px">
+    <b>⚠️ 지금 등록된 주소로는 접속이 안 돼요</b>
+    <p id="problemText" style="margin:10px 0 0;font-size:16px;line-height:1.7"></p>
+    <p style="margin:12px 0 0;font-size:14px;line-height:1.6">현재 등록된 주소:<br><span id="badUrl" style="word-break:break-all;color:#5b430c"></span></p>
+    <ol class="steps">
+      <li>위쪽 「확장 프로그램」 → 「Apps Script」 → 「배포」 → 「배포 관리」를 여세요.</li>
+      <li>웹 앱의 주소(…/exec)를 <b>처음부터 끝까지</b> 복사하세요.</li>
+      <li>시트에서 「⚙️ 사본 설정 → 🔗 공개 링크 등록」에 붙여 넣고 저장하세요.</li>
+      <li>다시 「🔗 신청 링크 받기」를 누르면 QR이 만들어져요.</li>
+    </ol>
+  </div>
+
+  <div id="switchedNote" class="warn" hidden style="margin-bottom:14px;font-size:15px;line-height:1.6;background:#eaf3ed;border-color:#a8c8bb;color:#203f35">
+    ✅ 등록돼 있던 주소가 열리지 않아서, 지금 배포된 웹 앱 주소로 자동으로 바꿨어요.
+  </div>
+
   <div id="mismatchNote" class="warn" hidden style="margin-bottom:14px;font-size:15px;line-height:1.6">
     ⚠️ 「공개 링크 등록」에 저장된 주소를 쓰고 있어요. 이 주소가 지금 배포한 웹 앱과 다르면 링크가 안 열릴 수 있어요.
     그럴 때는 Apps Script 「배포 → 배포 관리」에서 현재 웹 앱 주소를 복사해 「공개 링크 등록」에 다시 붙여 넣어 주세요.
@@ -489,9 +505,14 @@ var QrCore = (function () {
       linkFor(audience);
   }
 
-  if (!DATA.baseUrl) {
+  if (DATA.problem) {
+    el('problemNote').hidden = false;
+    el('problemText').textContent = DATA.problem;
+    el('badUrl').textContent = DATA.badUrl || '';
+  } else if (!DATA.baseUrl) {
     el('needDeploy').hidden = false;
   } else {
+    if (DATA.switched) el('switchedNote').hidden = false;
     el('main').hidden = false;
     if (DATA.mismatch) el('mismatchNote').hidden = false;
     var panels = {};
