@@ -4740,6 +4740,9 @@
       selectedKeys,
       selectedBooks
     ) {
+      // 신청이 끝났으니 남은 신청 가능 권수를 다시 계산해서 보여 줍니다.
+      submittedRequestsLoaded = false;
+      if (typeof window.HR_refreshQuota === 'function') window.HR_refreshQuota();
       const responseItems = Array.isArray(response.results)
         ? response.results
         : [];
