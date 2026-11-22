@@ -146,25 +146,9 @@ function shellPrepareHtml_(html) {
 
 // 화면(HTML)에서 부르는 서버 함수. 앱이 허용한 이름만 실행합니다.
 function shellRpc(name, args) {
-  shellRpcLog_('받음 ' + name);
-  try {
-    var app = shellApp_();
-    if (!app.rpc || app.rpc.indexOf(name) < 0) throw new Error('허용되지 않은 호출입니다: ' + name);
-    var out = app.call(name, args || []);
-    shellRpcLog_('성공 ' + name + ' → ' + JSON.stringify(out));
-    return out;
-  } catch (err) {
-    shellRpcLog_('오류 ' + name + ' → ' + String(err && err.stack || err));
-    throw err;
-  }
-}
-
-function shellRpcLog_(msg) {
-  try {
-    var ss = SpreadsheetApp.getActive();
-    var sh = ss.getSheetByName('_rpc') || ss.insertSheet('_rpc');
-    sh.appendRow([new Date(), msg]);
-  } catch (e) {}
+  var app = shellApp_();
+  if (!app.rpc || app.rpc.indexOf(name) < 0) throw new Error('허용되지 않은 호출입니다: ' + name);
+  return app.call(name, args || []);
 }
 
 function doGet(e)  { return shellApp_().call('doGet', [e]); }
@@ -176,42 +160,14 @@ function onOpen(e) {
   SpreadsheetApp.getUi()
     .createMenu('⚙️ 시작하기')
     .addItem('✅ 프로그램 사용 시작 (권한 승인)', 'shellSetup')
-    .addItem('🩺 진단 (문제 확인)', 'shellDiag')
     .addToUi();
-}
-
-// 단계별로 시험해서 결과를 '_진단' 시트에 적습니다.
-function shellDiag() {
-  var ss = SpreadsheetApp.getActive();
-  var sh = ss.getSheetByName('_진단') || ss.insertSheet('_진단');
-  sh.clear();
-  var rows = [['단계', '결과']];
-  function step(name, fn) {
-    try { rows.push([name, 'OK ' + (fn() || '')]); }
-    catch (err) { rows.push([name, 'ERROR ' + String(err && err.stack || err)]); }
-  }
-  var props = PropertiesService.getScriptProperties();
-  step('1 속성 읽기', function () { return props.getProperty('SHELL_READY'); });
-  step('2 속성 쓰기', function () { props.setProperty('DIAG', '1'); return 'ok'; });
-  step('3 트리거 목록', function () {
-    return ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction() + ':' + t.getEventType(); }).join(', ');
-  });
-  step('4 코드 받기', function () { return shellReadCode_(true).length + '자'; });
-  step('5 eval', function () { __APP = null; return typeof shellApp_(); });
-  step('6 메뉴 목록', function () { return JSON.stringify(shellApp_().menus); });
-  step('7 메뉴맵 저장값', function () { return props.getProperty('SHELL_MENU_MAP'); });
-  step('8 마지막 오류', function () { return props.getProperty('SHELL_LAST_ERROR'); });
-  step('9 m01 실행', function () { return shellMenu_('m01'); });
-  sh.getRange(1, 1, rows.length, 2).setValues(rows);
-  sh.setColumnWidth(2, 700);
-  ss.setActiveSheet(sh);
 }
 
 function shellSetup() {
   try {
     shellSetupInner_();
   } catch (err) {
-    SpreadsheetApp.getUi().alert('설정 중 오류', String(err && err.stack || err), SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert('설정 중 오류', String(err && err.message || err), SpreadsheetApp.getUi().ButtonSet.OK);
     throw err;
   }
 }
@@ -343,18 +299,14 @@ function shellMenu_(id) {
     return shellApp_().call(name, []);
   } catch (err) {
     shellLogError_('메뉴 ' + id, err);
-    try { SpreadsheetApp.getUi().alert('⚠️ 오류 (' + id + ')', String(err && err.stack || err), SpreadsheetApp.getUi().ButtonSet.OK); } catch (e3) {}
+    try { SpreadsheetApp.getUi().alert('⚠️ 실행 중 오류', String(err && err.message || err), SpreadsheetApp.getUi().ButtonSet.OK); } catch (e3) {}
     throw err;
   }
 }
 
-// 오류를 '_오류' 시트에 적어 둡니다 (원인 확인용)
+// 오류는 시트를 건드리지 않고 Apps Script 실행 로그에만 남깁니다.
 function shellLogError_(where, err) {
-  try {
-    var ss = SpreadsheetApp.getActive();
-    var sh = ss.getSheetByName('_오류') || ss.insertSheet('_오류');
-    sh.appendRow([new Date(), where, String(err && err.stack || err)]);
-  } catch (e2) {}
+  console.error(where + ': ' + String(err && err.stack || err));
 }
 
 // 설치형 트리거 등 이름으로 불리는 앱 함수들 (빌드가 목록을 만들어 줍니다)
