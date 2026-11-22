@@ -5,7 +5,7 @@
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-3';
+var HR_GUIDE_VERSION = '2026-11-23-4';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -204,6 +204,11 @@ function HR_refreshGuidesOnce_() {
   try {
     if (props.getProperty(HR_GUIDE_VERSION_PROPERTY) === HR_GUIDE_VERSION) return;
     createUnifiedGuides_();
+    try {
+      unifiedRefreshDashboard_();   // 대시보드도 새 디자인으로 한 번 다시 그립니다.
+    } catch (error) {
+      console.warn('대시보드 갱신 실패: ' + error);
+    }
     props.setProperty(HR_GUIDE_VERSION_PROPERTY, HR_GUIDE_VERSION);
     try {
       if (original && !original.isSheetHidden()) spreadsheet.setActiveSheet(original);
