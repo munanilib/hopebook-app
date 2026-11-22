@@ -132,8 +132,17 @@ function HR_requestLimitMessage_(audienceKey, applicant, addCount) {
   if (used + addCount <= limit) return '';
 
   var remain = Math.max(0, limit - used);
-  return '신청 한도는 1인당 ' + limit + '권이에요. 지금까지 ' + used + '권을 신청했어요.' +
-    (remain > 0 ? ' 이번에는 최대 ' + remain + '권까지만 신청할 수 있어요.' : ' 더 신청할 수 없어요.');
+  var who = audienceKey === 'parent' ? '한 학생당' : '한 사람당';
+  var head = who + ' 최대 ' + limit + '권까지 신청할 수 있어요.';
+
+  if (remain <= 0) {
+    return head + ' 이미 ' + used + '권을 모두 신청하셨어요.';
+  }
+  if (used === 0) {
+    return head + ' 지금 ' + addCount + '권을 담으셨어요. ' + limit + '권 이하로 줄여서 다시 신청해 주세요.';
+  }
+  return head + ' 이미 ' + used + '권을 신청하셨어서 이번에는 ' + remain + '권까지만 가능해요. 담은 ' +
+    addCount + '권을 ' + remain + '권 이하로 줄여 주세요.';
 }
 
 /* ---------- 공지 대상(전체/교직원/학부모) ---------- */

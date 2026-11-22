@@ -5415,7 +5415,7 @@
 
     function getErrorMessage(error) {
       return error && error.message
-        ? error.message
+        ? String(error.message).replace(/^(Error|Exception):\s*/, '')
         : String(
           error ||
           '처리 중 오류가 발생했습니다.'
