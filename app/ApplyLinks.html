@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{--forest:#2c5949;--forest-dark:#203f35;--gold:#d3a248;--gold-dark:#ad762b;--cream:#fbf4e5;--ink:#25352f;--sub:#68766f;--line:#dbe4dc;--paper:#fffdf8;--soft:#e8f2ec}
+  *{box-sizing:border-box}
+  body{margin:0;padding:22px 24px 26px;background:#f4f3eb;font-family:Arial,"Noto Sans KR","Malgun Gothic",sans-serif;color:var(--ink)}
+  h1{margin:0 0 6px;font-size:30px;color:var(--forest-dark)}
+  .lead{margin:0 0 18px;color:var(--sub);line-height:1.6;font-size:17px}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .tab{padding:16px 10px;border:2px solid var(--line);border-radius:18px;background:#fff;font-size:21px;font-weight:800;color:var(--sub);cursor:pointer}
+  .tab small{display:block;font-size:13px;font-weight:500;margin-top:3px}
+  .tab.active.staff{background:linear-gradient(135deg,#3f8068,#1f4f3f);border-color:#1f4f3f;color:#fff}
+  .tab.active.parent{background:linear-gradient(135deg,var(--gold),var(--gold-dark));border-color:var(--gold-dark);color:#fff}
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:22px 18px;text-align:center;box-shadow:0 8px 24px rgba(32,63,53,.07)}
+  .panel[hidden]{display:none}
+  .panel .why{margin:0 0 12px;color:var(--sub);font-size:16px;line-height:1.5}
+  canvas.qr{width:300px;height:300px;max-width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;display:block;margin:0 auto 18px}
+  .actions{display:grid;gap:10px;max-width:460px;margin:0 auto}
+  .act{padding:16px 12px;border:0;border-radius:15px;font-size:19px;font-weight:800;cursor:pointer;color:#fff;background:var(--forest)}
+  .act.gold{background:var(--gold-dark)}
+  .act.ghost{background:#fff;color:var(--forest-dark);border:2px solid var(--line);font-size:16px;padding:12px}
+  .act:hover{filter:brightness(.95)}
+  details{margin:16px auto 0;max-width:460px;text-align:left}
+  summary{cursor:pointer;color:var(--sub);font-size:14px;padding:6px 0}
+  .linkbox input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--sub);background:#fff}
+  .foot{margin-top:16px;text-align:center}
+  .foot button{padding:12px 36px;border:2px solid var(--line);border-radius:14px;background:#fff;font-size:16px;font-weight:700;color:var(--forest-dark);cursor:pointer}
+  .warn{background:#fff6da;border:1px solid #e3c47a;color:#7a5a12;border-radius:16px;padding:18px 20px;line-height:1.8;font-size:17px}
+  .warn b{color:#5b430c;font-size:19px}
+  .steps{margin:12px 0 0;padding-left:22px}
+  .steps li{margin-bottom:6px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--forest-dark);color:#fff;padding:12px 22px;border-radius:999px;font-size:16px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+  .preview{position:fixed;inset:0;background:rgba(32,63,53,.93);display:none;align-items:center;justify-content:center;padding:14px;z-index:10}
+  .preview.show{display:flex}
+  .preview .box{background:#fff;border-radius:20px;padding:18px;max-width:560px;width:100%;max-height:96vh;overflow:auto;text-align:center}
+  .preview h2{margin:0 0 6px;color:var(--forest-dark);font-size:22px}
+  .preview .tip{margin:0 0 12px;color:var(--sub);font-size:15px;line-height:1.5}
+  .preview img{width:100%;max-width:400px;border:1px solid var(--line);border-radius:10px}
+  .preview .actions{margin-top:14px}
+</style>
+</head>
+<body>
+  <h1>🔗 신청 링크 받기</h1>
+  <p class="lead">누구에게 보낼 링크인지 골라서, <b>복사</b>하거나 <b>QR 그림</b>으로 저장하세요.</p>
+
+  <div id="needDeploy" class="warn" hidden>
+    <b>먼저 웹 앱을 한 번 배포해야 링크가 만들어져요.</b>
+    <ol class="steps">
+      <li>위쪽 「확장 프로그램」 → 「Apps Script」를 누르세요.</li>
+      <li>새 화면 오른쪽 위 「배포」 → 「새 배포」 → 톱니바퀴(유형 선택) → 「웹 앱」을 고르세요.</li>
+      <li>실행 사용자는 「나」, 액세스 권한은 「모든 사용자」로 하고 「배포」를 누르세요.</li>
+      <li>끝나면 이 창을 닫고, 「⚙️ 사본 설정 → 🔗 신청 링크 받기」를 다시 누르세요.</li>
+    </ol>
+    <p style="margin:12px 0 0;font-size:15px">이미 배포했는데도 이 안내가 나오면, 「⚙️ 사본 설정 → 🔗 공개 링크 등록」에 /exec 주소를 붙여 넣은 뒤 다시 눌러 보세요.</p>
+  </div>
+
+  <div id="main" hidden>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab parent active" data-audience="parent" role="tab">👨‍👩‍👧 학부모용<small>가정통신문·알림장</small></button>
+      <button type="button" class="tab staff" data-audience="staff" role="tab">🧑‍🏫 교직원용<small>선생님께 안내</small></button>
+    </div>
+
+    <section class="panel" data-audience="parent" role="tabpanel">
+      <p class="why">학부모님께 보내는 링크예요. 이 링크로 들어가면 <b>교직원 화면은 보이지 않아요.</b></p>
+      <canvas class="qr" width="600" height="600"></canvas>
+      <div class="actions">
+        <button type="button" class="act" data-act="copy">📋 링크 복사</button>
+        <button type="button" class="act" data-act="message">💬 안내 문구까지 복사 (문자·알림장용)</button>
+        <button type="button" class="act gold" data-act="save">⬇️ QR 그림 저장 (인쇄용)</button>
+        <button type="button" class="act ghost" data-act="open">🔎 링크 열어 보기</button>
+      </div>
+      <details><summary>링크 전체 보기</summary><div class="linkbox"><input type="text" readonly></div></details>
+    </section>
+
+    <section class="panel" data-audience="staff" role="tabpanel" hidden>
+      <p class="why">선생님·교직원께 보내는 링크예요.</p>
+      <canvas class="qr" width="600" height="600"></canvas>
+      <div class="actions">
+        <button type="button" class="act" data-act="copy">📋 링크 복사</button>
+        <button type="button" class="act" data-act="message">💬 안내 문구까지 복사 (문자·알림장용)</button>
+        <button type="button" class="act gold" data-act="save">⬇️ QR 그림 저장 (인쇄용)</button>
+        <button type="button" class="act ghost" data-act="open">🔎 링크 열어 보기</button>
+      </div>
+      <details><summary>링크 전체 보기</summary><div class="linkbox"><input type="text" readonly></div></details>
+    </section>
+  </div>
+
+  <div class="foot"><button type="button" onclick="google.script.host.close()">닫기</button></div>
+
+  <div id="preview" class="preview" role="dialog" aria-modal="true">
+    <div class="box">
+      <h2>QR 그림이 만들어졌어요 ✅</h2>
+      <p class="tip">저장이 시작되지 않으면 아래 그림을 <b>오른쪽 클릭(휴대폰은 길게 누르기)</b> → 「이미지를 다른 이름으로 저장」을 누르세요.</p>
+      <img id="previewImg" alt="QR 그림">
+      <div class="actions">
+        <a id="downloadLink" class="act" style="text-decoration:none;display:block" href="#" download>⬇️ 다시 저장하기</a>
+        <button type="button" class="act ghost" id="closePreview">닫기</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+<script>
+/* QR-BEGIN */
+// 외부 서비스 없이 QR 코드를 만듭니다. (바이트 모드 · 오류정정 M · 버전 1~10, 최대 213바이트)
+// 알고리즘은 QR 코드 표준(ISO/IEC 18004)을 따릅니다.
+var QrCore = (function () {
+  'use strict';
+
+  // 버전별: [전체 코드워드, 블록 수, 블록당 오류정정 코드워드]  (오류정정 M)
+  var TABLE = {
+    1: [26, 1, 10], 2: [44, 1, 16], 3: [70, 1, 26], 4: [100, 2, 18], 5: [134, 2, 24],
+    6: [172, 4, 16], 7: [196, 4, 18], 8: [242, 4, 22], 9: [292, 5, 22], 10: [346, 5, 26]
+  };
+  var MAX_VERSION = 10;
+
+  // --- 갈루아체 GF(256) ---
+  var EXP = [], LOG = [];
+  (function () {
+    var x = 1, i;
+    for (i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+  function gfMul(a, b) { return (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]]; }
+
+  function rsGenerator(degree) {
+    var poly = [1], i, j, next;
+    for (i = 0; i < degree; i++) {
+      next = [];
+      for (j = 0; j <= poly.length; j++) next[j] = 0;
+      for (j = 0; j < poly.length; j++) {
+        next[j] ^= poly[j];
+        next[j + 1] ^= gfMul(poly[j], EXP[i]);
+      }
+      poly = next;
+    }
+    return poly; // 최고차항 계수 1 포함, 길이 degree+1
+  }
+  function rsRemainder(data, gen) {
+    var degree = gen.length - 1, rem = [], i, j, factor;
+    for (i = 0; i < degree; i++) rem[i] = 0;
+    for (i = 0; i < data.length; i++) {
+      factor = data[i] ^ rem[0];
+      rem.shift(); rem.push(0);
+      for (j = 0; j < degree; j++) rem[j] ^= gfMul(gen[j + 1], factor);
+    }
+    return rem;
+  }
+
+  function utf8Bytes(text) {
+    var out = [], i, c, d;
+    var s = unescape(encodeURIComponent(String(text)));
+    for (i = 0; i < s.length; i++) out.push(s.charCodeAt(i));
+    return out;
+  }
+
+  function numAlign(ver) { return ver === 1 ? 0 : Math.floor(ver / 7) + 2; }
+  function rawModules(ver) {
+    var n = (16 * ver + 128) * ver + 64;
+    if (ver >= 2) { var a = numAlign(ver); n -= (25 * a - 10) * a - 55; if (ver >= 7) n -= 36; }
+    return n;
+  }
+  function alignPositions(ver) {
+    if (ver === 1) return [];
+    var n = numAlign(ver), size = ver * 4 + 17;
+    var step = Math.ceil((ver * 4 + 4) / (n * 2 - 2)) * 2;
+    var res = [6], pos;
+    for (pos = size - 7; res.length < n; pos -= step) res.splice(1, 0, pos);
+    return res;
+  }
+
+  function bit(v, i) { return ((v >>> i) & 1) !== 0; }
+
+  function pickVersion(byteLen) {
+    var ver, t, dataCw, capBits, need;
+    for (ver = 1; ver <= MAX_VERSION; ver++) {
+      t = TABLE[ver];
+      dataCw = t[0] - t[1] * t[2];
+      capBits = dataCw * 8;
+      need = 4 + (ver <= 9 ? 8 : 16) + byteLen * 8;
+      if (need <= capBits) return ver;
+    }
+    throw new Error('주소가 너무 길어서 QR을 만들 수 없습니다.');
+  }
+
+  function encode(text) {
+    var bytes = utf8Bytes(text);
+    var ver = pickVersion(bytes.length);
+    var t = TABLE[ver], raw = Math.floor(rawModules(ver) / 8);
+    var numBlocks = t[1], eccLen = t[2], dataCw = raw - numBlocks * eccLen;
+    var size = ver * 4 + 17;
+    var i, j, k;
+
+    // 1) 데이터 비트열
+    var bits = [];
+    function push(val, len) { for (var b = len - 1; b >= 0; b--) bits.push((val >>> b) & 1); }
+    push(4, 4);                               // 바이트 모드
+    push(bytes.length, ver <= 9 ? 8 : 16);    // 글자 수
+    for (i = 0; i < bytes.length; i++) push(bytes[i], 8);
+    var capBits = dataCw * 8;
+    for (i = 0; i < 4 && bits.length < capBits; i++) bits.push(0); // 종료 문자
+    while (bits.length % 8 !== 0) bits.push(0);
+    var data = [];
+    for (i = 0; i < bits.length; i += 8) {
+      var v = 0; for (j = 0; j < 8; j++) v = (v << 1) | bits[i + j]; data.push(v);
+    }
+    for (k = 0; data.length < dataCw; k++) data.push(k % 2 === 0 ? 0xEC : 0x11);
+
+    // 2) 블록 나누기 + 오류정정 + 끼워 넣기
+    var shortLen = Math.floor(raw / numBlocks), numShort = numBlocks - raw % numBlocks;
+    var gen = rsGenerator(eccLen), blocks = [], offset = 0;
+    for (i = 0; i < numBlocks; i++) {
+      var len = shortLen - eccLen + (i < numShort ? 0 : 1);
+      var dat = data.slice(offset, offset + len); offset += len;
+      var ecc = rsRemainder(dat, gen);
+      if (i < numShort) dat.push(0);          // 짧은 블록은 자리 맞춤용 빈칸
+      blocks.push(dat.concat(ecc));
+    }
+    var all = [];
+    for (i = 0; i < blocks[0].length; i++) {
+      for (j = 0; j < blocks.length; j++) {
+        if (i !== shortLen - eccLen || j >= numShort) all.push(blocks[j][i]);
+      }
+    }
+
+    // 3) 모듈 배치
+    var modules = [], isFn = [];
+    for (i = 0; i < size; i++) { modules.push([]); isFn.push([]); for (j = 0; j < size; j++) { modules[i].push(false); isFn[i].push(false); } }
+    function setFn(x, y, dark) { modules[y][x] = !!dark; isFn[y][x] = true; }
+
+    for (i = 0; i < size; i++) { setFn(6, i, i % 2 === 0); setFn(i, 6, i % 2 === 0); }
+    function finder(cx, cy) {
+      for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++) {
+        var dist = Math.max(Math.abs(dx), Math.abs(dy)), xx = cx + dx, yy = cy + dy;
+        if (xx >= 0 && xx < size && yy >= 0 && yy < size) setFn(xx, yy, dist !== 2 && dist !== 4);
+      }
+    }
+    finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+    var ap = alignPositions(ver), n = ap.length;
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
+      if ((i === 0 && j === 0) || (i === 0 && j === n - 1) || (i === n - 1 && j === 0)) continue;
+      for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++)
+        setFn(ap[i] + dx, ap[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }
+    function drawFormat(mask) {
+      var d = (0 << 3) | mask;                // 오류정정 M = 00
+      var rem = d;
+      for (var q = 0; q < 10; q++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+      var fb = ((d << 10) | rem) ^ 0x5412;
+      for (var a = 0; a <= 5; a++) setFn(8, a, bit(fb, a));
+      setFn(8, 7, bit(fb, 6)); setFn(8, 8, bit(fb, 7)); setFn(7, 8, bit(fb, 8));
+      for (var b = 9; b < 15; b++) setFn(14 - b, 8, bit(fb, b));
+      for (var c = 0; c < 8; c++) setFn(size - 1 - c, 8, bit(fb, c));
+      for (var e = 8; e < 15; e++) setFn(8, size - 15 + e, bit(fb, e));
+      setFn(8, size - 8, true);
+    }
+    drawFormat(0);
+    if (ver >= 7) {
+      var r = ver;
+      for (i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1F25);
+      var vb = (ver << 12) | r;
+      for (i = 0; i < 18; i++) {
+        var col = bit(vb, i), a2 = size - 11 + (i % 3), b2 = Math.floor(i / 3);
+        setFn(a2, b2, col); setFn(b2, a2, col);
+      }
+    }
+
+    // 데이터 비트 지그재그 배치
+    var idx = 0;
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (var vert = 0; vert < size; vert++) {
+        for (j = 0; j < 2; j++) {
+          var x = right - j, upward = ((right + 1) & 2) === 0, y = upward ? size - 1 - vert : vert;
+          if (!isFn[y][x] && idx < all.length * 8) { modules[y][x] = bit(all[idx >>> 3], 7 - (idx & 7)); idx++; }
+        }
+      }
+    }
+
+    // 4) 마스크 8가지 중 벌점이 가장 낮은 것 고르기
+    function applyMask(mask) {
+      for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
+        var inv;
+        switch (mask) {
+          case 0: inv = (x + y) % 2 === 0; break;
+          case 1: inv = y % 2 === 0; break;
+          case 2: inv = x % 3 === 0; break;
+          case 3: inv = (x + y) % 3 === 0; break;
+          case 4: inv = (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0; break;
+          case 5: inv = x * y % 2 + x * y % 3 === 0; break;
+          case 6: inv = (x * y % 2 + x * y % 3) % 2 === 0; break;
+          default: inv = ((x + y) % 2 + x * y % 3) % 2 === 0;
+        }
+        if (!isFn[y][x] && inv) modules[y][x] = !modules[y][x];
+      }
+    }
+    function penalty() {
+      var score = 0, y, x, run, c, dark = 0;
+      for (y = 0; y < size; y++) {
+        run = 1;
+        for (x = 1; x < size; x++) {
+          if (modules[y][x] === modules[y][x - 1]) { run++; if (run === 5) score += 3; else if (run > 5) score++; } else run = 1;
+        }
+      }
+      for (x = 0; x < size; x++) {
+        run = 1;
+        for (y = 1; y < size; y++) {
+          if (modules[y][x] === modules[y - 1][x]) { run++; if (run === 5) score += 3; else if (run > 5) score++; } else run = 1;
+        }
+      }
+      for (y = 0; y < size - 1; y++) for (x = 0; x < size - 1; x++) {
+        c = modules[y][x];
+        if (c === modules[y][x + 1] && c === modules[y + 1][x] && c === modules[y + 1][x + 1]) score += 3;
+      }
+      var pat = [true, false, true, true, true, false, true, false, false, false, false];
+      function matches(get) {
+        var k2, ok1 = true, ok2 = true;
+        for (k2 = 0; k2 < 11; k2++) { if (get(k2) !== pat[k2]) ok1 = false; if (get(k2) !== pat[10 - k2]) ok2 = false; }
+        return ok1 || ok2;
+      }
+      for (y = 0; y < size; y++) for (x = 0; x <= size - 11; x++) { if (matches(function (k2) { return modules[y][x + k2]; })) score += 40; }
+      for (x = 0; x < size; x++) for (y = 0; y <= size - 11; y++) { if (matches(function (k2) { return modules[y + k2][x]; })) score += 40; }
+      for (y = 0; y < size; y++) for (x = 0; x < size; x++) if (modules[y][x]) dark++;
+      score += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+      return score;
+    }
+    var bestMask = 0, bestScore = Infinity, m;
+    for (m = 0; m < 8; m++) {
+      applyMask(m); drawFormat(m);
+      var sc = penalty();
+      if (sc < bestScore) { bestScore = sc; bestMask = m; }
+      applyMask(m); // 되돌리기
+    }
+    applyMask(bestMask); drawFormat(bestMask);
+
+    return { version: ver, size: size, modules: modules };
+  }
+
+  return { encode: encode };
+})();
+/* QR-END */
+
+(function () {
+  var DATA = <?!= dataJson ?>;
+  var LABEL = { staff: '교직원용', parent: '학부모용' };
+  var COLOR = { staff: '#203f35', parent: '#ad762b' };
+
+  function el(id) { return document.getElementById(id); }
+  function toast(text) {
+    var t = el('toast'); t.textContent = text; t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 2000);
+  }
+  function linkFor(audience) {
+    var base = DATA.baseUrl;
+    return base + (base.indexOf('?') < 0 ? '?' : '&') + 'type=' + audience;
+  }
+
+  // QR 을 캔버스에 그립니다. (바깥 여백 4칸)
+  function drawQr(canvas, text, size) {
+    var qr = QrCore.encode(text), quiet = 4, n = qr.size;
+    var cell = Math.floor(size / (n + quiet * 2));
+    var total = cell * (n + quiet * 2);
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+    var offset = Math.floor((size - total) / 2) + quiet * cell;
+    ctx.fillStyle = '#000';
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      if (qr.modules[y][x]) ctx.fillRect(offset + x * cell, offset + y * cell, cell, cell);
+    }
+  }
+
+  function wrapText(ctx, text, maxWidth) {
+    var lines = [], line = '';
+    for (var i = 0; i < text.length; i++) {
+      var test = line + text.charAt(i);
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = text.charAt(i); } else { line = test; }
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // 인쇄해서 쓸 수 있는 그림(제목 + QR + 안내 + 주소)을 만듭니다.
+  function buildPoster(audience) {
+    var url = linkFor(audience);
+    var W = 1000, H = 1240, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = COLOR[audience]; ctx.fillRect(0, 0, W, 18);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+
+    var school = DATA.schoolName ? DATA.schoolName : '';
+    ctx.fillStyle = '#25352f';
+    var y = 120;
+    if (school) { ctx.font = '700 44px "Noto Sans KR","Malgun Gothic",Arial,sans-serif'; ctx.fillText(school, W / 2, y); y += 78; }
+    ctx.fillStyle = '#203f35';
+    ctx.font = '900 76px "Noto Sans KR","Malgun Gothic",Arial,sans-serif';
+    ctx.fillText('희망도서 신청', W / 2, y);
+
+    y += 40;
+    var badge = LABEL[audience] + ' ' + (audience === 'parent' ? '👨‍👩‍👧' : '🧑‍🏫');
+    ctx.font = '800 42px "Noto Sans KR","Malgun Gothic",Arial,sans-serif';
+    var bw = ctx.measureText(badge).width + 70;
+    ctx.fillStyle = COLOR[audience];
+    var bx = (W - bw) / 2, by = y, bh = 70, r = 35;
+    ctx.beginPath(); ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r); ctx.arcTo(bx, by + bh, bx, by, r); ctx.arcTo(bx, by, bx + bw, by, r); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(badge, W / 2, by + 50);
+
+    var qrSize = 720, qc = document.createElement('canvas');
+    qc.width = qrSize; qc.height = qrSize;
+    drawQr(qc, url, qrSize);
+    var qy = by + bh + 40;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#dbe4dc'; ctx.lineWidth = 3;
+    ctx.fillRect((W - qrSize) / 2 - 6, qy - 6, qrSize + 12, qrSize + 12);
+    ctx.strokeRect((W - qrSize) / 2 - 6, qy - 6, qrSize + 12, qrSize + 12);
+    ctx.drawImage(qc, (W - qrSize) / 2, qy);
+
+    var ty = qy + qrSize + 70;
+    ctx.fillStyle = '#25352f';
+    ctx.font = '700 38px "Noto Sans KR","Malgun Gothic",Arial,sans-serif';
+    ctx.fillText('스마트폰 카메라로 QR을 비춰 주세요', W / 2, ty);
+
+    ctx.fillStyle = '#68766f';
+    ctx.font = '400 21px Arial,sans-serif';
+    var lines = wrapText(ctx, url, W - 160), ly = ty + 52;
+    for (var i = 0; i < lines.length && i < 3; i++) { ctx.fillText(lines[i], W / 2, ly); ly += 28; }
+    return c;
+  }
+
+  function fileName(audience) {
+    var school = (DATA.schoolName || '').replace(/[\\\/:*?"<>|]/g, '').trim();
+    return (school ? school + '_' : '') + (audience === 'parent' ? '학부모용' : '교직원용') + '_희망도서_QR.png';
+  }
+
+  function savePoster(audience) {
+    var canvas = buildPoster(audience), dataUrl = canvas.toDataURL('image/png');
+    var name = fileName(audience);
+    el('previewImg').src = dataUrl;
+    var link = el('downloadLink'); link.href = dataUrl; link.setAttribute('download', name);
+    el('preview').classList.add('show');
+    try { link.click(); toast('저장을 시작했어요'); } catch (e) {}
+  }
+
+
+  function fileName(audience) {
+    var school = (DATA.schoolName || '').replace(/[\\\/:*?"<>|]/g, '').trim();
+    return (school ? school + '_' : '') + (audience === 'parent' ? '학부모용' : '교직원용') + '_희망도서_QR.png';
+  }
+
+  function savePoster(audience) {
+    var canvas = buildPoster(audience), dataUrl = canvas.toDataURL('image/png');
+    el('previewImg').src = dataUrl;
+    var link = el('downloadLink'); link.href = dataUrl; link.setAttribute('download', fileName(audience));
+    el('preview').classList.add('show');
+    try { link.click(); toast('저장을 시작했어요'); } catch (e) {}
+  }
+
+  function copyValue(text, okMessage, inputForFallback) {
+    function fallback() {
+      var ta = inputForFallback || document.createElement('textarea');
+      if (!inputForFallback) { ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); }
+      ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      if (!inputForFallback) document.body.removeChild(ta);
+      toast(ok ? okMessage : '복사가 안 돼요. 「링크 전체 보기」에서 길게 눌러 복사해 주세요.');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMessage); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  function messageFor(audience) {
+    var school = DATA.schoolName ? DATA.schoolName + ' ' : '';
+    return school + '희망도서 신청 안내\n' +
+      (audience === 'parent' ? '읽고 싶은 책을 아래 링크에서 신청해 주세요.\n' : '읽고 싶은 책을 아래 링크에서 신청해 주세요.\n') +
+      linkFor(audience);
+  }
+
+  if (!DATA.baseUrl) {
+    el('needDeploy').hidden = false;
+  } else {
+    el('main').hidden = false;
+    var panels = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.panel'), function (panel) {
+      var audience = panel.getAttribute('data-audience'), input = panel.querySelector('input');
+      panels[audience] = panel;
+      input.value = linkFor(audience);
+      try { drawQr(panel.querySelector('canvas'), input.value, 600); }
+      catch (e) { panel.querySelector('canvas').insertAdjacentHTML('afterend', '<p class="why">QR을 만들지 못했어요: ' + String(e.message || e) + '</p>'); }
+      panel.addEventListener('click', function (event) {
+        var act = event.target && event.target.getAttribute && event.target.getAttribute('data-act');
+        if (act === 'copy') copyValue(input.value, '링크를 복사했어요 ✅', input);
+        else if (act === 'message') copyValue(messageFor(audience), '안내 문구를 복사했어요 ✅');
+        else if (act === 'open') window.open(input.value, '_blank');
+        else if (act === 'save') savePoster(audience);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
+      tab.addEventListener('click', function () {
+        var audience = tab.getAttribute('data-audience');
+        Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.classList.toggle('active', t === tab); });
+        Object.keys(panels).forEach(function (key) { panels[key].hidden = key !== audience; });
+      });
+    });
+  }
+  el('closePreview').addEventListener('click', function () { el('preview').classList.remove('show'); });
+})();
+</script>
+</body>
+</html>
