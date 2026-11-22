@@ -2,16 +2,15 @@
  * 📢 업데이트 소식
  *
  * 개발자가 「📢 업데이트 소식 관리」 구글 시트에 소식을 쓰면, 사본이 열릴 때 한 번 안내 창으로 보여 줍니다.
- * - 시트의 「표시」 칸이 TRUE 인 줄 중 가장 위에 있는 소식 하나를 보여 줍니다.
+ * - 시트의 「상태」 칸이 「🟢 보이기」(또는 TRUE)인 줄 중 가장 위에 있는 소식 하나를 보여 줍니다.
  * - 한 번 본 소식은 다시 안 뜹니다. 제목이나 내용을 바꾸면 새 소식으로 보고 다시 보여 줍니다.
  * - 시작일·종료일은 비워도 됩니다. 기간 밖이면 보여 주지 않습니다.
  * - 인터넷이 안 되거나 시트를 못 읽으면 조용히 건너뜁니다.
  */
-var HR_NOTICE_SHEET_ID = '1h5k654PDcR1ar67GJwj2vHwHMr3JEzgT_xtgInl7KCI';
-var HR_NOTICE_SHEET_GID = '1607070234';
+var HR_NOTICE_SHEET_ID = '1aR1O-pNTpSotlsJ5uCvRNHioUdMNhC2vKVOlsluITdM';
 var HR_NOTICE_URL =
   'https://docs.google.com/spreadsheets/d/' + HR_NOTICE_SHEET_ID +
-  '/export?format=csv&gid=' + HR_NOTICE_SHEET_GID;
+  '/export?format=csv';
 var HR_NOTICE_SEEN_PROPERTY = 'HR_NOTICE_SEEN_ID';
 
 // CSV 한 덩어리를 2차원 배열로 바꿉니다(따옴표·줄바꿈 처리).
@@ -45,7 +44,9 @@ function HR_parseCsv_(text) {
 }
 
 function HR_noticeIsOn_(value) {
-  return /^(true|o|y|yes|예|표시|체크|1)$/i.test(String(value || '').trim());
+  // 「🟢 보이기」 같은 그림 글자는 떼고 글자만 비교합니다.
+  var text = String(value || '').replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+  return ['true', 'o', 'y', 'yes', 'on', '1', '예', '표시', '체크', '켜짐', '보이기'].indexOf(text) >= 0;
 }
 
 // 2026-12-01 · 2026. 12. 1 · 2026/12/1 · 2026.12.1 → 2026-12-01 (못 읽으면 빈 글자)
@@ -70,7 +71,8 @@ function HR_fetchNotice_() {
 
   var headerIndex = -1;
   for (var r = 0; r < rows.length; r++) {
-    if (String(rows[r][0] || '').trim() === '표시') { headerIndex = r; break; }
+    var head = String(rows[r][0] || '').replace(/\s+/g, ' ').trim();
+    if (head.indexOf('상태') === 0 || head === '표시') { headerIndex = r; break; }
   }
   if (headerIndex < 0) return null; // 시트를 못 읽었거나 모양이 다름
 
