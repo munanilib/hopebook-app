@@ -1,5 +1,5 @@
 {
-  "codeUrl": "https://raw.githubusercontent.com/munanilib/hopebook-app/stable/dist/app.js",
+  "codeUrl": "https://raw.githubusercontent.com/munanilib/hopebook-app/refs/heads/stable/dist/app.js",
   "version": "1",
   "extraEntryPoints": [],
   "manifest": {

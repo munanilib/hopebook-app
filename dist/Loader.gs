@@ -11,7 +11,7 @@
  */
 
 var SHELL_VERSION = '1';
-var APP_CODE_URL = 'https://raw.githubusercontent.com/munanilib/hopebook-app/stable/dist/app.js';
+var APP_CODE_URL = 'https://raw.githubusercontent.com/munanilib/hopebook-app/refs/heads/stable/dist/app.js';
 
 var APP_CACHE_SECONDS  = 300;    // 5분마다 GitHub에서 새 코드 확인
 var APP_BACKUP_SECONDS = 21600;  // GitHub에 못 닿을 때 쓸 예비본 보관 시간(최대 6시간)
