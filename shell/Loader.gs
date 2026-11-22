@@ -255,9 +255,23 @@ function shellBuildMenus_(app) {
 }
 
 function shellMenu_(id) {
-  var map = JSON.parse(PropertiesService.getScriptProperties().getProperty('SHELL_MENU_MAP') || '{}');
-  if (!map[id]) throw new Error('메뉴가 오래되었습니다. 시트를 새로고침해 주세요.');
-  return shellApp_().call(map[id], []);
+  try {
+    var map = JSON.parse(PropertiesService.getScriptProperties().getProperty('SHELL_MENU_MAP') || '{}');
+    if (!map[id]) throw new Error('메뉴가 오래되었습니다. 시트를 새로고침해 주세요. (map=' + JSON.stringify(map) + ')');
+    return shellApp_().call(map[id], []);
+  } catch (err) {
+    shellLogError_('메뉴 ' + id, err);
+    throw err;
+  }
+}
+
+// 오류를 '_오류' 시트에 적어 둡니다 (원인 확인용)
+function shellLogError_(where, err) {
+  try {
+    var ss = SpreadsheetApp.getActive();
+    var sh = ss.getSheetByName('_오류') || ss.insertSheet('_오류');
+    sh.appendRow([new Date(), where, String(err && err.stack || err)]);
+  } catch (e2) {}
 }
 
 // 설치형 트리거 등 이름으로 불리는 앱 함수들 (빌드가 목록을 만들어 줍니다)
