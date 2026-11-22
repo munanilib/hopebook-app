@@ -85,7 +85,8 @@ function shellCacheGet_(cache, key) {
 function shellHost_() {
   return {
     shellVersion: SHELL_VERSION,
-    html: shellHtmlService_()
+    html: shellHtmlService_(),
+    spreadsheet: shellSpreadsheetApp_()
   };
 }
 
@@ -249,32 +250,97 @@ function shellShowError() {
   SpreadsheetApp.getUi().alert('열기 중 오류', msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-// 앱이 정한 메뉴를 슬롯(m01~m60)에 연결합니다. 슬롯→함수 이름은 저장해 두어
-// 메뉴를 만든 뒤 코드가 바뀌어도 엉뚱한 함수가 실행되지 않게 합니다.
+// ---- 메뉴 슬롯: 함수 이름 → m01~m60 (이름별로 고정해서 저장) ----
+// 앱 코드가 createMenu(...).addItem('이름', '함수이름') 으로 직접 메뉴를 만들어도
+// 껍데기가 가로채서 슬롯(m01~)에 연결하므로 원본 코드를 고치지 않아도 됩니다.
+var __SLOTS = null;
+
+function shellSlots_() {
+  if (!__SLOTS) __SLOTS = JSON.parse(PropertiesService.getScriptProperties().getProperty('SHELL_SLOTS') || '{}');
+  return __SLOTS;
+}
+
+function shellSlot_(fnName) {
+  var slots = shellSlots_();
+  if (slots[fnName]) return slots[fnName];
+  var lock = LockService.getScriptLock();
+  var locked = false;
+  try { locked = lock.tryLock(5000); } catch (e) {}
+  try {
+    __SLOTS = null;
+    slots = shellSlots_();
+    if (!slots[fnName]) {
+      var used = {};
+      Object.keys(slots).forEach(function (k) { used[slots[k]] = true; });
+      var id = null;
+      for (var i = 1; i <= MENU_SLOT_COUNT; i++) {
+        var cand = 'm' + (i < 10 ? '0' : '') + i;
+        if (!used[cand]) { id = cand; break; }
+      }
+      if (!id) throw new Error('메뉴 항목이 너무 많습니다(최대 ' + MENU_SLOT_COUNT + '개).');
+      slots[fnName] = id;
+      PropertiesService.getScriptProperties().setProperty('SHELL_SLOTS', JSON.stringify(slots));
+    }
+    return slots[fnName];
+  } finally {
+    if (locked) lock.releaseLock();
+  }
+}
+
+function shellMenuBuilder_(menu) {
+  var b = {
+    __real: menu,
+    addItem: function (label, fn) { menu.addItem(label, shellSlot_(fn)); return b; },
+    addSeparator: function () { menu.addSeparator(); return b; },
+    addSubMenu: function (sub) { menu.addSubMenu(sub && sub.__real ? sub.__real : sub); return b; },
+    addToUi: function () { menu.addToUi(); return b; },
+    addToSpreadsheet: function () { return menu.addToUi(); }
+  };
+  return b;
+}
+
+function shellWrapUi_(ui) {
+  return new Proxy(ui, {
+    get: function (t, p) {
+      if (p === 'createMenu') return function (title) { return shellMenuBuilder_(t.createMenu(title)); };
+      var v = t[p];
+      return typeof v === 'function' ? v.bind(t) : v;
+    }
+  });
+}
+
+// 앱 안의 SpreadsheetApp 을 이것으로 바꿔 끼웁니다 (getUi().createMenu 만 가로챔).
+function shellSpreadsheetApp_() {
+  var real = SpreadsheetApp;
+  return new Proxy(real, {
+    get: function (t, p) {
+      if (p === 'getUi') return function () { return shellWrapUi_(t.getUi()); };
+      var v = t[p];
+      return typeof v === 'function' ? v.bind(t) : v;
+    }
+  });
+}
+
+// 앱이 목록(APP_MENUS)으로 정한 메뉴
 function shellBuildMenus_(app) {
-  var ui = SpreadsheetApp.getUi();
-  var map = {};
-  var slot = 0;
+  var ui = shellWrapUi_(SpreadsheetApp.getUi());
   (app.menus || []).forEach(function (menu) {
     var m = ui.createMenu(menu.title);
     (menu.items || []).forEach(function (it) {
-      if (it === '-') { m.addSeparator(); return; }
-      slot++;
-      if (slot > MENU_SLOT_COUNT) return;
-      var id = 'm' + (slot < 10 ? '0' : '') + slot;
-      map[id] = it[1];
-      m.addItem(it[0], id);
+      if (it === '-') m.addSeparator(); else m.addItem(it[0], it[1]);
     });
     m.addToUi();
   });
-  PropertiesService.getScriptProperties().setProperty('SHELL_MENU_MAP', JSON.stringify(map));
 }
 
 function shellMenu_(id) {
   try {
-    var map = JSON.parse(PropertiesService.getScriptProperties().getProperty('SHELL_MENU_MAP') || '{}');
-    if (!map[id]) throw new Error('메뉴가 오래되었습니다. 시트를 새로고침해 주세요. (map=' + JSON.stringify(map) + ')');
-    return shellApp_().call(map[id], []);
+    var slots = shellSlots_();
+    var name = null;
+    Object.keys(slots).forEach(function (k) { if (slots[k] === id) name = k; });
+    if (!name) { __SLOTS = null; slots = shellSlots_(); Object.keys(slots).forEach(function (k) { if (slots[k] === id) name = k; }); }
+    if (!name) throw new Error('메뉴가 오래되었습니다. 시트를 새로고침해 주세요. (' + id + ')');
+    return shellApp_().call(name, []);
   } catch (err) {
     shellLogError_('메뉴 ' + id, err);
     try { SpreadsheetApp.getUi().alert('⚠️ 오류 (' + id + ')', String(err && err.stack || err), SpreadsheetApp.getUi().ButtonSet.OK); } catch (e3) {}
@@ -332,4 +398,13 @@ function m55(){return shellMenu_('m55');} function m56(){return shellMenu_('m56'
 function m58(){return shellMenu_('m58');} function m59(){return shellMenu_('m59');} function m60(){return shellMenu_('m60');}
 
 /* ---- 트리거·버튼 입구 (빌드가 아래에 추가합니다) ---- */
-// (없음)
+function onEdit(e) { return shellSimple_('onEdit', e); }
+function onSelectionChange(e) { return shellSimple_('onSelectionChange', e); }
+function HR_deleteCopySetupSheet(e) { return shellTrigger_('HR_deleteCopySetupSheet', e); }
+function HR_showPublicWebAppUrlDialog(e) { return shellTrigger_('HR_showPublicWebAppUrlDialog', e); }
+function HR_showSchoolSetupDialog(e) { return shellTrigger_('HR_showSchoolSetupDialog', e); }
+function HR_showYes24KeyDialog(e) { return shellTrigger_('HR_showYes24KeyDialog', e); }
+function onEditTriggerAction(e) { return shellTrigger_('onEditTriggerAction', e); }
+function seriesAutoContinueMissingBooks_(e) { return shellTrigger_('seriesAutoContinueMissingBooks_', e); }
+function seriesFinderOnOpen_(e) { return shellTrigger_('seriesFinderOnOpen_', e); }
+function seriesWorkButtonOnEdit_(e) { return shellTrigger_('seriesWorkButtonOnEdit_', e); }

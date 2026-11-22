@@ -1,0 +1,5642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+
+  <style>
+    :root {
+      --blue: #4f78d1;
+      --blue-dark: #3159ac;
+      --blue-soft: #edf3ff;
+      --ink: #24324a;
+      --sub: #68748a;
+      --line: #dce4f2;
+      --success: #237a4b;
+      --success-soft: #eaf7ef;
+      --danger: #b33a3a;
+      --danger-soft: #fff0ef;
+      --paper: #ffffff;
+      --background: #f5f7fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 17px;
+      background: var(--background);
+      color: var(--ink);
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Apple SD Gothic Neo",
+        "Noto Sans KR",
+        sans-serif;
+    }
+
+    .header {
+      width: 100%;
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 16px;
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 27px;
+      line-height: 1.25;
+      letter-spacing: -0.04em;
+    }
+
+    .description {
+      margin: 10px 0 0;
+      color: #536077;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 8px 25px rgba(50, 76, 125, 0.08);
+    }
+
+    .field {
+      margin-bottom: 17px;
+    }
+
+    .field:last-of-type {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #273b5e;
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    input {
+      width: 100%;
+      height: 54px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 650;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(79, 120, 209, 0.12);
+    }
+
+    .help {
+      margin: 8px 1px 0;
+      color: #68748a;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .submit-button {
+      width: 100%;
+      min-height: 55px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .submit-button:hover {
+      background: var(--blue-dark);
+      transform: translateY(-1px);
+    }
+
+    .submit-button:disabled {
+      cursor: wait;
+      opacity: 0.58;
+      transform: none;
+    }
+
+    .message {
+      display: none;
+      margin-top: 15px;
+      padding: 14px;
+      border-radius: 11px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.info {
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+    }
+
+    .message.success {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .message.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .search-results {
+      display: none;
+      margin-top: 15px;
+    }
+
+    .search-results.show {
+      display: block;
+    }
+
+    .search-results-title {
+      margin: 0 0 9px;
+      color: #273b5e;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .book-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .book-card {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fff;
+      box-shadow: 0 5px 16px rgba(50, 76, 125, 0.06);
+    }
+
+    .book-cover {
+      display: flex;
+      width: 76px;
+      height: 110px;
+      overflow: hidden;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      background: #eef1f6;
+      color: #8c96a8;
+      font-size: 24px;
+    }
+
+    .book-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .book-info {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+    }
+
+    .book-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .book-meta {
+      margin: 7px 0 0;
+      color: #5d6980;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .select-book-button {
+      width: 100%;
+      min-height: 43px;
+      margin-top: auto;
+      padding: 9px 8px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .select-book-button:hover {
+      background: #dce8ff;
+    }
+
+    .select-book-button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .select-book-button.done {
+      background: var(--success-soft);
+      color: var(--success);
+      opacity: 1;
+    }
+
+    .book-card.done {
+      border-color: #b9dcc7;
+      background: #fbfffc;
+    }
+
+    .book-card.selected {
+      border: 2px solid var(--blue);
+      background: #f7faff;
+      box-shadow: 0 8px 22px rgba(79, 120, 209, 0.16);
+    }
+
+    .select-book-button.selected {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .cart-bar {
+      position: sticky;
+      bottom: 12px;
+      z-index: 30;
+      display: none;
+      width: 100%;
+      max-width: 760px;
+      margin: 16px auto 0;
+      padding: 12px;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid #cbd9f5;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 12px 36px rgba(37, 61, 105, 0.19);
+      backdrop-filter: blur(10px);
+    }
+
+    .cart-bar.show {
+      display: flex;
+    }
+
+    .cart-count {
+      flex: 0 0 auto;
+      color: var(--blue-dark);
+      font-size: 15px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .cart-submit {
+      min-height: 50px;
+      flex: 1;
+      border: 0;
+      border-radius: 12px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cart-submit:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .cart-toggle {
+      display: flex;
+      min-height: 50px;
+      flex: 0 0 auto;
+      padding: 8px 14px;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 12px;
+      background: #eef4ff;
+      color: var(--blue-dark);
+      cursor: pointer;
+    }
+
+    .cart-count strong {
+      color: var(--blue);
+      font-size: 19px;
+    }
+
+    .cart-open-hint {
+      color: #637492;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .cart-drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      display: none;
+    }
+
+    .cart-drawer.show {
+      display: block;
+    }
+
+    .cart-backdrop {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: rgba(25, 36, 56, 0.5);
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+    }
+
+    .cart-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      width: min(430px, 100%);
+      height: 100%;
+      padding: 24px;
+      flex-direction: column;
+      background: #f8faff;
+      box-shadow: -18px 0 60px rgba(28, 44, 73, 0.24);
+      animation: cart-slide-in 0.22s ease-out;
+    }
+
+    .cart-panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .cart-panel-header p {
+      margin: 0 0 4px;
+      color: #7990b8;
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+    }
+
+    .cart-panel-header h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 25px;
+      letter-spacing: -0.04em;
+    }
+
+    .cart-close {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 14px;
+      background: #e7edf9;
+      color: #435675;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .cart-guide {
+      margin: 14px 0 16px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: #edf3ff;
+      color: #526580;
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.55;
+    }
+
+    .cart-list {
+      min-height: 0;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .cart-empty {
+      display: flex;
+      min-height: 220px;
+      align-items: center;
+      justify-content: center;
+      color: #75829a;
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .cart-item {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) auto;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 12px;
+      align-items: center;
+      border: 1px solid #dfe7f5;
+      border-radius: 15px;
+      background: #fff;
+      box-shadow: 0 7px 20px rgba(49, 73, 112, 0.07);
+    }
+
+    .cart-item-cover {
+      display: flex;
+      width: 58px;
+      height: 78px;
+      overflow: hidden;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      background: #edf1f7;
+      font-size: 24px;
+    }
+
+    .cart-item-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cart-item-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+
+    .cart-item-meta {
+      margin: 5px 0 0;
+      color: #748098;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .cart-remove {
+      min-width: 54px;
+      min-height: 38px;
+      border: 1px solid #efc9c2;
+      border-radius: 10px;
+      background: #fff7f5;
+      color: #b34f3f;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cart-panel-actions {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid #dde5f2;
+    }
+
+    .cart-clear {
+      min-height: 50px;
+      padding: 0 16px;
+      border: 1px solid #ccd7e9;
+      border-radius: 12px;
+      background: #fff;
+      color: #5e6e88;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cart-drawer-submit {
+      width: 100%;
+    }
+
+    @keyframes cart-slide-in {
+      from {
+        opacity: 0.4;
+        transform: translateX(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .cart-bar {
+        bottom: 8px;
+        padding: 9px;
+        gap: 8px;
+      }
+
+      .cart-toggle {
+        min-width: 0;
+        padding: 8px 10px;
+      }
+
+      .cart-open-hint {
+        display: none;
+      }
+
+      .cart-submit {
+        min-height: 48px;
+        font-size: 14px;
+      }
+
+      .cart-panel {
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        height: min(78vh, 680px);
+        padding: 20px 16px 16px;
+        border-radius: 24px 24px 0 0;
+        animation-name: cart-rise-in;
+      }
+
+      .cart-item {
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        padding: 10px;
+      }
+
+      .cart-item-cover {
+        width: 52px;
+        height: 70px;
+      }
+    }
+
+    @keyframes cart-rise-in {
+      from {
+        opacity: 0.4;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .footer {
+      width: 100%;
+      max-width: 760px;
+      margin: 16px auto 0;
+      color: #68748a;
+      font-size: 12px;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    .creator-watermark {
+      position: fixed;
+      bottom: 10px;
+      left: 12px;
+      z-index: 20;
+      padding: 5px 8px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.78);
+      color: #4b5870;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+      opacity: 0.56;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+
+    .notice-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      padding: 22px;
+      align-items: center;
+      justify-content: center;
+      background: rgba(27, 38, 58, 0.48);
+      backdrop-filter: blur(5px);
+    }
+
+    .notice-modal.show {
+      display: flex;
+    }
+
+    .notice-dialog {
+      width: min(500px, 100%);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(21, 34, 58, 0.28);
+      animation: notice-in 0.2s ease-out;
+    }
+
+    .notice-visual {
+      display: flex;
+      min-height: 130px;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 30% 20%, #ffffff 0, transparent 32%),
+        linear-gradient(135deg, #eef4ff, #dfe9ff);
+    }
+
+    .notice-modal.owned .notice-visual {
+      background:
+        radial-gradient(circle at 30% 20%, #ffffff 0, transparent 32%),
+        linear-gradient(135deg, #fff3eb, #ffe1d4);
+    }
+
+    .notice-icon {
+      display: flex;
+      width: 76px;
+      height: 76px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: 0 10px 30px rgba(58, 90, 158, 0.16);
+      font-size: 38px;
+    }
+
+    .notice-content {
+      padding: 24px 24px 22px;
+      text-align: center;
+    }
+
+    .notice-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 22px;
+      font-weight: 950;
+      line-height: 1.4;
+      letter-spacing: -0.04em;
+    }
+
+    .notice-book {
+      margin: 13px 0 0;
+      color: #344c75;
+      font-size: 16px;
+      font-weight: 850;
+      line-height: 1.55;
+      word-break: keep-all;
+    }
+
+    .notice-description {
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 16px 0 0;
+      padding: 14px 16px;
+      border: 1px solid #e1e8f4;
+      border-radius: 14px;
+      background: #f7f9fd;
+      color: #536179;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.72;
+      text-align: left;
+      word-break: keep-all;
+      white-space: pre-line;
+    }
+
+    .notice-close {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 20px;
+      border: 0;
+      border-radius: 13px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .notice-close:hover {
+      background: var(--blue-dark);
+    }
+
+    .notice-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .notice-actions.single {
+      grid-template-columns: 1fr;
+    }
+
+    .notice-actions .notice-close {
+      margin-top: 0;
+    }
+
+    .notice-undo {
+      min-height: 52px;
+      border: 0;
+      border-radius: 13px;
+      background: #f1ae45;
+      color: #49320e;
+      font-size: 15px;
+      font-weight: 950;
+      cursor: pointer;
+    }
+
+    .notice-undo:hover {
+      background: #e59c2f;
+    }
+
+    .notice-undo:disabled {
+      cursor: wait;
+      opacity: 0.58;
+    }
+
+    .notice-undo[hidden] {
+      display: none;
+    }
+
+    .notice-modal.owned .notice-close {
+      background: #d96545;
+    }
+
+    @keyframes notice-in {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.97);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @media (min-width: 720px) {
+      body {
+        padding: 36px 24px;
+      }
+
+      .book-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 420px) {
+      body {
+        padding: 17px;
+      }
+    }
+  
+    .bs-section {
+      width: 100%;
+      max-width: 760px;
+      margin: 18px auto 0;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 8px 25px rgba(50, 76, 125, 0.08);
+    }
+
+    .bs-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .bs-title {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.35;
+      letter-spacing: -0.03em;
+    }
+
+    .bs-help {
+      margin: 5px 0 0;
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .bs-badge {
+      flex: 0 0 auto;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .bs-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      margin-bottom: 14px;
+      padding: 5px;
+      border-radius: 13px;
+      background: #eef2f8;
+    }
+
+    .bs-tab {
+      min-height: 43px;
+      padding: 0 8px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: #526078;
+      font-size: 15px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .bs-tab.active {
+      background: #fff;
+      color: var(--blue-dark);
+      box-shadow: 0 3px 10px rgba(49, 89, 172, 0.13);
+    }
+
+    .bs-status {
+      display: none;
+      padding: 24px 10px;
+      color: var(--sub);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .bs-status.show {
+      display: block;
+    }
+
+    .bs-list {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(205px, 215px);
+      gap: 12px;
+      overflow-x: auto;
+      padding: 2px 2px 12px;
+      scroll-snap-type: x proximity;
+    }
+
+    .bs-card {
+      position: relative;
+      display: flex;
+      min-height: 330px;
+      flex-direction: column;
+      padding: 12px;
+      border: 1px solid #e1e7f2;
+      border-radius: 15px;
+      background: #fff;
+      scroll-snap-align: start;
+    }
+
+    .bs-rank {
+      position: absolute;
+      top: 9px;
+      left: 9px;
+      z-index: 1;
+      min-width: 31px;
+      height: 31px;
+      padding: 0 7px;
+      border-radius: 10px;
+      background: rgba(36, 50, 74, 0.92);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 31px;
+      text-align: center;
+    }
+
+    .bs-cover {
+      display: flex;
+      width: 112px;
+      height: 158px;
+      margin: 0 auto 11px;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #eef1f6;
+      color: #7c8799;
+      font-size: 34px;
+      box-shadow: 0 7px 16px rgba(36, 50, 74, 0.14);
+    }
+
+    .bs-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .bs-book-title {
+      display: -webkit-box;
+      overflow: hidden;
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.45;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .bs-meta {
+      display: -webkit-box;
+      overflow: hidden;
+      min-height: 38px;
+      margin: 6px 0 10px;
+      color: var(--sub);
+      font-size: 12px;
+      line-height: 1.55;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .bs-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+      margin-top: auto;
+    }
+
+    .bs-request {
+      min-height: 40px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .bs-link {
+      display: inline-flex;
+      min-height: 40px;
+      padding: 0 10px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: #5b6880;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .bs-source {
+      margin: 4px 1px 0;
+      color: #7d8798;
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .bs-source a {
+      color: var(--blue-dark);
+    }
+
+    @media (max-width: 520px) {
+      .bs-heading {
+        display: block;
+      }
+
+      .bs-badge {
+        display: inline-block;
+        margin-top: 8px;
+      }
+
+      .bs-list {
+        grid-auto-columns: minmax(190px, 78vw);
+      }
+    }
+
+  
+    .bs-more-wrap {
+      margin-top: 6px;
+    }
+
+    .bs-more {
+      display: flex;
+      width: 100%;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #c9d7f2;
+      border-radius: 12px;
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+      font-size: 15px;
+      font-weight: 900;
+      text-decoration: none;
+      transition: background 0.18s, transform 0.18s;
+    }
+
+    .bs-more:hover {
+      background: #dfe9ff;
+      transform: translateY(-1px);
+    }
+
+  
+    .view-tabs {
+      position: sticky;
+      top: 10px;
+      z-index: 30;
+      display: grid;
+      width: 100%;
+      max-width: 760px;
+      margin: 16px auto;
+      padding: 6px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 8px 24px rgba(50, 76, 125, 0.11);
+      backdrop-filter: blur(12px);
+    }
+
+    .view-tab {
+      min-height: 49px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: #59677e;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s, transform 0.18s;
+    }
+
+    .view-tab:hover {
+      background: #f1f5fd;
+    }
+
+    .view-tab.active {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 5px 13px rgba(79, 120, 209, 0.25);
+    }
+
+    .page-panel {
+      display: none;
+    }
+
+    .page-panel.active {
+      display: block;
+    }
+
+    .bs-carousel {
+      position: relative;
+    }
+
+    .bs-list {
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: #aebedd #eef2f8;
+      overscroll-behavior-inline: contain;
+      padding-left: 44px;
+      padding-right: 44px;
+    }
+
+    .bs-arrow {
+      position: absolute;
+      top: 50%;
+      z-index: 5;
+      display: flex;
+      width: 48px;
+      height: 58px;
+      margin-top: -29px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #cad7ee;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--blue-dark);
+      font-family: Arial, sans-serif;
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 7px 20px rgba(36, 50, 74, 0.18);
+      cursor: pointer;
+      transition: transform 0.18s, background 0.18s;
+    }
+
+    .bs-arrow:hover {
+      background: var(--blue-soft);
+      transform: scale(1.05);
+    }
+
+    .bs-arrow-previous {
+      left: -6px;
+    }
+
+    .bs-arrow-next {
+      right: -6px;
+    }
+
+    .requests-section,
+    .guide-section {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(50, 76, 125, 0.09);
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .panel-eyebrow {
+      margin: 0 0 5px !important;
+      color: var(--blue);
+      font-size: 11px !important;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+    }
+
+    .panel-heading h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 24px;
+      letter-spacing: -0.035em;
+    }
+
+    .panel-heading p:not(.panel-eyebrow) {
+      margin: 7px 0 0;
+      color: var(--sub);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .refresh-button {
+      flex: 0 0 auto;
+      min-height: 42px;
+      padding: 0 15px;
+      border: 1px solid #cbd8ef;
+      border-radius: 11px;
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .request-filter-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 18px 0 13px;
+      padding: 6px;
+      border: 1px solid #dce5df;
+      border-radius: 16px;
+      background: #f3f6f3;
+    }
+
+    .request-filter-tab {
+      display: flex;
+      min-height: 54px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: transparent;
+      color: #63726a;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      transition:
+        background 0.16s ease,
+        color 0.16s ease,
+        box-shadow 0.16s ease;
+    }
+
+    .request-filter-tab strong {
+      display: inline-flex;
+      min-width: 32px;
+      min-height: 28px;
+      padding: 0 8px;
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      background: #e3e9e5;
+      color: #526258;
+      font-size: 13px;
+    }
+
+    .request-filter-tab.active {
+      background: #2f604e;
+      color: #fff;
+      box-shadow: 0 7px 18px rgba(47, 96, 78, 0.18);
+    }
+
+    .request-filter-tab.active strong {
+      background: #fff;
+      color: #2f604e;
+    }
+
+    .request-filter-tab[data-request-filter="cancelled"].active {
+      background: #a84d45;
+      box-shadow: 0 7px 18px rgba(168, 77, 69, 0.17);
+    }
+
+    .request-filter-tab[data-request-filter="cancelled"].active strong {
+      color: #a84d45;
+    }
+
+    @media (max-width: 520px) {
+      .request-filter-tab {
+        min-height: 50px;
+        padding: 0 12px;
+        font-size: 14px;
+      }
+    }
+
+    .request-summary {
+      display: none;
+      margin-bottom: 13px;
+      padding: 11px 14px;
+      border-radius: 11px;
+      background: #f0f5ff;
+      color: #3b5eaa;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .request-summary.show {
+      display: block;
+    }
+
+    .request-list-status {
+      padding: 34px 14px;
+      border: 1px dashed #cfd9ea;
+      border-radius: 14px;
+      color: var(--sub);
+      text-align: center;
+    }
+
+    .request-list-status.hide {
+      display: none;
+    }
+
+    .request-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .request-item {
+      display: flex;
+      min-height: 132px;
+      flex-direction: column;
+      padding: 15px;
+      border: 1px solid #e0e7f2;
+      border-radius: 15px;
+      background: #fbfcff;
+    }
+
+    .request-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+
+    .request-sequence {
+      color: #70809a;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .request-status-badge {
+      max-width: 62%;
+      padding: 5px 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #fff4d8;
+      color: #936214;
+      font-size: 11px;
+      font-weight: 900;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .request-status-badge.done {
+      background: #e6f6eb;
+      color: #247347;
+    }
+
+    .request-status-badge.issue {
+      background: #fff0ef;
+      color: #a5413d;
+    }
+
+    .request-item h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .request-item p {
+      margin: 7px 0 0;
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .request-date {
+      margin-top: auto !important;
+      padding-top: 9px;
+      color: #8691a3 !important;
+      font-size: 11px !important;
+    }
+
+    .guide-steps {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .guide-steps li {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 13px;
+      padding: 16px;
+      border: 1px solid #e0e7f2;
+      border-radius: 15px;
+      background: #fbfcff;
+    }
+
+    .guide-number {
+      display: flex;
+      width: 45px;
+      height: 45px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 950;
+    }
+
+    .guide-steps strong {
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .guide-steps p {
+      margin: 6px 0 0;
+      color: var(--sub);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .guide-start-button {
+      width: 100%;
+      min-height: 54px;
+      margin-top: 17px;
+      border: 0;
+      border-radius: 13px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    @media (max-width: 620px) {
+      .view-tab {
+        min-height: 46px;
+        padding: 0 5px;
+        font-size: 13px;
+      }
+
+      .request-list {
+        grid-template-columns: 1fr;
+      }
+
+      .requests-section,
+      .guide-section {
+        padding: 17px;
+      }
+
+      .panel-heading {
+        display: block;
+      }
+
+      .refresh-button {
+        width: 100%;
+        margin-top: 12px;
+      }
+
+      .bs-arrow {
+        width: 43px;
+        height: 54px;
+        font-size: 35px;
+      }
+    }
+
+
+    .guide-hover {
+      position: relative;
+      min-width: 0;
+    }
+
+    .guide-hover-trigger {
+      width: 100%;
+      min-height: 49px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 11px;
+      background: #fff5d9;
+      color: #7b5813;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: help;
+      transition: background 0.18s, transform 0.18s;
+    }
+
+    .guide-hover-trigger:hover,
+    .guide-hover-trigger:focus {
+      background: #ffeab2;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .guide-popover {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      z-index: 100;
+      width: min(440px, calc(100vw - 34px));
+      max-height: calc(100vh - 120px);
+      padding: 18px;
+      overflow-y: auto;
+      border: 1px solid #ead79c;
+      border-radius: 17px;
+      background: #fffdf6;
+      box-shadow: 0 16px 40px rgba(36, 50, 74, 0.22);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-7px);
+      pointer-events: none;
+      transition: opacity 0.16s, transform 0.16s, visibility 0.16s;
+    }
+
+    .guide-hover:hover .guide-popover,
+    .guide-hover:focus-within .guide-popover,
+    .guide-hover.open .guide-popover {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .guide-popover::before {
+      position: absolute;
+      top: -7px;
+      right: 34px;
+      width: 13px;
+      height: 13px;
+      border-top: 1px solid #ead79c;
+      border-left: 1px solid #ead79c;
+      background: #fffdf6;
+      content: '';
+      transform: rotate(45deg);
+    }
+
+    .guide-popover h2 {
+      margin: 0 0 12px;
+      color: var(--ink);
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .guide-popover ol {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .guide-popover li {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 9px;
+      padding: 10px;
+      border-radius: 11px;
+      background: #fff8e7;
+    }
+
+    .guide-popover strong {
+      color: #725214;
+      font-size: 13px;
+    }
+
+    .guide-popover span {
+      color: #4f5b6d;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .guide-popover p {
+      margin: 12px 0 0;
+      padding: 11px;
+      border-radius: 11px;
+      background: #eef4ff;
+      color: #3f5f9d;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.55;
+    }
+
+    .request-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: auto;
+      padding-top: 12px;
+    }
+
+    .request-cancel-button {
+      min-height: 37px;
+      padding: 0 13px;
+      border: 1px solid #edc5c0;
+      border-radius: 10px;
+      background: #fff5f3;
+      color: #a2463e;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .request-cancel-button:hover {
+      background: #ffe6e2;
+    }
+
+    .request-cancel-button.restore {
+      border-color: #b9d9c2;
+      background: #edf8f0;
+      color: #27643b;
+    }
+
+    .request-cancel-button.restore:hover {
+      background: #dff1e4;
+    }
+
+    .request-cancel-button:disabled {
+      border-color: #d9dee7;
+      background: #f1f3f6;
+      color: #8892a2;
+      cursor: default;
+    }
+
+    .cancel-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: none;
+      padding: 22px;
+      align-items: center;
+      justify-content: center;
+      background: rgba(25, 34, 51, 0.58);
+      backdrop-filter: blur(5px);
+    }
+
+    .cancel-modal.show {
+      display: flex;
+    }
+
+    .cancel-dialog {
+      width: min(430px, 100%);
+      padding: 25px;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 22px 60px rgba(24, 34, 52, 0.3);
+      text-align: center;
+      animation: notice-in 0.2s ease-out;
+    }
+
+    .cancel-icon {
+      margin-bottom: 8px;
+      font-size: 42px;
+    }
+
+    .cancel-dialog h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 22px;
+      letter-spacing: -0.035em;
+    }
+
+    .cancel-book {
+      margin: 12px 0 0;
+      color: var(--blue-dark);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.5;
+    }
+
+    .cancel-description {
+      margin: 10px 0 18px;
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .cancel-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .cancel-actions button {
+      min-height: 48px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cancel-keep {
+      border: 1px solid #d8e0ed;
+      background: #fff;
+      color: #59677e;
+    }
+
+    .cancel-confirm {
+      border: 0;
+      background: #d95d51;
+      color: #fff;
+    }
+
+    .cancel-confirm:disabled {
+      opacity: 0.58;
+      cursor: wait;
+    }
+
+    @media (max-width: 620px) {
+      .guide-hover-trigger {
+        min-height: 46px;
+        padding: 0 5px;
+        font-size: 13px;
+      }
+
+      .guide-popover {
+        position: fixed;
+        top: 82px;
+        right: 17px;
+        left: 17px;
+        width: auto;
+      }
+
+      .guide-popover::before {
+        display: none;
+      }
+
+      .guide-popover li {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+    }
+
+
+    .request-item {
+      cursor: pointer;
+      transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+    }
+
+    .request-item:hover,
+    .request-item:focus-visible,
+    .request-item.expanded {
+      border-color: #aebfe8;
+      box-shadow: 0 12px 28px rgba(48, 78, 143, 0.13);
+    }
+
+    .request-biblio {
+      display: none;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid #dfe6f5;
+      border-radius: 14px;
+      background: #f8faff;
+    }
+
+    .request-item.expanded .request-biblio {
+      display: grid;
+    }
+
+    .request-biblio-row {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      color: #34445e;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .request-biblio-row strong {
+      color: #173567;
+      font-weight: 800;
+    }
+
+    .request-biblio-row span,
+    .request-biblio-row a {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .request-biblio-row a {
+      color: #315fbd;
+      font-weight: 800;
+    }
+
+    .request-biblio-empty {
+      margin: 0;
+      color: #68738a;
+      font-size: 14px;
+    }
+
+    .request-card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .request-detail-button,
+    .request-cancel-button {
+      min-height: 42px;
+      padding: 0 15px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .request-detail-button {
+      flex: 1;
+      border: 1px solid #cdd9f2;
+      background: #eef3ff;
+      color: #234b98;
+    }
+
+    .request-cancel-button {
+      border: 1px solid #ebc6c2;
+      background: #fff5f4;
+      color: #a03e37;
+    }
+
+    .request-cancel-button:disabled {
+      border-color: #e1e4ea;
+      background: #f4f5f7;
+      color: #8a909b;
+      cursor: default;
+    }
+
+    @media (max-width: 560px) {
+      .request-biblio-row {
+        grid-template-columns: 74px minmax(0, 1fr);
+        font-size: 14px;
+      }
+
+      .request-card-actions {
+        flex-direction: column;
+      }
+
+      .request-detail-button,
+      .request-cancel-button {
+        width: 100%;
+      }
+    }
+
+
+  
+    /* HR_WEB_NOTICE_TICKER */
+    .hr-notice-ticker[hidden] {
+      display: none !important;
+    }
+
+    .hr-notice-ticker {
+      width: min(1160px, calc(100% - 34px));
+      margin: 14px auto 0;
+      overflow: hidden;
+      border: 1px solid #ead39a;
+      border-radius: 15px;
+      background: linear-gradient(90deg, #fff5d7 0%, #fffaf0 100%);
+      color: #6f4b12;
+      box-shadow: 0 8px 24px rgba(102, 78, 29, 0.09);
+    }
+
+    .hr-notice-ticker.urgent {
+      border-color: #efb2aa;
+      background: linear-gradient(90deg, #fff0ed 0%, #fff8f4 100%);
+      color: #9b332d;
+    }
+
+    .hr-notice-inner {
+      display: flex;
+      min-height: 52px;
+      align-items: stretch;
+    }
+
+    .hr-notice-label {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      background: #d9a13b;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    .hr-notice-ticker.urgent .hr-notice-label {
+      background: #c44c43;
+    }
+
+    .hr-notice-window {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+    }
+
+    .hr-notice-track {
+      display: inline-block;
+      min-width: max-content;
+      padding: 14px 0 13px 100%;
+      white-space: nowrap;
+      font-size: 17px;
+      font-weight: 850;
+      line-height: 1.45;
+      animation: hrTickerMove var(--ticker-duration, 26s) linear infinite;
+      will-change: transform;
+    }
+
+    .hr-notice-ticker:hover .hr-notice-track,
+    .hr-notice-ticker:focus-within .hr-notice-track {
+      animation-play-state: paused;
+    }
+
+    @keyframes hrTickerMove {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
+    }
+
+    @media (max-width: 640px) {
+      .hr-notice-ticker {
+        width: calc(100% - 20px);
+        margin-top: 10px;
+        border-radius: 12px;
+      }
+
+      .hr-notice-label {
+        padding: 0 13px;
+        font-size: 13px;
+      }
+
+      .hr-notice-track {
+        font-size: 15px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hr-notice-track {
+        min-width: 100%;
+        padding-left: 16px;
+        padding-right: 16px;
+        white-space: normal;
+        animation: none;
+      }
+    }
+
+  
+    /* HR_WEB_NOTICE_TICKER_V2 */
+    .hr-notice-ticker {
+      width: min(920px, calc(100% - 24px));
+      margin: 14px auto 12px;
+      border: 1px solid rgba(205, 157, 65, 0.42);
+      border-radius: 18px;
+      background: rgba(255, 253, 248, 0.98);
+      color: #694713;
+      box-shadow: 0 10px 28px rgba(45, 70, 58, 0.11);
+    }
+
+    .hr-notice-ticker + .view-tabs {
+      margin-top: 0;
+    }
+
+    .hr-notice-inner {
+      min-height: 48px;
+      align-items: stretch;
+    }
+
+    .hr-notice-label {
+      gap: 5px;
+      padding: 0 16px;
+      border-radius: 17px 0 0 17px;
+      background: linear-gradient(135deg, #dda842 0%, #c98d2e 100%);
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .hr-notice-window {
+      display: flex;
+      align-items: center;
+    }
+
+    .hr-notice-track {
+      padding: 12px 0 11px 100%;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .hr-notice-ticker.urgent {
+      border-color: rgba(194, 76, 67, 0.42);
+      background: #fff8f5;
+      color: #95352f;
+    }
+
+    .hr-notice-ticker.urgent .hr-notice-label {
+      background: linear-gradient(135deg, #d45b52 0%, #b63d36 100%);
+    }
+
+    @media (max-width: 640px) {
+      .hr-notice-ticker {
+        width: calc(100% - 20px);
+        margin: 10px auto 10px;
+        border-radius: 14px;
+      }
+
+      .hr-notice-ticker + .view-tabs {
+        margin-top: 0;
+      }
+
+      .hr-notice-label {
+        padding: 0 12px;
+        border-radius: 13px 0 0 13px;
+        font-size: 12px;
+      }
+
+      .hr-notice-track {
+        padding-top: 11px;
+        padding-bottom: 10px;
+        font-size: 14px;
+      }
+    }
+
+    /* HR_WEB_NOTICE_TICKER_HEIGHT_FIX_V3
+       모션 줄이기 환경에서 기존 규칙과 V2 규칙이 겹치면
+       공지 문구가 한 글자씩 줄바꿈되며 전광판이 길어지는 문제를 방지합니다. */
+    .hr-notice-ticker {
+      height: 50px;
+      min-height: 50px;
+      max-height: 50px;
+      overflow: hidden;
+    }
+
+    .hr-notice-inner,
+    .hr-notice-label,
+    .hr-notice-window {
+      height: 48px;
+      min-height: 48px;
+      max-height: 48px;
+    }
+
+    .hr-notice-inner,
+    .hr-notice-window {
+      overflow: hidden;
+    }
+
+    .hr-notice-label {
+      align-self: flex-start;
+      white-space: nowrap;
+    }
+
+    .hr-notice-track {
+      height: 48px;
+      max-height: 48px;
+      overflow: hidden;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hr-notice-track {
+        width: auto;
+        min-width: max-content;
+        padding: 12px 0 11px 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: clip;
+        animation: hrTickerMove var(--ticker-duration, 26s) linear infinite;
+      }
+    }
+  </style>
+
+  <style id="visualRefreshV20">
+    :root {
+      --blue: #2f6653;
+      --blue-dark: #234d40;
+      --blue-soft: #e8f2ec;
+      --ink: #25352f;
+      --sub: #68766f;
+      --line: #dbe4dc;
+      --paper: #fffdf8;
+      --background: #f4f3eb;
+      --gold: #d3a248;
+      --gold-dark: #ad762b;
+      --cream: #fbf4e5;
+      --forest: #2c5949;
+      --forest-dark: #203f35;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 28px 18px 64px;
+      background:
+        radial-gradient(circle at 7% 5%, rgba(234, 213, 165, 0.52), transparent 27%),
+        radial-gradient(circle at 96% 13%, rgba(188, 215, 198, 0.58), transparent 26%),
+        linear-gradient(180deg, #faf7ef 0%, #eef3ee 100%);
+      color: var(--ink);
+    }
+
+    .header {
+      position: relative;
+      width: 100%;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 34px 38px 50px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.32);
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.06), transparent 44%),
+        linear-gradient(135deg, #23483b 0%, #386a56 100%);
+      color: #fff;
+      box-shadow: 0 20px 45px rgba(38, 76, 62, 0.2);
+    }
+
+    .header::before {
+      position: absolute;
+      top: -85px;
+      right: -45px;
+      width: 230px;
+      height: 230px;
+      border: 42px solid rgba(255, 255, 255, 0.055);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .header::after {
+      position: absolute;
+      right: 34px;
+      bottom: 18px;
+      content: "📚";
+      font-size: 78px;
+      line-height: 1;
+      opacity: 0.2;
+      transform: rotate(-4deg);
+    }
+
+    .header > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      margin-bottom: 10px;
+      color: #f2d58f;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+    }
+
+    h1 {
+      color: #fff;
+      font-size: clamp(30px, 5vw, 40px);
+      letter-spacing: -0.045em;
+    }
+
+    .description {
+      max-width: 500px;
+      margin-top: 12px;
+      color: #e6efe9;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .view-tabs {
+      top: 10px;
+      max-width: 920px;
+      margin: -25px auto 25px;
+      padding: 7px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+      border: 1px solid rgba(49, 91, 73, 0.14);
+      border-radius: 20px;
+      background: rgba(255, 253, 248, 0.96);
+      box-shadow: 0 14px 34px rgba(52, 75, 63, 0.16);
+    }
+
+    .view-tab,
+    .guide-hover-trigger {
+      min-height: 51px;
+      border-radius: 14px;
+      color: #52655c;
+      font-size: 15px;
+    }
+
+    .view-tab:hover {
+      background: #edf4ef;
+    }
+
+    .view-tab.active {
+      background: linear-gradient(135deg, #d8ae58 0%, #bd8433 100%);
+      color: #fff;
+      box-shadow: 0 7px 18px rgba(177, 121, 43, 0.26);
+    }
+
+    .guide-hover-trigger {
+      background: #edf4ef;
+      color: #315c4c;
+    }
+
+    .guide-hover-trigger:hover,
+    .guide-hover-trigger:focus {
+      background: #dfede4;
+      color: #244b3d;
+    }
+
+    .guide-popover {
+      border-color: #d7e1d8;
+      border-radius: 20px;
+      background: #fffdf8;
+      box-shadow: 0 20px 48px rgba(37, 67, 54, 0.2);
+    }
+
+    .guide-popover h2 {
+      color: #294f41;
+    }
+
+    .card,
+    .bs-section,
+    .requests-section {
+      max-width: 820px;
+      border: 1px solid rgba(56, 92, 76, 0.12);
+      border-radius: 26px;
+      background: rgba(255, 253, 248, 0.96);
+      box-shadow: 0 15px 38px rgba(46, 72, 59, 0.1);
+    }
+
+    .card {
+      padding: 24px;
+    }
+
+    .form-intro {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0 0 20px;
+      padding: 0 2px 18px;
+      border-bottom: 1px dashed #d9e2da;
+    }
+
+    .form-intro-icon {
+      display: grid;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border-radius: 16px;
+      background: #e8f2ec;
+      font-size: 25px;
+    }
+
+    .form-intro h2 {
+      margin: 0;
+      color: #284b3e;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .form-intro p {
+      margin: 4px 0 0;
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    label {
+      color: #314e43;
+      font-size: 16px;
+    }
+
+    input {
+      height: 57px;
+      border-color: #d6dfd7;
+      border-radius: 15px;
+      background: #fff;
+      color: #263831;
+      font-size: 17px;
+    }
+
+    input:focus {
+      border-color: #4f806d;
+      box-shadow: 0 0 0 4px rgba(68, 121, 98, 0.13);
+    }
+
+    .submit-button {
+      min-height: 58px;
+      border-radius: 15px;
+      background: linear-gradient(135deg, #356b57 0%, #274f42 100%);
+      box-shadow: 0 9px 20px rgba(39, 79, 66, 0.2);
+    }
+
+    .submit-button:hover {
+      background: linear-gradient(135deg, #2d604e 0%, #1f4338 100%);
+    }
+
+    .bs-section {
+      margin-top: 20px;
+      padding: 23px;
+    }
+
+    .bs-title {
+      color: #294d40;
+      font-size: 23px;
+    }
+
+    .bs-badge {
+      background: #f6ead1;
+      color: #90621f;
+    }
+
+    .bs-tabs {
+      gap: 8px;
+      padding: 6px;
+      border: 1px solid #dce5dd;
+      border-radius: 16px;
+      background: #edf3ee;
+    }
+
+    .bs-tab {
+      min-height: 45px;
+      border-radius: 12px;
+      color: #5b6c64;
+    }
+
+    .bs-tab.active {
+      color: #274e40;
+      box-shadow: 0 5px 13px rgba(50, 83, 68, 0.13);
+    }
+
+    .bs-card {
+      border-color: #e3e4d9;
+      border-radius: 20px;
+      background: #fffefb;
+      box-shadow: 0 8px 20px rgba(70, 76, 61, 0.08);
+    }
+
+    .bs-card:hover {
+      border-color: #c8d7cb;
+      box-shadow: 0 13px 28px rgba(51, 79, 65, 0.15);
+    }
+
+    .bs-rank {
+      background: #d4a64f;
+      box-shadow: 0 5px 12px rgba(179, 126, 42, 0.25);
+    }
+
+    .bs-request {
+      background: #356b57;
+    }
+
+    .bs-request:hover {
+      background: #284f42;
+    }
+
+    .bs-link,
+    .bs-more {
+      border-color: #cadbcf;
+      background: #edf5ef;
+      color: #2e5c4b;
+    }
+
+    .bs-more:hover {
+      background: #dfece3;
+    }
+
+    .bs-arrow {
+      border-color: rgba(65, 100, 83, 0.2);
+      background: rgba(255, 253, 248, 0.94);
+      color: #315e4d;
+      box-shadow: 0 8px 22px rgba(47, 77, 62, 0.16);
+    }
+
+    .requests-section {
+      padding: 25px;
+    }
+
+    .panel-eyebrow {
+      color: #bf842f;
+    }
+
+    .panel-heading h2 {
+      color: #294e40;
+    }
+
+    .request-item {
+      border-color: #dde5de;
+      border-radius: 20px;
+      background: #fffefb;
+    }
+
+    .request-item:hover,
+    .request-item:focus-visible,
+    .request-item.expanded {
+      border-color: #acc6b5;
+      box-shadow: 0 13px 30px rgba(43, 78, 61, 0.14);
+    }
+
+    .request-biblio {
+      border-color: #dce6de;
+      background: #f5f8f5;
+    }
+
+    .refresh-button,
+    .request-detail-button {
+      border-color: #cadbcf;
+      background: #edf5ef;
+      color: #2d5a49;
+    }
+
+    .cart-bar {
+      max-width: 820px;
+      border-color: #d7e1d8;
+      border-radius: 20px;
+      background: rgba(255, 253, 248, 0.97);
+      box-shadow: 0 15px 36px rgba(44, 74, 59, 0.18);
+    }
+
+    .cart-submit {
+      background: #356b57;
+    }
+
+    .footer {
+      color: #728078;
+    }
+
+    .creator-watermark {
+      color: rgba(45, 77, 63, 0.55);
+    }
+
+    @media (min-width: 760px) {
+      #requestForm {
+        display: grid;
+        grid-template-columns: 0.82fr 1.18fr 170px;
+        gap: 14px;
+        align-items: end;
+      }
+
+      #requestForm .field {
+        margin-bottom: 0;
+      }
+
+      #requestForm .help {
+        min-height: 39px;
+      }
+
+      #requestForm .submit-button {
+        width: 170px;
+        margin-top: 0;
+        margin-bottom: 1px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 14px 12px 54px;
+      }
+
+      .header {
+        padding: 27px 24px 44px;
+        border-radius: 24px;
+      }
+
+      .header::after {
+        right: 17px;
+        bottom: 15px;
+        font-size: 55px;
+      }
+
+      .view-tabs {
+        margin: -22px 8px 20px;
+        grid-template-columns: 1fr 1fr 0.78fr;
+        border-radius: 17px;
+      }
+
+      .view-tab,
+      .guide-hover-trigger {
+        min-height: 48px;
+        padding: 0 5px;
+        font-size: 13px;
+      }
+
+      .card,
+      .bs-section,
+      .requests-section {
+        border-radius: 22px;
+      }
+
+      .card,
+      .bs-section {
+        padding: 18px;
+      }
+
+      .form-intro {
+        align-items: flex-start;
+      }
+    }
+  </style>
+
+
+  <style id="requestCoverV22">
+    .header {
+      min-height: 0;
+    }
+
+    .request-biblio-cover {
+      display: flex;
+      grid-column: 1 / -1;
+      justify-content: center;
+      margin: 0 0 5px;
+      padding: 5px 0 12px;
+      border-bottom: 1px dashed #d7e2d9;
+    }
+
+    .request-biblio-cover img {
+      width: 112px;
+      height: 156px;
+      object-fit: cover;
+      border: 1px solid #d7dfd8;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 9px 22px rgba(43, 67, 55, 0.17);
+    }
+
+    @media (max-width: 720px) {
+      .header {
+        min-height: 0;
+      }
+
+      .request-biblio-cover img {
+        width: 100px;
+        height: 140px;
+      }
+    }
+    .school-contact-footer {
+      width: min(1180px, calc(100% - 32px));
+      margin: 42px auto 118px;
+      padding: 24px 28px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #263b33 0%, #334d42 100%);
+      color: #ffffff;
+      box-shadow: 0 16px 38px rgba(27, 54, 43, 0.16);
+    }
+
+    .school-contact-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 24px;
+    }
+
+    .school-contact-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 15px;
+      border-radius: 999px;
+      background: #e0ad4d;
+      color: #253a32;
+      font-size: 14px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .school-contact-detail {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .school-contact-detail strong {
+      color: #f4d58c;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    .site-credit {
+      margin-top: 16px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    @media (max-width: 640px) {
+      .school-contact-footer {
+        padding: 22px 20px;
+      }
+
+      .school-contact-row,
+      .school-contact-detail {
+        align-items: flex-start;
+      }
+
+      .school-contact-row {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .site-credit {
+        text-align: left;
+      }
+    }
+  
+    .upload-section {
+      width: 100%;
+      max-width: 920px;
+      margin: 18px auto 0;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: rgba(255, 253, 248, 0.98);
+      box-shadow: 0 18px 42px rgba(35, 77, 64, 0.12);
+    }
+
+    .upload-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .upload-heading h2 {
+      margin: 3px 0 7px;
+      color: var(--forest-dark);
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .upload-heading p {
+      margin: 0;
+      color: var(--sub);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .upload-badge {
+      flex: 0 0 auto;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: #fbf0d7;
+      color: #8a6321;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .upload-card {
+      padding: 22px;
+      border: 1px solid #d6e1d9;
+      border-radius: 20px;
+      background: #fff;
+    }
+
+    .upload-dropzone {
+      display: flex;
+      min-height: 185px;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      border: 2px dashed #9ebbaa;
+      border-radius: 18px;
+      background: #f3f8f4;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s, transform 0.18s;
+    }
+
+    .upload-dropzone:hover,
+    .upload-dropzone.dragging {
+      border-color: var(--forest);
+      background: #e8f3ec;
+      transform: translateY(-1px);
+    }
+
+    .upload-dropzone input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .upload-icon {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 44px;
+    }
+
+    .upload-dropzone strong {
+      display: block;
+      color: var(--forest-dark);
+      font-size: 20px;
+      line-height: 1.4;
+    }
+
+    .upload-dropzone span {
+      display: block;
+      margin-top: 8px;
+      color: var(--sub);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .upload-format-note {
+      margin: 14px 2px 0;
+      color: #6d786f;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .upload-status {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .upload-status.show {
+      display: block;
+    }
+
+    .upload-status.info {
+      background: #edf4fb;
+      color: #315f86;
+    }
+
+    .upload-status.success {
+      background: #e9f5ed;
+      color: #286348;
+    }
+
+    .upload-status.error {
+      background: #fff0ef;
+      color: #a9433c;
+    }
+
+    .upload-preview {
+      display: none;
+      margin-top: 18px;
+    }
+
+    .upload-preview.show {
+      display: block;
+    }
+
+    .upload-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .upload-preview-head strong {
+      color: var(--forest-dark);
+      font-size: 17px;
+    }
+
+    .upload-preview-head span {
+      color: var(--sub);
+      font-size: 13px;
+    }
+
+    .upload-table-wrap {
+      max-height: 560px;
+      overflow: auto;
+      scrollbar-gutter: stable;
+      border: 1px solid #d9e2dc;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .upload-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .upload-table th,
+    .upload-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e4e9e5;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .upload-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #456354;
+      color: #fff;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .upload-table td:nth-child(1) {
+      width: 44px;
+      color: #7a847d;
+      text-align: center;
+    }
+
+    .upload-table td:nth-child(2) {
+      min-width: 230px;
+      color: #23372f;
+      font-weight: 800;
+    }
+
+    .upload-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .upload-reset,
+    .upload-save {
+      min-height: 50px;
+      padding: 0 22px;
+      border-radius: 13px;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .upload-reset {
+      border: 1px solid #d6dfd8;
+      background: #fff;
+      color: #65716a;
+    }
+
+    .upload-save {
+      border: 0;
+      background: var(--forest);
+      color: #fff;
+    }
+
+    .upload-save:disabled,
+    .upload-reset:disabled {
+      cursor: default;
+      opacity: 0.48;
+    }
+
+    @media (max-width: 720px) {
+      .view-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .upload-section {
+        padding: 20px 14px;
+      }
+
+      .upload-heading {
+        display: block;
+      }
+
+      .upload-badge {
+        display: inline-block;
+        margin-top: 12px;
+      }
+
+      .upload-actions {
+        flex-direction: column;
+      }
+
+      .upload-reset,
+      .upload-save {
+        width: 100%;
+      }
+    }
+
+
+    /* 모든 주요 영역의 가로폭을 하나로 통일 */
+    .header,
+    .view-tabs,
+    .card,
+    .bs-section,
+    .requests-section,
+    .guide-section,
+    .cart-bar,
+    .footer,
+    .upload-section,
+    .school-contact-footer {
+      width: calc(100% - 36px);
+      max-width: 920px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+@media (max-width: 700px) {
+  .header,
+  .view-tabs,
+  .card,
+  .bs-section,
+  .requests-section,
+  .guide-section,
+  .cart-bar,
+  .footer,
+  .upload-section,
+  .school-contact-footer {
+    width: calc(100% - 20px);
+  }
+}
+
+</style>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+  <header class="header">
+    <p class="eyebrow">BOOK REQUEST</p>
+    <h1>📚 <?= siteTitle ?></h1>
+
+    <p class="description">
+      책 제목 또는 ISBN을 입력하세요.<br>
+      책 정보와 중복 여부는 자동으로 확인됩니다.
+    </p>
+
+  
+  </header>
+
+  <section id="hrNoticeTicker" class="hr-notice-ticker" aria-label="도서관 공지 전광판" aria-live="polite" hidden>
+    <div class="hr-notice-inner">
+      <span class="hr-notice-label">📢 알림</span>
+      <div class="hr-notice-window">
+        <div id="hrNoticeTrack" class="hr-notice-track"></div>
+      </div>
+    </div>
+  </section>
+
+  <nav class="view-tabs" aria-label="희망도서 페이지 메뉴">
+    <button class="view-tab active" type="button" data-panel="applyPanel" aria-selected="true">
+      🔎 도서 신청
+    </button>
+    <button class="view-tab" type="button" data-panel="requestsPanel" aria-selected="false">
+      📋 신청 목록
+    </button>
+    <button class="view-tab" type="button" data-panel="uploadPanel" aria-selected="false">
+      📥 목록 업로드
+    </button>
+    <div id="guideHover" class="guide-hover">
+      <button
+        id="guideHoverTrigger"
+        class="guide-hover-trigger"
+        type="button"
+        aria-expanded="false"
+        aria-describedby="guidePopover"
+      >
+        ❓ 신청 방법
+      </button>
+
+      <div id="guidePopover" class="guide-popover" role="tooltip">
+        <h2>이렇게 신청하세요</h2>
+        <ol>
+          <li><strong>1. 책 검색</strong><span>책 제목 또는 ISBN을 입력하고 「책 검색하기」를 누릅니다.</span></li>
+          <li><strong>2. 신청바구니에 담기</strong><span>표지·저자·출판사·연도·정가를 확인하고 「신청바구니에 담기」를 누릅니다.</span></li>
+          <li><strong>3. 다른 책도 계속 담기</strong><span>검색어를 바꿔도 담은 책은 유지되며, 한 번에 최대 20권까지 담을 수 있습니다.</span></li>
+          <li><strong>4. 한꺼번에 신청</strong><span>화면 아래 신청바구니에서 「선택한 도서 신청하기」를 누릅니다.</span></li>
+          <li><strong>5. 결과 확인·취소</strong><span>「신청 목록」에서 접수 결과와 서지정보를 확인하고, 필요하면 신청을 취소하거나 되돌릴 수 있습니다.</span></li>
+        </ol>
+        <p>희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.</p>
+      </div>
+    </div>
+  </nav>
+
+  <div id="applyPanel" class="page-panel active">
+
+  <main class="card">
+    <div class="form-intro">
+      <div class="form-intro-icon">📖</div>
+      <div>
+        <h2>어떤 책을 만나고 싶나요?</h2>
+        <p>책 제목이나 ISBN으로 찾고, 표지를 확인한 뒤 신청하세요.</p>
+      </div>
+    </div>
+
+    <form id="requestForm">
+      <div class="field">
+        <label for="applicant">신청자</label>
+
+        <input
+          id="applicant"
+          name="requestApplicant"
+          type="search"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          placeholder="예: 홍길동"
+        >
+
+        <p class="help">
+          희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="query">책 제목 또는 ISBN</label>
+
+        <input
+          id="query"
+          type="search"
+          autocomplete="off"
+          placeholder="예: 아몬드 또는 978..."
+          required
+        >
+
+        <p class="help">
+          같은 제목의 책이 많다면 ISBN 13자리를 권장합니다.
+        </p>
+      </div>
+
+      <button
+        id="submitButton"
+        class="submit-button"
+        type="submit"
+      >
+        책 검색하기
+      </button>
+    </form>
+
+    <div id="message" class="message"></div>
+
+    <section id="searchResults" class="search-results">
+      <h2 class="search-results-title">
+        신청할 책을 여러 권 선택해 주세요.<br>
+        선택을 마치면 아래 신청 버튼을 누르세요.
+      </h2>
+
+      <div id="bookList" class="book-list"></div>
+    </section>
+  </main>
+
+  <section class="bs-section" aria-labelledby="bsTitle">
+    <div class="bs-heading">
+      <div>
+        <h2 id="bsTitle" class="bs-title">🔥 지금 많이 읽는 책</h2>
+        <p class="bs-help">관심 있는 책을 누르면 정확한 도서를 다시 확인한 뒤 신청할 수 있습니다.</p>
+      </div>
+      <span class="bs-badge">하루 1회 갱신</span>
+    </div>
+
+    <div class="bs-tabs" role="tablist" aria-label="베스트셀러 분류">
+      <button class="bs-tab active" type="button" data-bs-category="all" aria-selected="true">종합</button>
+      <button class="bs-tab" type="button" data-bs-category="youth" aria-selected="false">청소년</button>
+      <button class="bs-tab" type="button" data-bs-category="children" aria-selected="false">어린이</button>
+      <button class="bs-tab" type="button" data-bs-category="picture" aria-selected="false">그림책</button>
+    </div>
+
+    <div id="bsStatus" class="bs-status show">베스트셀러를 불러오고 있습니다…</div>
+    <div class="bs-carousel">
+      <button id="bsPrevious" class="bs-arrow bs-arrow-previous" type="button" aria-label="이전 베스트셀러">‹</button>
+      <div id="bsList" class="bs-list"></div>
+      <button id="bsNext" class="bs-arrow bs-arrow-next" type="button" aria-label="다음 베스트셀러">›</button>
+    </div>
+
+
+    <div class="bs-more-wrap">
+      <a
+        class="bs-more"
+        href="https://www.yes24.com/Product/Category/BestSeller"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        YES24에서 베스트셀러 더 보기 →
+      </a>
+    </div>
+
+    <p class="bs-source">
+      도서 정보 제공:
+      <a href="https://www.yes24.com/Product/Category/BestSeller" target="_blank" rel="noopener noreferrer">YES24 인터넷서점</a>
+    </p>
+  </section>
+
+  <section id="cartBar" class="cart-bar" aria-label="신청바구니">
+    <button
+      id="cartToggle"
+      class="cart-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="cartDrawer"
+    >
+      <span class="cart-count">
+        🛒 신청바구니 <strong id="cartCount">0</strong>/20권
+      </span>
+      <span class="cart-open-hint">담은 책 보기</span>
+    </button>
+
+    <button
+      id="cartSubmit"
+      class="cart-submit"
+      type="button"
+      disabled
+    >
+      선택한 도서 신청하기
+    </button>
+  </section>
+
+  <div
+    id="cartDrawer"
+    class="cart-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="cartDrawerTitle"
+  >
+    <button
+      class="cart-backdrop"
+      type="button"
+      data-cart-close
+      aria-label="신청바구니 닫기"
+    ></button>
+
+    <section class="cart-panel">
+      <div class="cart-panel-header">
+        <div>
+          <p>BOOK CART</p>
+          <h2 id="cartDrawerTitle">🛒 신청바구니</h2>
+        </div>
+        <button
+          id="cartClose"
+          class="cart-close"
+          type="button"
+          aria-label="신청바구니 닫기"
+        >×</button>
+      </div>
+
+      <p class="cart-guide">
+        다른 책을 다시 검색해도 그대로 유지됩니다. 한 번에 최대 20권까지 담을 수 있습니다.
+      </p>
+
+      <div id="cartList" class="cart-list"></div>
+
+      <div class="cart-panel-actions">
+        <button id="cartClear" class="cart-clear" type="button">
+          전체 비우기
+        </button>
+        <button
+          id="cartDrawerSubmit"
+          class="cart-submit cart-drawer-submit"
+          type="button"
+          disabled
+        >
+          담은 도서 신청하기
+        </button>
+      </div>
+    </section>
+  </div>
+
+  </div>
+
+  <section
+    id="requestsPanel"
+    class="page-panel requests-section"
+    aria-labelledby="requestsTitle"
+  >
+    <div class="panel-heading">
+      <div>
+        <p class="panel-eyebrow">REQUEST LIST</p>
+        <h2 id="requestsTitle">📋 신청된 희망도서</h2>
+        <p>신청자 이름은 표시하지 않고 도서 정보만 보여줍니다.</p>
+      </div>
+      <button id="requestRefresh" class="refresh-button" type="button">
+        새로고침
+      </button>
+    </div>
+
+    <div
+      class="request-filter-tabs"
+      role="tablist"
+      aria-label="신청 목록 구분"
+    >
+      <button
+        class="request-filter-tab active"
+        type="button"
+        data-request-filter="active"
+        role="tab"
+        aria-selected="true"
+      >
+        <span>📚 신청 도서</span>
+        <strong id="requestActiveCount">0</strong>
+      </button>
+      <button
+        class="request-filter-tab"
+        type="button"
+        data-request-filter="cancelled"
+        role="tab"
+        aria-selected="false"
+      >
+        <span>↩️ 신청 취소</span>
+        <strong id="requestCancelledCount">0</strong>
+      </button>
+    </div>
+
+    <div id="requestSummary" class="request-summary"></div>
+    <div id="requestListStatus" class="request-list-status">
+      신청 목록 탭을 누르면 최신 목록을 불러옵니다.
+    </div>
+    <div id="requestList" class="request-list"></div>
+  </section>
+
+
+  <section
+    id="uploadPanel"
+    class="page-panel upload-section"
+    aria-labelledby="uploadTitle"
+  >
+    <div class="upload-heading">
+      <div>
+        <p class="panel-eyebrow">BOOK LIST IMPORT</p>
+        <h2 id="uploadTitle">📥 도서 목록 파일 업로드</h2>
+        <p>
+          도서 목록 엑셀·CSV 파일을 선택하면<br>
+          도서명과 ISBN 등의 열을 자동으로 찾아 업무용 목록으로 정리합니다.
+        </p>
+      </div>
+      <span class="upload-badge">사서 업무용</span>
+    </div>
+
+    <div class="upload-card">
+      <label id="uploadDropzone" class="upload-dropzone" for="uploadFile">
+        <input
+          id="uploadFile"
+          type="file"
+          accept=".xls,.xlsx,.xlsm,.csv,.tsv,.html,.htm"
+        >
+        <span>
+          <span class="upload-icon">📄</span>
+          <strong>엑셀·CSV 파일을 선택하거나 여기에 놓으세요</strong>
+          <span>.xls · .xlsx · .xlsm · .csv · .tsv / 한 번에 최대 1,500권</span>
+        </span>
+      </label>
+
+      <p class="upload-format-note">
+        도서명 또는 ISBN 열이 있어야 합니다. 저자·출판사·출판연도·정가·수량·시리즈명은
+        파일에 있는 항목만 가져오며, 표지와 파일 작성자 정보는 가져오지 않습니다.
+      </p>
+
+      <div id="uploadStatus" class="upload-status" role="status"></div>
+
+      <div id="uploadPreview" class="upload-preview">
+        <div class="upload-preview-head">
+          <strong>가져올 내용 미리보기</strong>
+          <span id="uploadPreviewCount"></span>
+        </div>
+        <div class="upload-table-wrap">
+          <table class="upload-table">
+            <thead>
+              <tr>
+                <th>번호</th>
+                <th>도서명</th>
+                <th>저자</th>
+                <th>출판사</th>
+                <th>연도</th>
+                <th>ISBN13</th>
+                <th>정가</th>
+              </tr>
+            </thead>
+            <tbody id="uploadPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="upload-actions">
+        <button id="uploadReset" class="upload-reset" type="button" disabled>
+          다시 선택
+        </button>
+        <button id="uploadSave" class="upload-save" type="button" disabled>
+          이 목록을 시트에 넣기
+        </button>
+      </div>
+    </div>
+  </section>
+
+
+  <p class="footer">
+    처리에는 몇 초 정도 걸릴 수 있습니다.<br>
+    창을 닫지 말고 완료 안내를 확인해 주세요.
+  </p>
+
+  <footer class="school-contact-footer">
+    <? if (managerName || managerExtension) { ?>
+      <div class="school-contact-row">
+        <span class="school-contact-badge">📚 도서관 문의</span>
+
+        <? if (managerName) { ?>
+          <span class="school-contact-detail">
+            <strong>담당자</strong>
+            <span><?= managerName ?></span>
+          </span>
+        <? } ?>
+
+        <? if (managerExtension) { ?>
+          <span class="school-contact-detail">
+            <strong>내선</strong>
+            <span><?= managerExtension ?></span>
+          </span>
+        <? } ?>
+      </div>
+    <? } ?>
+
+    <div class="site-credit">
+      학교도서관 도서구입 지원 도구    </div>
+  </footer>
+
+  <div
+    id="noticeModal"
+    class="notice-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="noticeTitle"
+  >
+    <div class="notice-dialog">
+      <div class="notice-visual">
+        <div id="noticeIcon" class="notice-icon">📚</div>
+      </div>
+
+      <div class="notice-content">
+        <h2 id="noticeTitle" class="notice-title"></h2>
+        <p id="noticeBook" class="notice-book"></p>
+        <p id="noticeDescription" class="notice-description"></p>
+
+        <div
+          id="noticeActions"
+          class="notice-actions single"
+        >
+          <button
+            id="noticeUndo"
+            class="notice-undo"
+            type="button"
+            hidden
+          >
+            신청 취소 되돌리기
+          </button>
+          <button
+            id="noticeClose"
+            class="notice-close"
+            type="button"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div
+    id="cancelModal"
+    class="cancel-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="cancelTitle"
+  >
+    <div class="cancel-dialog">
+      <div class="cancel-icon">↩️</div>
+      <h2 id="cancelTitle">희망도서 신청을 취소할까요?</h2>
+      <p id="cancelBook" class="cancel-book"></p>
+      <p class="cancel-description">
+        취소하면 신청 목록에서 이 도서 한 권만 삭제됩니다. 바로 되돌릴 수 있도록 안전하게 보관합니다.
+      </p>
+      <div class="cancel-actions">
+        <button id="cancelKeep" class="cancel-keep" type="button">
+          그대로 두기
+        </button>
+        <button id="cancelConfirm" class="cancel-confirm" type="button">
+          신청 취소하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form =
+      document.getElementById('requestForm');
+    const applicant =
+      document.getElementById('applicant');
+    const query =
+      document.getElementById('query');
+    const submitButton =
+      document.getElementById('submitButton');
+    const message =
+      document.getElementById('message');
+    const searchResults =
+      document.getElementById('searchResults');
+    const bookList =
+      document.getElementById('bookList');
+    const noticeModal =
+      document.getElementById('noticeModal');
+    const noticeIcon =
+      document.getElementById('noticeIcon');
+    const noticeTitle =
+      document.getElementById('noticeTitle');
+    const noticeBook =
+      document.getElementById('noticeBook');
+    const noticeDescription =
+      document.getElementById('noticeDescription');
+    const noticeActions =
+      document.getElementById('noticeActions');
+    const noticeUndo =
+      document.getElementById('noticeUndo');
+    const noticeClose =
+      document.getElementById('noticeClose');
+    const cartBar =
+      document.getElementById('cartBar');
+    const cartCount =
+      document.getElementById('cartCount');
+    const cartSubmit =
+      document.getElementById('cartSubmit');
+    const viewTabs =
+      Array.from(document.querySelectorAll('.view-tab'));
+    const pagePanels =
+      Array.from(document.querySelectorAll('.page-panel'));
+    const applyPanel =
+      document.getElementById('applyPanel');
+    const requestRefresh =
+      document.getElementById('requestRefresh');
+    const requestSummary =
+      document.getElementById('requestSummary');
+    const requestListStatus =
+      document.getElementById('requestListStatus');
+    const requestList =
+      document.getElementById('requestList');
+    const requestFilterTabs =
+      Array.from(
+        document.querySelectorAll('.request-filter-tab')
+      );
+    const requestActiveCount =
+      document.getElementById('requestActiveCount');
+    const requestCancelledCount =
+      document.getElementById('requestCancelledCount');
+    const uploadFile =
+      document.getElementById('uploadFile');
+    const uploadDropzone =
+      document.getElementById('uploadDropzone');
+    const uploadStatus =
+      document.getElementById('uploadStatus');
+    const uploadPreview =
+      document.getElementById('uploadPreview');
+    const uploadPreviewCount =
+      document.getElementById('uploadPreviewCount');
+    const uploadPreviewBody =
+      document.getElementById('uploadPreviewBody');
+    const uploadReset =
+      document.getElementById('uploadReset');
+    const uploadSave =
+      document.getElementById('uploadSave');
+    let uploadParsedBooks = [];
+    let uploadFileName = '';
+    const bsListElement =
+      document.getElementById('bsList');
+    const bsPrevious =
+      document.getElementById('bsPrevious');
+    const bsNext =
+      document.getElementById('bsNext');
+    const guideHover =
+      document.getElementById('guideHover');
+    const guideHoverTrigger =
+      document.getElementById('guideHoverTrigger');
+    const cancelModal =
+      document.getElementById('cancelModal');
+    const cancelBook =
+      document.getElementById('cancelBook');
+    const cancelKeep =
+      document.getElementById('cancelKeep');
+    const cancelConfirm =
+      document.getElementById('cancelConfirm');
+    const cartToggle =
+      document.getElementById('cartToggle');
+    const cartDrawer =
+      document.getElementById('cartDrawer');
+    const cartClose =
+      document.getElementById('cartClose');
+    const cartList =
+      document.getElementById('cartList');
+    const cartClear =
+      document.getElementById('cartClear');
+    const cartDrawerSubmit =
+      document.getElementById('cartDrawerSubmit');
+    const cartBackdrop =
+      document.querySelector('[data-cart-close]');
+    let books = [];
+    let cartBooks = new Map();
+    let submissionInProgress = false;
+    let submittedRequestsLoaded = false;
+    let submittedRequestItems = [];
+    let requestListFilter = 'active';
+    let bsAutoTimer = null;
+    let cancelCandidate = null;
+    let undoCandidate = null;
+
+    noticeClose.addEventListener('click', closeNoticeModal);
+    noticeUndo.addEventListener('click', undoCancelledRequest);
+    cartSubmit.addEventListener('click', submitCart);
+    cartDrawerSubmit.addEventListener('click', submitCart);
+    cartToggle.addEventListener('click', openCartDrawer);
+    cartClose.addEventListener('click', closeCartDrawer);
+    cartBackdrop.addEventListener('click', closeCartDrawer);
+    cartClear.addEventListener('click', clearCart);
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeCartDrawer();
+      }
+    });
+
+    viewTabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        showPagePanel(tab.dataset.panel || 'applyPanel');
+      });
+    });
+
+    requestRefresh.addEventListener('click', function() {
+      loadSubmittedRequests(true);
+    });
+
+    requestFilterTabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        requestListFilter =
+          tab.dataset.requestFilter || 'active';
+
+        renderSubmittedRequests({
+          items: submittedRequestItems
+        });
+      });
+    });
+
+    guideHoverTrigger.addEventListener('click', function(event) {
+      event.stopPropagation();
+      const opened = guideHover.classList.toggle('open');
+      guideHoverTrigger.setAttribute(
+        'aria-expanded',
+        opened ? 'true' : 'false'
+      );
+    });
+
+    document.addEventListener('click', function(event) {
+      if (!guideHover.contains(event.target)) {
+        closeGuidePopover();
+      }
+    });
+
+    cancelKeep.addEventListener('click', closeCancelModal);
+    cancelConfirm.addEventListener(
+      'click',
+      confirmCancelRequest
+    );
+
+    cancelModal.addEventListener('click', function(event) {
+      if (event.target === cancelModal) {
+        closeCancelModal();
+      }
+    });
+
+    bsPrevious.addEventListener('click', function() {
+      scrollBestsellerCards(-1);
+      startBestsellerAuto();
+    });
+
+    bsNext.addEventListener('click', function() {
+      scrollBestsellerCards(1);
+      startBestsellerAuto();
+    });
+
+    bsListElement.addEventListener(
+      'mouseenter',
+      stopBestsellerAuto
+    );
+    bsListElement.addEventListener(
+      'mouseleave',
+      startBestsellerAuto
+    );
+    bsListElement.addEventListener(
+      'focusin',
+      stopBestsellerAuto
+    );
+    bsListElement.addEventListener(
+      'focusout',
+      startBestsellerAuto
+    );
+    bsListElement.addEventListener(
+      'touchstart',
+      stopBestsellerAuto,
+      { passive: true }
+    );
+    bsListElement.addEventListener(
+      'touchend',
+      function() {
+        window.setTimeout(startBestsellerAuto, 1200);
+      },
+      { passive: true }
+    );
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        stopBestsellerAuto();
+      } else {
+        startBestsellerAuto();
+      }
+    });
+
+    noticeModal.addEventListener('click', function(event) {
+      if (event.target === noticeModal) {
+        closeNoticeModal();
+      }
+    });
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      if (noticeModal.classList.contains('show')) {
+        closeNoticeModal();
+      }
+
+      if (cancelModal.classList.contains('show')) {
+        closeCancelModal();
+      }
+
+      closeGuidePopover();
+    });
+
+
+
+    function setUploadStatus(message, type) {
+      uploadStatus.textContent = String(message || '');
+      uploadStatus.className = 'upload-status show ' + (type || 'info');
+    }
+
+    function resetUploadPanel() {
+      uploadParsedBooks = [];
+      uploadFileName = '';
+      uploadFile.value = '';
+      uploadPreviewBody.innerHTML = '';
+      uploadPreviewCount.textContent = '';
+      uploadPreview.classList.remove('show');
+      uploadStatus.className = 'upload-status';
+      uploadStatus.textContent = '';
+      uploadSave.disabled = true;
+      uploadReset.disabled = true;
+    }
+
+    function normalizeUploadHeader(value) {
+      return String(value == null ? '' : value)
+        .replace(/<[^>]*>/g, '')
+        .replace(/[\s\n\r()（）\[\]{}·._\-\/]/g, '')
+        .toUpperCase();
+    }
+
+    function findUploadHeaderKey(value) {
+      const normalized = normalizeUploadHeader(value);
+      const aliases = {
+        title: ['상품명','도서명','책제목','서명','제목'],
+        isbn: ['ISBN13','ISBN','국제표준도서번호'],
+        author: ['저자아티스트','저자','작가','글쓴이','지은이'],
+        publisher: ['출판사제작사','출판사','발행자','출판자'],
+        year: ['출간일','출판연도','발행연도','출간연도','연도'],
+        price: ['정가','도서정가','정가원','가격'],
+        quantity: ['수량','주문수량','권수'],
+        series: ['시리즈명','시리즈'],
+        note: ['비고','메모','구분','분류']
+      };
+
+      for (const key in aliases) {
+        if (aliases[key].indexOf(normalized) !== -1) {
+          return key;
+        }
+      }
+      return '';
+    }
+
+    function cleanUploadIsbn(value) {
+      let text = String(value == null ? '' : value).trim();
+
+      if (/^[0-9.]+E\+?[0-9]+$/i.test(text)) {
+        const numeric = Number(text);
+        if (Number.isFinite(numeric)) {
+          text = numeric.toFixed(0);
+        }
+      }
+
+      return text.replace(/[^0-9Xx]/g, '').toUpperCase();
+    }
+
+    function cleanUploadYear(value) {
+      const match = String(value == null ? '' : value).match(/(?:19|20)\d{2}/);
+      return match ? match[0] : '';
+    }
+
+    function cleanUploadNumber(value, fallback) {
+      const numeric = Number(
+        String(value == null ? '' : value)
+          .replace(/[^0-9.-]/g, '')
+      );
+      return Number.isFinite(numeric) && numeric > 0
+        ? numeric
+        : (fallback || 0);
+    }
+
+    function decodeUploadText(buffer) {
+      const sample = new TextDecoder('latin1').decode(buffer.slice(0, 4096));
+      const charsetMatch = sample.match(/charset\s*=\s*["']?([^"'\s;>]+)/i);
+      const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8';
+
+      try {
+        return new TextDecoder(charset).decode(buffer);
+      } catch (error) {
+        return new TextDecoder('utf-8').decode(buffer);
+      }
+    }
+
+    function htmlMatricesFromText(text) {
+      if (!/<table[\s>]/i.test(text)) {
+        return [];
+      }
+
+      const documentNode = new DOMParser().parseFromString(text, 'text/html');
+      return Array.from(documentNode.querySelectorAll('table')).map(function(table) {
+        return Array.from(table.querySelectorAll('tr')).map(function(row) {
+          return Array.from(row.querySelectorAll('th,td')).map(function(cell) {
+            return cell.textContent.replace(/\u00a0/g, ' ').trim();
+          });
+        });
+      });
+    }
+
+    function delimitedMatrixFromText(text, delimiter) {
+      const rows = [];
+      let row = [];
+      let cell = '';
+      let quoted = false;
+
+      for (let index = 0; index < text.length; index++) {
+        const character = text[index];
+
+        if (quoted) {
+          if (character === '"' && text[index + 1] === '"') {
+            cell += '"';
+            index++;
+          } else if (character === '"') {
+            quoted = false;
+          } else {
+            cell += character;
+          }
+          continue;
+        }
+
+        if (character === '"') {
+          quoted = true;
+        } else if (character === delimiter) {
+          row.push(cell);
+          cell = '';
+        } else if (character === '\n') {
+          row.push(cell.replace(/\r$/, ''));
+          rows.push(row);
+          row = [];
+          cell = '';
+        } else {
+          cell += character;
+        }
+      }
+
+      if (cell || row.length) {
+        row.push(cell.replace(/\r$/, ''));
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function workbookMatricesFromBuffer(file, buffer) {
+      const extension = (file.name.split('.').pop() || '').toLowerCase();
+      const text = decodeUploadText(buffer);
+      const htmlMatrices = htmlMatricesFromText(text);
+
+      if (htmlMatrices.length) {
+        return htmlMatrices;
+      }
+
+      if (extension === 'csv' || extension === 'tsv') {
+        return [
+          delimitedMatrixFromText(
+            text.replace(/^\uFEFF/, ''),
+            extension === 'tsv' ? '\t' : ','
+          )
+        ];
+      }
+
+      if (typeof XLSX === 'undefined') {
+        throw new Error(
+          '엑셀 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+        );
+      }
+
+      const workbook = XLSX.read(buffer, {
+        type: 'array',
+        raw: false,
+        cellDates: false
+      });
+
+      return workbook.SheetNames.map(function(sheetName) {
+        return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+          header: 1,
+          defval: '',
+          raw: false,
+          blankrows: false
+        });
+      });
+    }
+
+    function locateUploadTable(matrices) {
+      let best = null;
+
+      matrices.forEach(function(matrix) {
+        const rowLimit = Math.min(matrix.length, 50);
+
+        for (let rowIndex = 0; rowIndex < rowLimit; rowIndex++) {
+          const row = Array.isArray(matrix[rowIndex]) ? matrix[rowIndex] : [];
+          const map = {};
+          let score = 0;
+
+          row.forEach(function(value, columnIndex) {
+            const key = findUploadHeaderKey(value);
+            if (key && (map[key] === undefined || (key === 'isbn' && normalizeUploadHeader(value) === 'ISBN13'))) {
+              map[key] = columnIndex;
+              score++;
+            }
+          });
+
+          const essential = map.title !== undefined || map.isbn !== undefined;
+          if (essential && score >= 2 && (!best || score > best.score)) {
+            best = {
+              matrix: matrix,
+              headerRow: rowIndex,
+              map: map,
+              score: score
+            };
+          }
+        }
+      });
+
+      if (!best) {
+        throw new Error(
+          '도서명 또는 ISBN 열을 찾지 못했습니다. 첫 행의 열 이름을 확인해 주세요.'
+        );
+      }
+      return best;
+    }
+
+    function uploadBooksFromTable(table) {
+      const books = [];
+      const seen = {};
+      let skipped = 0;
+
+      for (
+        let rowIndex = table.headerRow + 1;
+        rowIndex < table.matrix.length;
+        rowIndex++
+      ) {
+        const row = Array.isArray(table.matrix[rowIndex])
+          ? table.matrix[rowIndex]
+          : [];
+
+        const valueAt = function(key) {
+          const columnIndex = table.map[key];
+          return columnIndex === undefined ? '' : row[columnIndex];
+        };
+
+        const title = String(valueAt('title') || '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const isbn = cleanUploadIsbn(valueAt('isbn'));
+
+        if (!title && !isbn) {
+          continue;
+        }
+
+        const publisher = String(valueAt('publisher') || '').trim();
+        const year = cleanUploadYear(valueAt('year'));
+        const key = isbn
+          ? 'isbn:' + isbn
+          : 'title:' +
+            title.replace(/\s+/g, '').toUpperCase() + '|' +
+            publisher.replace(/\s+/g, '').toUpperCase() + '|' +
+            year;
+
+        if (seen[key]) {
+          skipped++;
+          continue;
+        }
+        seen[key] = true;
+
+        books.push({
+          title: title,
+          author: String(valueAt('author') || '').trim(),
+          publisher: publisher,
+          year: year,
+          isbn: isbn,
+          price: cleanUploadNumber(valueAt('price'), 0),
+          quantity: cleanUploadNumber(valueAt('quantity'), 1),
+          series: String(valueAt('series') || '').trim(),
+          note: String(valueAt('note') || '').trim()
+        });
+      }
+
+      return {
+        books: books.slice(0, 1500),
+        skipped: skipped + Math.max(0, books.length - 1500),
+        limited: books.length > 1500
+      };
+    }
+
+    function renderUploadPreview(result) {
+      uploadPreviewBody.innerHTML = '';
+
+      const fragment = document.createDocumentFragment();
+
+      result.books.forEach(function(book, index) {
+        const row = document.createElement('tr');
+        const cells = [
+          String(index + 1),
+          book.title || '(제목 없음)',
+          book.author || '',
+          book.publisher || '',
+          book.year || '',
+          book.isbn || '',
+          book.price ? book.price.toLocaleString('ko-KR') + '원' : ''
+        ];
+
+        cells.forEach(function(value) {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+
+        fragment.appendChild(row);
+      });
+
+      uploadPreviewBody.appendChild(fragment);
+      uploadPreviewCount.textContent =
+        '총 ' + result.books.length + '권 · 전체 ' + result.books.length + '권 표시';
+      uploadPreview.classList.add('show');
+    }
+
+    async function handleUploadFile(file) {
+      resetUploadPanel();
+
+      if (!file) {
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        setUploadStatus('파일 크기는 15MB 이하만 가능합니다.', 'error');
+        return;
+      }
+
+      uploadFileName = file.name;
+      uploadReset.disabled = false;
+      setUploadStatus('파일을 읽고 열 이름을 확인하고 있습니다…', 'info');
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const matrices = workbookMatricesFromBuffer(file, buffer);
+        const table = locateUploadTable(matrices);
+        const result = uploadBooksFromTable(table);
+
+        if (!result.books.length) {
+          throw new Error('도서명 또는 ISBN이 있는 도서 행을 찾지 못했습니다.');
+        }
+
+        uploadParsedBooks = result.books;
+        renderUploadPreview(result);
+        uploadSave.disabled = false;
+
+        let message =
+          file.name + '에서 ' + result.books.length + '권을 찾았습니다.';
+        if (result.skipped) {
+          message += ' 중복·빈 행 ' + result.skipped + '개는 제외했습니다.';
+        }
+        if (result.limited) {
+          message += ' 한 번에 최대 1,500권까지만 표시합니다.';
+        }
+        setUploadStatus(message, 'success');
+      } catch (error) {
+        uploadParsedBooks = [];
+        uploadSave.disabled = true;
+        setUploadStatus(
+          error && error.message
+            ? error.message
+            : '파일을 읽지 못했습니다.',
+          'error'
+        );
+      }
+    }
+
+    uploadFile.addEventListener('change', function() {
+      handleUploadFile(uploadFile.files && uploadFile.files[0]);
+    });
+
+    uploadDropzone.addEventListener('dragover', function(event) {
+      event.preventDefault();
+      uploadDropzone.classList.add('dragging');
+    });
+
+    uploadDropzone.addEventListener('dragleave', function() {
+      uploadDropzone.classList.remove('dragging');
+    });
+
+    uploadDropzone.addEventListener('drop', function(event) {
+      event.preventDefault();
+      uploadDropzone.classList.remove('dragging');
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      handleUploadFile(file);
+    });
+
+    uploadReset.addEventListener('click', function() {
+      resetUploadPanel();
+      uploadFile.click();
+    });
+
+    uploadSave.addEventListener('click', function() {
+      if (!uploadParsedBooks.length) {
+        setUploadStatus('먼저 파일을 선택해 주세요.', 'error');
+        return;
+      }
+
+      uploadSave.disabled = true;
+      uploadReset.disabled = true;
+      uploadSave.textContent = '시트에 넣는 중…';
+      setUploadStatus(
+        '업무용 업로드 목록 시트를 만들고 있습니다. 창을 닫지 마세요.',
+        'info'
+      );
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          uploadSave.textContent = '시트 입력 완료';
+          uploadReset.disabled = false;
+          setUploadStatus(
+            '완료: ' + result.importedCount +
+            '권을 「' + result.sheetName +
+            '」 시트에 넣었습니다. 스프레드시트에서 구입할 책을 체크한 뒤 구입 검토함으로 보내세요.',
+            'success'
+          );
+        })
+        .withFailureHandler(function(error) {
+          uploadSave.disabled = false;
+          uploadReset.disabled = false;
+          uploadSave.textContent = '이 목록을 시트에 넣기';
+          setUploadStatus(
+            error && error.message
+              ? error.message
+              : '시트에 저장하지 못했습니다.',
+            'error'
+          );
+        })
+        .HR_importBookListFile({
+          fileName: uploadFileName,
+          books: uploadParsedBooks
+        });
+    });
+
+    function showPagePanel(panelId) {
+      pagePanels.forEach(function(panel) {
+        panel.classList.toggle(
+          'active',
+          panel.id === panelId
+        );
+      });
+
+      viewTabs.forEach(function(tab) {
+        const active = tab.dataset.panel === panelId;
+
+        tab.classList.toggle('active', active);
+        tab.setAttribute(
+          'aria-selected',
+          active ? 'true' : 'false'
+        );
+      });
+
+      if (panelId === 'requestsPanel') {
+        stopBestsellerAuto();
+        loadSubmittedRequests(false);
+      } else if (panelId === 'applyPanel') {
+        startBestsellerAuto();
+      } else {
+        stopBestsellerAuto();
+      }
+
+      document.querySelector('.view-tabs').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const applicantValue = applicant.value.trim();
+      const queryValue = query.value.trim();
+
+      if (!queryValue) {
+        showMessage('책 제목이나 ISBN을 입력해 주세요.', 'error');
+        query.focus();
+        return;
+      }
+
+      searchResults.classList.remove('show');
+      bookList.innerHTML = '';
+      books = [];
+      updateCartBar();
+      setSearchLoading(true);
+
+      showMessage(
+        'YES24에서 책을 찾고 있습니다…',
+        'info'
+      );
+
+      google.script.run
+        .withSuccessHandler(function(responseBooks) {
+          setSearchLoading(false);
+
+          books = Array.isArray(responseBooks)
+            ? responseBooks
+            : [];
+
+          if (!books.length) {
+            showMessage(
+              '검색 결과가 없습니다. 제목이나 ISBN을 다시 확인해 주세요.',
+              'error'
+            );
+            return;
+          }
+
+          renderBooks();
+          searchResults.classList.add('show');
+
+          showMessage(
+            '검색 결과에서 신청할 책을 확인해 주세요.',
+            'info'
+          );
+        })
+        .withFailureHandler(function(error) {
+          setSearchLoading(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_searchRequestBooks(queryValue);
+    });
+
+    function getBookKey(book) {
+      const isbn = String(book && book.isbn || '')
+        .replace(/[^0-9Xx]/g, '')
+        .toUpperCase();
+
+      if (isbn) {
+        return 'isbn:' + isbn;
+      }
+
+      return 'book:' + [
+        book && book.title,
+        book && book.publisher,
+        book && (book.year || book.pubDate)
+      ].map(function(value) {
+        return String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      }).join('|');
+    }
+
+    function findBookButton(bookKey) {
+      return Array.from(
+        document.querySelectorAll('.select-book-button')
+      ).find(function(button) {
+        return button.dataset.bookKey === bookKey;
+      }) || null;
+    }
+
+    function setVisibleBookSelection(button, selected) {
+      if (!button || button.dataset.done === 'true') {
+        return;
+      }
+
+      button.textContent = selected
+        ? '장바구니에 담김 ✓'
+        : '신청바구니에 담기';
+      button.classList.toggle('selected', selected);
+
+      if (button.closest('.book-card')) {
+        button.closest('.book-card')
+          .classList.toggle('selected', selected);
+      }
+    }
+
+    function renderBooks() {
+      bookList.innerHTML = '';
+
+      books.forEach(function(book, index) {
+        const card = document.createElement('article');
+        const cover = document.createElement('div');
+        const info = document.createElement('div');
+        const title = document.createElement('h3');
+        const meta = document.createElement('p');
+        const button = document.createElement('button');
+        const coverUrl = safeUrl(book.cover);
+        const bookKey = getBookKey(book);
+        const isInCart = cartBooks.has(bookKey);
+
+        card.className = 'book-card';
+        cover.className = 'book-cover';
+        info.className = 'book-info';
+        title.className = 'book-title';
+        meta.className = 'book-meta';
+        button.className = 'select-book-button';
+        button.type = 'button';
+        button.dataset.index = String(index);
+        button.dataset.bookKey = bookKey;
+
+        if (coverUrl) {
+          const image = document.createElement('img');
+
+          image.src = coverUrl;
+          image.alt = (book.title || '책') + ' 표지';
+          image.loading = 'lazy';
+          image.addEventListener('error', function() {
+            cover.textContent = '📖';
+          });
+          cover.appendChild(image);
+        } else {
+          cover.textContent = '📖';
+        }
+
+        title.textContent = book.title || '제목 없음';
+        meta.textContent = [
+          book.author,
+          book.publisher,
+          book.year ? book.year + '년' : book.pubDate,
+          formatPrice(book.price),
+          book.isbn
+        ].filter(Boolean).join(' · ');
+        button.textContent = isInCart
+          ? '장바구니에 담김 ✓'
+          : '신청바구니에 담기';
+        button.classList.toggle('selected', isInCart);
+        card.classList.toggle('selected', isInCart);
+        button.addEventListener('click', function() {
+          toggleCart(index, button);
+        });
+
+        info.appendChild(title);
+        info.appendChild(meta);
+        info.appendChild(button);
+        card.appendChild(cover);
+        card.appendChild(info);
+        bookList.appendChild(card);
+      });
+    }
+
+    function toggleCart(index, selectedButton) {
+      const book = books[index];
+      const bookKey = getBookKey(book);
+
+      if (
+        !book ||
+        !bookKey ||
+        selectedButton.dataset.done === 'true'
+      ) {
+        return;
+      }
+
+      if (cartBooks.has(bookKey)) {
+        cartBooks.delete(bookKey);
+        setVisibleBookSelection(selectedButton, false);
+      } else {
+        if (cartBooks.size >= 20) {
+          showMessage(
+            '한 번에 최대 20권까지 장바구니에 담을 수 있습니다.',
+            'error'
+          );
+          return;
+        }
+
+        cartBooks.set(bookKey, book);
+        setVisibleBookSelection(selectedButton, true);
+        showMessage(
+          '장바구니에 담았습니다. 다른 책을 계속 검색해도 그대로 유지됩니다.',
+          'success'
+        );
+      }
+
+      updateCartBar();
+    }
+
+    function updateCartBar() {
+      const count = cartBooks.size;
+
+      cartCount.textContent = String(count);
+      cartSubmit.disabled =
+        submissionInProgress || count === 0;
+      cartDrawerSubmit.disabled =
+        submissionInProgress || count === 0;
+      cartClear.disabled =
+        submissionInProgress || count === 0;
+      cartBar.classList.toggle('show', count > 0);
+      renderCartDrawer();
+    }
+
+    function openCartDrawer() {
+      if (!cartBooks.size) {
+        return;
+      }
+
+      renderCartDrawer();
+      cartDrawer.classList.add('show');
+      cartToggle.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeCartDrawer() {
+      cartDrawer.classList.remove('show');
+      cartToggle.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    function clearCart() {
+      if (submissionInProgress) {
+        return;
+      }
+
+      cartBooks = new Map();
+
+      document
+        .querySelectorAll('.select-book-button')
+        .forEach(function(button) {
+          setVisibleBookSelection(button, false);
+        });
+
+      closeCartDrawer();
+      updateCartBar();
+      showMessage('신청바구니를 비웠습니다.', 'info');
+    }
+
+    function removeCartBook(bookKey) {
+      if (submissionInProgress) {
+        return;
+      }
+
+      cartBooks.delete(bookKey);
+      setVisibleBookSelection(
+        findBookButton(bookKey),
+        false
+      );
+      updateCartBar();
+
+      if (!cartBooks.size) {
+        closeCartDrawer();
+      }
+    }
+
+    function renderCartDrawer() {
+      cartList.innerHTML = '';
+
+      if (!cartBooks.size) {
+        const empty = document.createElement('div');
+        empty.className = 'cart-empty';
+        empty.textContent =
+          '아직 담은 책이 없습니다.\n검색 결과에서 원하는 책을 담아 주세요.';
+        cartList.appendChild(empty);
+        return;
+      }
+
+      cartBooks.forEach(function(book, bookKey) {
+        const item = document.createElement('article');
+        const cover = document.createElement('div');
+        const info = document.createElement('div');
+        const title = document.createElement('h3');
+        const meta = document.createElement('p');
+        const remove = document.createElement('button');
+        const coverUrl = safeUrl(book.cover);
+
+        item.className = 'cart-item';
+        cover.className = 'cart-item-cover';
+        title.className = 'cart-item-title';
+        meta.className = 'cart-item-meta';
+        remove.className = 'cart-remove';
+        remove.type = 'button';
+        remove.textContent = '빼기';
+
+        if (coverUrl) {
+          const image = document.createElement('img');
+          image.src = coverUrl;
+          image.alt = (book.title || '책') + ' 표지';
+          image.loading = 'lazy';
+          image.addEventListener('error', function() {
+            cover.textContent = '📖';
+          });
+          cover.appendChild(image);
+        } else {
+          cover.textContent = '📖';
+        }
+
+        title.textContent = book.title || '제목 없음';
+        meta.textContent = [
+          book.author,
+          book.publisher,
+          book.year ? book.year + '년' : book.pubDate
+        ].filter(Boolean).join(' · ');
+
+        remove.addEventListener('click', function() {
+          removeCartBook(bookKey);
+        });
+
+        info.appendChild(title);
+        info.appendChild(meta);
+        item.appendChild(cover);
+        item.appendChild(info);
+        item.appendChild(remove);
+        cartList.appendChild(item);
+      });
+    }
+
+    function submitCart() {
+      const selectedEntries =
+        Array.from(cartBooks.entries());
+      const selectedKeys = selectedEntries.map(function(entry) {
+        return entry[0];
+      });
+      const selectedBooks = selectedEntries.map(function(entry) {
+        return entry[1];
+      });
+
+      if (!selectedBooks.length) {
+        showMessage(
+          '신청할 책을 한 권 이상 장바구니에 담아 주세요.',
+          'error'
+        );
+        return;
+      }
+
+      if (submissionInProgress) {
+        return;
+      }
+
+      submissionInProgress = true;
+      setCartLoading(true);
+      showMessage(
+        '장바구니의 ' +
+        selectedBooks.length +
+        '권을 안전하게 접수하고 있습니다…',
+        'info'
+      );
+
+      const requestPayload = {
+        applicant: applicant.value.trim(),
+        books: selectedBooks,
+        requestId: createRequestId()
+      };
+
+      sendCartRequest(
+        requestPayload,
+        selectedKeys,
+        selectedBooks,
+        0
+      );
+    }
+
+    function sendCartRequest(
+      requestPayload,
+      selectedKeys,
+      selectedBooks,
+      retryCount
+    ) {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          submissionInProgress = false;
+          setCartLoading(false);
+          handleCartResponse(
+            response || {},
+            selectedKeys,
+            selectedBooks
+          );
+        })
+        .withFailureHandler(function(error) {
+          if (
+            retryCount < 2 &&
+            isTemporarySubmitError(error)
+          ) {
+            const waitTime =
+              900 +
+              retryCount * 1300 +
+              Math.floor(Math.random() * 700);
+
+            showMessage(
+              '신청이 몰려 순서대로 처리하고 있습니다. 잠시만 기다려 주세요…',
+              'info'
+            );
+
+            window.setTimeout(function() {
+              sendCartRequest(
+                requestPayload,
+                selectedKeys,
+                selectedBooks,
+                retryCount + 1
+              );
+            }, waitTime);
+            return;
+          }
+
+          submissionInProgress = false;
+          setCartLoading(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_submitBookRequests(requestPayload);
+    }
+
+    function isTemporarySubmitError(error) {
+      const text = getErrorMessage(error).toLowerCase();
+
+      return (
+        text.includes('현재 신청자가 많') ||
+        text.includes('too many') ||
+        text.includes('timeout') ||
+        text.includes('timed out') ||
+        text.includes('lock') ||
+        text.includes('service invoked') ||
+        text.includes('일시적') ||
+        text.includes('시간 초과')
+      );
+    }
+
+    function createRequestId() {
+      if (
+        window.crypto &&
+        typeof window.crypto.randomUUID === 'function'
+      ) {
+        return window.crypto.randomUUID();
+      }
+
+      return (
+        String(Date.now()) + '-' +
+        Math.random().toString(36).slice(2)
+      );
+    }
+
+        function handleCartResponse(
+      response,
+      selectedKeys,
+      selectedBooks
+    ) {
+      const responseItems = Array.isArray(response.results)
+        ? response.results
+        : [];
+      const successTitles = [];
+      const duplicateTitles = [];
+      const ownedTitles = [];
+      const errorTitles = [];
+
+      responseItems.forEach(function(item, itemIndex) {
+        const book = selectedBooks[itemIndex] || {};
+        const bookKey =
+          selectedKeys[itemIndex] || getBookKey(book);
+        const button = findBookButton(bookKey);
+        const displayTitle =
+          item.title || book.title || '제목 없음';
+
+        if (item.success) {
+          successTitles.push(displayTitle);
+          cartBooks.delete(bookKey);
+          markBookCardDone(button, '신청 완료 ✓');
+        } else if (item.owned) {
+          ownedTitles.push(displayTitle);
+          cartBooks.delete(bookKey);
+          markBookCardDone(button, '소장 중');
+        } else if (item.duplicateRequest) {
+          duplicateTitles.push(displayTitle);
+          cartBooks.delete(bookKey);
+          markBookCardDone(button, '이미 신청됨');
+        } else {
+          errorTitles.push(displayTitle);
+          setVisibleBookSelection(button, true);
+        }
+      });
+
+      if (successTitles.length) {
+        submittedRequestsLoaded = false;
+      }
+
+      updateCartBar();
+
+      if (!cartBooks.size) {
+        closeCartDrawer();
+      }
+
+      const descriptionLines = [];
+
+      function addResultGroup(icon, label, titles) {
+        if (!titles.length) {
+          return;
+        }
+
+        descriptionLines.push(
+          icon + ' ' + label + ' (' + titles.length + '권)\n' +
+          titles.map(function(title) {
+            return '• ' + title;
+          }).join('\n')
+        );
+      }
+
+      addResultGroup('✅', '신청 완료', successTitles);
+      addResultGroup('🔁', '이미 신청된 도서', duplicateTitles);
+      addResultGroup('🏫', '학교에서 소장 중', ownedTitles);
+      addResultGroup('⚠️', '장바구니에 남겨 둔 도서', errorTitles);
+
+      showNoticeModal({
+        type: successTitles.length ? 'success' : 'duplicate',
+        icon: successTitles.length ? '✅' : '📚',
+        title: successTitles.length
+          ? '신청 완료 · ' + successTitles.length + '권'
+          : '신청 결과를 확인해 주세요.',
+        description: descriptionLines.join('\n\n')
+      });
+
+      showMessage(
+        successTitles.length
+          ? successTitles.length +
+            '권 신청을 완료했습니다.'
+          : '새로 신청된 책이 없습니다.',
+        successTitles.length ? 'success' : 'info'
+      );
+    }
+
+    function markBookCardDone(button, label) {
+      if (!button) {
+        return;
+      }
+
+      button.dataset.done = 'true';
+      button.textContent = label;
+      button.disabled = true;
+      button.classList.remove('selected');
+      button.classList.add('done');
+
+      if (button.closest('.book-card')) {
+        button.closest('.book-card')
+          .classList.remove('selected');
+        button.closest('.book-card')
+          .classList.add('done');
+      }
+    }
+
+    function setSearchLoading(isLoading) {
+      submitButton.disabled = isLoading;
+      submitButton.textContent =
+        isLoading
+          ? '검색하고 있습니다…'
+          : '책 검색하기';
+    }
+
+    function setCartLoading(isLoading) {
+      const buttons =
+        document.querySelectorAll('.select-book-button');
+
+      buttons.forEach(function(button) {
+        button.disabled =
+          isLoading ||
+          button.dataset.done === 'true';
+      });
+
+      query.disabled = isLoading;
+      applicant.disabled = isLoading;
+      submitButton.disabled = isLoading;
+      cartSubmit.disabled =
+        isLoading || cartBooks.size === 0;
+      cartDrawerSubmit.disabled =
+        isLoading || cartBooks.size === 0;
+      cartClear.disabled = isLoading;
+      cartSubmit.textContent = isLoading
+        ? '안전하게 접수하는 중…'
+        : '선택한 도서 신청하기';
+    }
+
+
+    function loadSubmittedRequests(forceRefresh) {
+      if (
+        submittedRequestsLoaded &&
+        !forceRefresh
+      ) {
+        return;
+      }
+
+      requestRefresh.disabled = true;
+      requestRefresh.textContent = '불러오는 중…';
+      requestList.innerHTML = '';
+      requestSummary.classList.remove('show');
+      requestListStatus.textContent =
+        '신청된 희망도서를 불러오고 있습니다…';
+      requestListStatus.classList.remove('hide');
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          requestRefresh.disabled = false;
+          requestRefresh.textContent = '새로고침';
+          submittedRequestsLoaded = true;
+          renderSubmittedRequests(response || {});
+        })
+        .withFailureHandler(function(error) {
+          requestRefresh.disabled = false;
+          requestRefresh.textContent = '다시 불러오기';
+          requestListStatus.textContent =
+            getErrorMessage(error);
+          requestListStatus.classList.remove('hide');
+        })
+        .HR_getSubmittedRequests();
+    }
+
+    function renderSubmittedRequests(response) {
+      const responseItems = Array.isArray(response.items)
+        ? response.items
+        : [];
+      const activeItems = responseItems.filter(function(item) {
+        return !/취소/.test(
+          String(item.status || '')
+        );
+      });
+      const cancelledItems = responseItems.filter(function(item) {
+        return /취소/.test(
+          String(item.status || '')
+        );
+      });
+      const items = requestListFilter === 'cancelled'
+        ? cancelledItems
+        : activeItems;
+      const totalCount = items.length;
+      const shownCount = items.length;
+
+      submittedRequestItems = responseItems;
+      requestActiveCount.textContent =
+        String(activeItems.length);
+      requestCancelledCount.textContent =
+        String(cancelledItems.length);
+
+      requestFilterTabs.forEach(function(tab) {
+        const selected =
+          tab.dataset.requestFilter ===
+          requestListFilter;
+
+        tab.classList.toggle('active', selected);
+        tab.setAttribute(
+          'aria-selected',
+          selected ? 'true' : 'false'
+        );
+      });
+
+      requestList.innerHTML = '';
+      requestSummary.textContent =
+        requestListFilter === 'cancelled'
+          ? '신청 취소 ' + totalCount + '권'
+          : '신청 도서 ' + totalCount + '권';
+      requestSummary.classList.add('show');
+
+      if (!items.length) {
+        requestListStatus.textContent =
+          requestListFilter === 'cancelled'
+            ? '현재 취소된 신청이 없습니다.'
+            : '아직 신청된 희망도서가 없습니다.';
+        requestListStatus.classList.remove('hide');
+        return;
+      }
+
+      requestListStatus.classList.add('hide');
+
+      items.forEach(function(item, index) {
+        const card = document.createElement('article');
+        const top = document.createElement('div');
+        const sequence = document.createElement('span');
+        const status = document.createElement('span');
+        const title = document.createElement('h3');
+        const meta = document.createElement('p');
+        const date = document.createElement('p');
+        const details = document.createElement('div');
+        const coverUrl = safeUrl(item.cover);
+        const detailHint = document.createElement('button');
+        const actions = document.createElement('div');
+        const cancelButton = document.createElement('button');
+        const statusText =
+          String(item.status || '신청 접수').trim();
+
+        card.className = 'request-item';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-expanded', 'false');
+        top.className = 'request-item-top';
+        sequence.className = 'request-sequence';
+        status.className =
+          'request-status-badge ' +
+          getRequestStatusClass(statusText);
+        date.className = 'request-date';
+        details.className = 'request-biblio';
+        detailHint.className = 'request-detail-button';
+        detailHint.type = 'button';
+        detailHint.textContent = '서지정보 보기';
+        actions.className = 'request-card-actions';
+        cancelButton.className = 'request-cancel-button';
+        cancelButton.type = 'button';
+
+        sequence.textContent =
+          item.sequence
+            ? '#' + item.sequence
+            : '#' + (totalCount - index);
+        status.textContent = statusText;
+        title.textContent = item.title || '제목 없음';
+        meta.textContent = [
+          item.author,
+          item.publisher,
+          item.year ? item.year + '년' : ''
+        ].filter(Boolean).join(' · ') ||
+          '도서 정보를 확인하고 있습니다.';
+        date.textContent = item.requestedAt
+          ? '신청일 ' + item.requestedAt
+          : '';
+
+        if (coverUrl) {
+          const coverBox = document.createElement('div');
+          const coverImage = document.createElement('img');
+
+          coverBox.className = 'request-biblio-cover';
+          coverImage.src = coverUrl;
+          coverImage.alt =
+            (item.title || '책') + ' 표지';
+          coverImage.loading = 'lazy';
+          coverImage.addEventListener('error', function() {
+            coverBox.remove();
+          });
+          coverBox.appendChild(coverImage);
+          details.appendChild(coverBox);
+        }
+
+        [
+          ['저자', item.author],
+          ['출판사', item.publisher],
+          ['출판연도', item.year ? item.year + '년' : ''],
+          ['ISBN13', item.isbn],
+          ['정가', item.price
+            ? String(item.price).replace(/\s*원$/, '') + '원'
+            : ''],
+          ['분야', item.category],
+          ['쪽수', item.pages]
+        ].forEach(function(entry) {
+          if (!entry[1]) {
+            return;
+          }
+
+          const row = document.createElement('div');
+          const label = document.createElement('strong');
+          const value = document.createElement('span');
+
+          row.className = 'request-biblio-row';
+          label.textContent = entry[0];
+          value.textContent = entry[1];
+          row.appendChild(label);
+          row.appendChild(value);
+          details.appendChild(row);
+        });
+
+        if (safeUrl(item.link)) {
+          const row = document.createElement('div');
+          const label = document.createElement('strong');
+          const link = document.createElement('a');
+
+          row.className = 'request-biblio-row';
+          label.textContent = '도서 정보';
+          link.href = safeUrl(item.link);
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'YES24에서 보기 ↗';
+          link.addEventListener('click', function(event) {
+            event.stopPropagation();
+          });
+          row.appendChild(label);
+          row.appendChild(link);
+          details.appendChild(row);
+        }
+
+        if (!details.children.length) {
+          const empty = document.createElement('p');
+          empty.className = 'request-biblio-empty';
+          empty.textContent =
+            '추가 서지정보를 확인하고 있습니다.';
+          details.appendChild(empty);
+        }
+
+        function toggleDetails(event) {
+          if (
+            event &&
+            event.type === 'keydown' &&
+            event.key !== 'Enter' &&
+            event.key !== ' '
+          ) {
+            return;
+          }
+
+          if (event && event.type === 'keydown') {
+            event.preventDefault();
+          }
+
+          const expanded =
+            card.classList.toggle('expanded');
+          card.setAttribute(
+            'aria-expanded',
+            expanded ? 'true' : 'false'
+          );
+          detailHint.textContent = expanded
+            ? '서지정보 접기'
+            : '서지정보 보기';
+        }
+
+        card.addEventListener('click', toggleDetails);
+        card.addEventListener('keydown', toggleDetails);
+        detailHint.addEventListener('click', function(event) {
+          event.stopPropagation();
+          toggleDetails();
+        });
+
+        if (/취소/.test(statusText)) {
+          cancelButton.classList.add('restore');
+          cancelButton.textContent = '취소 되돌리기';
+          cancelButton.addEventListener('click', function(event) {
+            event.stopPropagation();
+            undoRequestFromList(
+              item,
+              cancelButton
+            );
+          });
+        } else if (/구입|입수|선정|반려/.test(statusText)) {
+          cancelButton.disabled = true;
+          cancelButton.textContent = '취소 불가';
+        } else {
+          cancelButton.textContent = '신청 취소';
+          cancelButton.addEventListener('click', function(event) {
+            event.stopPropagation();
+            openCancelRequest(
+              item,
+              cancelButton,
+              status
+            );
+          });
+        }
+
+        top.appendChild(sequence);
+        top.appendChild(status);
+        card.appendChild(top);
+        card.appendChild(title);
+        card.appendChild(meta);
+
+        if (date.textContent) {
+          card.appendChild(date);
+        }
+
+        card.appendChild(details);
+        actions.appendChild(detailHint);
+        actions.appendChild(cancelButton);
+        card.appendChild(actions);
+        requestList.appendChild(card);
+      });
+    }
+
+    function getRequestStatusClass(statusText) {
+      if (/오류|실패|취소|반려/.test(statusText)) {
+        return 'issue';
+      }
+
+      if (/완료|선정|구입|입수|처리 완료/.test(statusText)) {
+        return 'done';
+      }
+
+      return 'pending';
+    }
+
+    function openCancelRequest(
+      item,
+      button,
+      statusElement
+    ) {
+      cancelCandidate = {
+        item: item,
+        button: button,
+        statusElement: statusElement
+      };
+      cancelBook.textContent =
+        '『' + String(item.title || '제목 없음') + '』';
+      cancelConfirm.disabled = false;
+      cancelConfirm.textContent = '신청 취소하기';
+      cancelModal.classList.add('show');
+
+      window.setTimeout(function() {
+        cancelKeep.focus();
+      }, 30);
+    }
+
+    function closeCancelModal() {
+      cancelModal.classList.remove('show');
+      cancelCandidate = null;
+      cancelConfirm.disabled = false;
+      cancelConfirm.textContent = '신청 취소하기';
+    }
+
+    function confirmCancelRequest() {
+      if (!cancelCandidate) {
+        return;
+      }
+
+      const candidate = cancelCandidate;
+      cancelConfirm.disabled = true;
+      cancelConfirm.textContent = '취소 중…';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || result.success === false) {
+            const reason =
+              result && result.message
+                ? result.message
+                : '이 도서는 현재 취소할 수 없습니다.';
+            closeCancelModal();
+            showNoticeModal({
+              type: 'duplicate',
+              icon: 'ℹ️',
+              title: '취소할 수 없습니다',
+              book: candidate.item.title,
+              description: reason
+            });
+            return;
+          }
+
+          submittedRequestsLoaded = false;
+          closeCancelModal();
+          loadSubmittedRequests(true);
+
+          showNoticeModal({
+            type: 'success',
+            icon: '✅',
+            title: '신청이 취소되었습니다',
+            book: candidate.item.title,
+            description:
+              '신청 목록에서는 이 도서 한 권만 삭제했습니다. 취소한 내용은 안전하게 보관되어 바로 되돌릴 수 있습니다.',
+            undoId: result.cancelId
+          });
+        })
+        .withFailureHandler(function(error) {
+          const reason = getErrorMessage(error);
+          closeCancelModal();
+          showNoticeModal({
+            type: 'duplicate',
+            icon: '⚠️',
+            title: '취소하지 못했습니다',
+            book: candidate.item.title,
+            description: reason
+          });
+        })
+        .HR_cancelSubmittedRequest({
+          row: candidate.item.row,
+          title: candidate.item.title,
+          isbn: candidate.item.isbn
+        });
+    }
+
+    function undoRequestFromList(item, button) {
+      if (!item || !button) {
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = '복구 중…';
+
+      const onSuccess = function(result) {
+        if (!result || result.success === false) {
+          const reason =
+            result && result.message
+              ? result.message
+              : '신청 취소를 되돌리지 못했습니다.';
+
+          button.disabled = false;
+          button.textContent = '취소 되돌리기';
+          showNoticeModal({
+            type: 'duplicate',
+            icon: '⚠️',
+            title: '되돌리지 못했습니다',
+            book: item.title,
+            description: reason
+          });
+          return;
+        }
+
+        submittedRequestsLoaded = false;
+        loadSubmittedRequests(true);
+
+        showNoticeModal({
+          type: 'success',
+          icon: '↩️',
+          title: result.alreadyRestored
+            ? '이미 신청 목록에 있습니다'
+            : '신청 취소를 되돌렸습니다',
+          book: item.title,
+          description: result.alreadyRestored
+            ? '같은 도서가 이미 신청 목록에 있어 중복으로 넣지 않았습니다.'
+            : '취소 전 신청 내용이 희망도서 목록에 다시 들어갔습니다.'
+        });
+      };
+
+      const onFailure = function(error) {
+        button.disabled = false;
+        button.textContent = '취소 되돌리기';
+        showNoticeModal({
+          type: 'duplicate',
+          icon: '⚠️',
+          title: '되돌리지 못했습니다',
+          book: item.title,
+          description: getErrorMessage(error)
+        });
+      };
+
+      if (item.cancelId) {
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onFailure)
+          .HR_undoCancelledRequest({
+            cancelId: item.cancelId
+          });
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .HR_restoreLegacyCancelledRequest({
+          row: item.row,
+          title: item.title,
+          isbn: item.isbn
+        });
+    }
+
+    function undoCancelledRequest() {
+      if (!undoCandidate) {
+        return;
+      }
+
+      const candidate = undoCandidate;
+      noticeUndo.disabled = true;
+      noticeUndo.textContent = '복구 중…';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result || result.success === false) {
+            const reason =
+              result && result.message
+                ? result.message
+                : '신청을 되돌리지 못했습니다.';
+
+            showNoticeModal({
+              type: 'duplicate',
+              icon: '⚠️',
+              title: '되돌리지 못했습니다',
+              book: candidate.title,
+              description: reason,
+              undoId: candidate.cancelId
+            });
+            return;
+          }
+
+          submittedRequestsLoaded = false;
+          closeNoticeModal();
+          loadSubmittedRequests(true);
+
+          showNoticeModal({
+            type: 'success',
+            icon: '↩️',
+            title: result.alreadyRestored
+              ? '이미 신청 목록에 있습니다'
+              : '신청 취소를 되돌렸습니다',
+            book: candidate.title,
+            description: result.alreadyRestored
+              ? '같은 도서가 이미 신청 목록에 있어 중복으로 넣지 않았습니다.'
+              : '취소 전 신청 내용이 희망도서 목록에 다시 들어갔습니다.'
+          });
+        })
+        .withFailureHandler(function(error) {
+          showNoticeModal({
+            type: 'duplicate',
+            icon: '⚠️',
+            title: '되돌리지 못했습니다',
+            book: candidate.title,
+            description: getErrorMessage(error),
+            undoId: candidate.cancelId
+          });
+        })
+        .HR_undoCancelledRequest({
+          cancelId: candidate.cancelId
+        });
+    }
+
+    function closeGuidePopover() {
+      guideHover.classList.remove('open');
+      guideHoverTrigger.setAttribute(
+        'aria-expanded',
+        'false'
+      );
+    }
+
+    function safeUrl(value) {
+      const text = String(value || '').trim();
+
+      return /^https?:\/\//i.test(text)
+        ? text
+        : '';
+    }
+
+    function formatPrice(value) {
+      const number = Number(value || 0);
+
+      return number > 0
+        ? number.toLocaleString('ko-KR') + '원'
+        : '';
+    }
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className =
+        'message show ' + (type || 'info');
+    }
+
+    function showNoticeModal(options) {
+      const notice = options || {};
+
+      noticeModal.className =
+        'notice-modal show ' + (notice.type || 'duplicate');
+      noticeIcon.textContent = notice.icon || '📚';
+      noticeTitle.textContent =
+        notice.title || '안내';
+      noticeBook.textContent =
+        notice.book ? '『' + notice.book + '』' : '';
+      noticeDescription.textContent =
+        notice.description || '';
+
+      undoCandidate = notice.undoId
+        ? {
+          cancelId: notice.undoId,
+          title: notice.book || ''
+        }
+        : null;
+
+      noticeUndo.hidden = !undoCandidate;
+      noticeUndo.disabled = false;
+      noticeUndo.textContent = '신청 취소 되돌리기';
+      noticeActions.classList.toggle(
+        'single',
+        !undoCandidate
+      );
+
+      window.setTimeout(function() {
+        if (undoCandidate) {
+          noticeUndo.focus();
+        } else {
+          noticeClose.focus();
+        }
+      }, 30);
+    }
+
+    function closeNoticeModal() {
+      noticeModal.className = 'notice-modal';
+      undoCandidate = null;
+      noticeUndo.hidden = true;
+      noticeUndo.disabled = false;
+      noticeUndo.textContent = '신청 취소 되돌리기';
+      noticeActions.classList.add('single');
+    }
+
+    function getErrorMessage(error) {
+      return error && error.message
+        ? error.message
+        : String(
+          error ||
+          '처리 중 오류가 발생했습니다.'
+        );
+    }
+
+    let bsData = {};
+    let bsActiveCategory = 'all';
+
+    function loadBestsellers() {
+      const status = document.getElementById('bsStatus');
+
+      status.textContent = '베스트셀러를 불러오고 있습니다…';
+      status.classList.add('show');
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          bsData = response && response.categories
+            ? response.categories
+            : {};
+          renderBestsellers(bsActiveCategory);
+        })
+        .withFailureHandler(function() {
+          status.textContent =
+            '베스트셀러를 잠시 불러오지 못했습니다. 책 검색은 그대로 이용할 수 있습니다.';
+          status.classList.add('show');
+        })
+        .HR_getBestsellers();
+    }
+
+    function renderBestsellers(categoryKey) {
+      const list = document.getElementById('bsList');
+      const status = document.getElementById('bsStatus');
+      const category = bsData[categoryKey] || {};
+      const categoryBooks = Array.isArray(category.books)
+        ? category.books
+        : [];
+
+      stopBestsellerAuto();
+      list.innerHTML = '';
+
+      document.querySelectorAll('.bs-tab').forEach(function(tab) {
+        const active =
+          tab.dataset.bsCategory === categoryKey;
+
+        tab.classList.toggle('active', active);
+        tab.setAttribute(
+          'aria-selected',
+          active ? 'true' : 'false'
+        );
+      });
+
+      if (!categoryBooks.length) {
+        status.textContent =
+          '이 분류의 베스트셀러가 아직 없습니다.';
+        status.classList.add('show');
+        return;
+      }
+
+      status.classList.remove('show');
+
+      categoryBooks.forEach(function(book, index) {
+        const card = document.createElement('article');
+        const rank = document.createElement('span');
+        const cover = document.createElement('div');
+        const title = document.createElement('h3');
+        const meta = document.createElement('p');
+        const actions = document.createElement('div');
+        const requestButton = document.createElement('button');
+        const infoLink = document.createElement('a');
+        const coverUrl = safeUrl(book.cover);
+        const itemLink = safeUrl(book.link);
+
+        card.className = 'bs-card';
+        rank.className = 'bs-rank';
+        cover.className = 'bs-cover';
+        title.className = 'bs-book-title';
+        meta.className = 'bs-meta';
+        actions.className = 'bs-actions';
+        requestButton.className = 'bs-request';
+        infoLink.className = 'bs-link';
+
+        rank.textContent = String(book.rank || index + 1);
+        title.textContent = book.title || '제목 없음';
+        meta.textContent = [
+          book.author,
+          book.publisher,
+          book.year ? book.year + '년' : '',
+          formatPrice(book.price)
+        ].filter(Boolean).join(' · ');
+
+        if (coverUrl) {
+          const image = document.createElement('img');
+
+          image.src = coverUrl;
+          image.alt = (book.title || '책') + ' 표지';
+          image.loading = 'lazy';
+          image.addEventListener('error', function() {
+            cover.textContent = '📖';
+          });
+          cover.appendChild(image);
+        } else {
+          cover.textContent = '📖';
+        }
+
+        requestButton.type = 'button';
+        requestButton.textContent = '이 책 신청하기';
+        requestButton.addEventListener('click', function() {
+          searchBestsellerBook(book);
+        });
+
+        if (itemLink) {
+          infoLink.href = itemLink;
+          infoLink.target = '_blank';
+          infoLink.rel = 'noopener noreferrer';
+        } else {
+          infoLink.href = '#';
+          infoLink.addEventListener('click', function(event) {
+            event.preventDefault();
+          });
+        }
+        infoLink.textContent = '정보';
+
+        actions.appendChild(requestButton);
+        actions.appendChild(infoLink);
+        card.appendChild(rank);
+        card.appendChild(cover);
+        card.appendChild(title);
+        card.appendChild(meta);
+        card.appendChild(actions);
+        list.appendChild(card);
+      });
+
+      const originalCards =
+        Array.from(list.querySelectorAll('.bs-card'));
+
+      originalCards.forEach(function(originalCard, index) {
+        const cloneCard = originalCard.cloneNode(true);
+        const cloneRequest =
+          cloneCard.querySelector('.bs-request');
+
+        cloneCard.classList.add('bs-card-clone');
+
+        if (cloneRequest) {
+          cloneRequest.addEventListener('click', function() {
+            searchBestsellerBook(categoryBooks[index]);
+          });
+        }
+
+        list.appendChild(cloneCard);
+      });
+
+      list.dataset.bookCount =
+        String(categoryBooks.length);
+      bsListElement.scrollLeft = 0;
+      startBestsellerAuto();
+    }
+
+    function getBestsellerScrollStep() {
+      const firstCard =
+        bsListElement.querySelector('.bs-card');
+
+      if (!firstCard) {
+        return 220;
+      }
+
+      return firstCard.getBoundingClientRect().width + 12;
+    }
+
+    function scrollBestsellerCards(direction) {
+      const step = getBestsellerScrollStep();
+      const bookCount = Number(
+        bsListElement.dataset.bookCount || 0
+      );
+      const cycleWidth = step * bookCount;
+
+      if (!bookCount || cycleWidth <= 1) {
+        return;
+      }
+
+      if (direction > 0) {
+        if (
+          bsListElement.scrollLeft >=
+          cycleWidth - 8
+        ) {
+          bsListElement.scrollLeft =
+            Math.max(
+              0,
+              bsListElement.scrollLeft -
+              cycleWidth
+            );
+        }
+
+        bsListElement.scrollBy({
+          left: step,
+          behavior: 'smooth'
+        });
+        return;
+      }
+
+      if (bsListElement.scrollLeft <= 8) {
+        bsListElement.scrollLeft = cycleWidth;
+      }
+
+      bsListElement.scrollBy({
+        left: -step,
+        behavior: 'smooth'
+      });
+    }
+
+    function stopBestsellerAuto() {
+      if (bsAutoTimer) {
+        window.clearInterval(bsAutoTimer);
+        bsAutoTimer = null;
+      }
+    }
+
+    function startBestsellerAuto() {
+      stopBestsellerAuto();
+
+      if (
+        !applyPanel.classList.contains('active') ||
+        !bsListElement.querySelector('.bs-card')
+      ) {
+        return;
+      }
+
+      bsAutoTimer = window.setInterval(function() {
+        if (!document.hidden) {
+          scrollBestsellerCards(1);
+        }
+      }, 2000);
+    }
+
+    function searchBestsellerBook(book) {
+      const searchValue =
+        String(book.isbn || book.title || '').trim();
+
+      if (!searchValue) {
+        showMessage('이 책의 검색 정보가 없습니다.', 'error');
+        return;
+      }
+
+      query.value = searchValue;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showMessage('선택한 책을 정확히 확인하고 있습니다…', 'info');
+
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        submitButton.click();
+      }
+    }
+
+    document.querySelectorAll('.bs-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        bsActiveCategory = tab.dataset.bsCategory || 'all';
+        renderBestsellers(bsActiveCategory);
+      });
+    });
+
+    loadBestsellers();
+
+  </script>
+
+  <script>
+    (function () {
+      const noticeWrap = document.getElementById('hrNoticeTicker');
+      const noticeTrack = document.getElementById('hrNoticeTrack');
+
+      function renderWebNotices(items) {
+        const notices = Array.isArray(items)
+          ? items.filter(function (item) {
+              return item && String(item.message || '').trim();
+            })
+          : [];
+
+        if (!noticeWrap || !noticeTrack || notices.length === 0) {
+          if (noticeWrap) noticeWrap.hidden = true;
+          return;
+        }
+
+        const urgent = notices.some(function (item) {
+          return String(item.type || '') === '긴급';
+        });
+
+        const message = notices.map(function (item) {
+          const prefix = String(item.type || '') === '긴급' ? '[긴급] ' : '';
+          return prefix + String(item.message || '').trim();
+        }).join('　◆　');
+
+        noticeTrack.textContent = message;
+        noticeTrack.style.setProperty(
+          '--ticker-duration',
+          Math.max(18, Math.min(70, message.length * 0.24)) + 's'
+        );
+        noticeWrap.classList.toggle('urgent', urgent);
+        noticeWrap.setAttribute('aria-label', '도서관 공지: ' + message);
+        noticeWrap.hidden = false;
+      }
+
+      function loadWebNotices() {
+        if (
+          typeof google === 'undefined' ||
+          !google.script ||
+          !google.script.run
+        ) {
+          if (noticeWrap) noticeWrap.hidden = true;
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(renderWebNotices)
+          .withFailureHandler(function () {
+            if (noticeWrap) noticeWrap.hidden = true;
+          })
+          .HR_getActiveWebNotices();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadWebNotices);
+      } else {
+        loadWebNotices();
+      }
+
+      window.HR_reloadWebNotices = loadWebNotices;
+      window.setInterval(loadWebNotices, 300000);
+    })();
+  </script>
+</body>
+</html>

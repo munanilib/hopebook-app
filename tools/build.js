@@ -55,6 +55,7 @@ const rpc = fnNames.filter(n => !n.endsWith('_') && !SHELL_OWNED.has(n));
 const bundle = `/* 자동 생성 파일 — 직접 고치지 마세요. (node tools/build.js)  v${cfg.version} */
 var APP_FACTORY = function (__host) {
   var HtmlService = __host.html;
+  var SpreadsheetApp = __host.spreadsheet;
 ${code}
   var __fns = {${fnNames.map(n => `\n    ${JSON.stringify(n)}: ${n}`).join(',')}
   };

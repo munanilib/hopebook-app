@@ -1,11 +1,21 @@
 {
   "codeUrl": "https://raw.githubusercontent.com/munanilib/hopebook-app/refs/heads/stable/dist/app.js",
-  "version": "3",
-  "extraEntryPoints": [],
+  "version": "real-1",
+  "extraEntryPoints": [
+    "HR_showYes24KeyDialog",
+    "HR_showSchoolSetupDialog",
+    "HR_showPublicWebAppUrlDialog",
+    "HR_deleteCopySetupSheet",
+    "seriesFinderOnOpen_",
+    "seriesWorkButtonOnEdit_"
+  ],
   "manifest": {
     "timeZone": "Asia/Seoul",
     "dependencies": {},
-    "webapp": { "access": "ANYONE_ANONYMOUS", "executeAs": "USER_DEPLOYING" },
+    "webapp": {
+      "access": "ANYONE_ANONYMOUS",
+      "executeAs": "USER_DEPLOYING"
+    },
     "exceptionLogging": "STACKDRIVER",
     "runtimeVersion": "V8",
     "oauthScopes": [

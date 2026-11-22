@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+
+  <style>
+    :root {
+      --navy: #243b64;
+      --blue: #5277c7;
+      --pale: #f3f6fc;
+      --line: #d8e1f0;
+      --text: #27344a;
+      --muted: #69758a;
+      --success: #28734d;
+      --danger: #a33c3c;
+      --warning: #9a6418;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f6f8fc;
+      color: var(--text);
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Apple SD Gothic Neo",
+        "Noto Sans KR",
+        sans-serif;
+      font-size: 16px;
+    }
+
+    .header {
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 25px;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .card {
+      margin-bottom: 16px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(36, 59, 100, 0.06);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--navy);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    input {
+      width: 100%;
+      min-height: 50px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      outline: none;
+      color: var(--text);
+      font: inherit;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(82, 119, 199, 0.12);
+    }
+
+    .help {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .api-divider {
+      height: 1px;
+      margin: 20px 0;
+      background: var(--line);
+    }
+
+    .required,
+    .optional {
+      display: inline-flex;
+      margin-left: 7px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      vertical-align: 2px;
+    }
+
+    .required {
+      background: #fff0f0;
+      color: var(--danger);
+    }
+
+    .optional {
+      background: #edf4ff;
+      color: #315f9f;
+    }
+
+    .status-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: var(--pale);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .status-item.ok {
+      background: #edf8f1;
+      color: var(--success);
+    }
+
+    .status-item.need {
+      background: #fff6e8;
+      color: var(--warning);
+    }
+
+    .notice {
+      margin-top: 14px;
+      padding: 13px 14px;
+      border: 1px solid #edc5c5;
+      border-radius: 11px;
+      background: #fff1f1;
+      color: var(--danger);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .message {
+      display: none;
+      margin: 14px 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.success {
+      background: #edf8f1;
+      color: var(--success);
+    }
+
+    .message.error {
+      background: #fff1f1;
+      color: var(--danger);
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    button {
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+
+    .primary {
+      border: 0;
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .secondary {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--navy);
+    }
+
+    .danger {
+      border: 1px solid #efc7c7;
+      background: #fff5f5;
+      color: var(--danger);
+    }
+
+    .hidden {
+      display: none;
+    }
+    .contact-divider {
+      height: 1px;
+      margin: 22px 0;
+      background: var(--line);
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .contact-grid label {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .contact-help {
+      margin-top: 12px;
+      color: #667085;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 560px) {
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <h1 id="pageTitle"></h1>
+    <p id="pageSubtitle" class="subtitle"></p>
+  </header>
+
+  <section id="apiPanel" class="card hidden">
+    <label for="yes24Key">
+      YES24 API Key
+      <span class="required">필수</span>
+    </label>
+    <input
+      id="yes24Key"
+      type="text"
+      autocomplete="off"
+      placeholder="발급받은 YES24 API Key"
+    >
+    <p class="help">
+      저장할 때 실제 도서 검색을 한 번 실행해 키가 정상인지 확인합니다.
+    </p>
+
+    <div class="api-divider"></div>
+
+    <label for="nlkKey">
+      국립중앙도서관 API Key
+      <span class="optional">선택</span>
+    </label>
+    <input
+      id="nlkKey"
+      type="text"
+      autocomplete="off"
+      placeholder="없으면 비워 두세요"
+    >
+    <p class="help">
+      KDC 분류번호를 참고할 때만 사용합니다.
+      입력하지 않아도 도서 검색과 신청은 정상 작동합니다.
+    </p>
+  </section>
+
+  <section id="schoolPanel" class="hidden">
+    <div class="card">
+      <label for="schoolName">학교명</label>
+      <input
+        id="schoolName"
+        type="text"
+        autocomplete="off"
+        placeholder="예: 은하수초등학교"
+      >
+      <p id="spreadsheetName" class="help"></p>
+
+      <div class="contact-divider"></div>
+
+      <div class="contact-grid">
+        <div>
+          <label for="managerName">도서관 담당자 이름</label>
+          <input
+            id="managerName"
+            type="text"
+            autocomplete="off"
+            placeholder="예: 홍길동"
+          >
+        </div>
+
+        <div>
+          <label for="managerExtension">내선번호</label>
+          <input
+            id="managerExtension"
+            type="text"
+            inputmode="tel"
+            autocomplete="off"
+            placeholder="예: 1234"
+          >
+        </div>
+      </div>
+
+      <p class="contact-help">
+        입력한 담당자 이름과 내선번호는 공개 희망도서 신청 페이지 맨 아래에 표시됩니다.
+        필요하지 않으면 비워 두어도 됩니다.
+      </p>
+    </div>
+
+    <div class="card">
+      <label>설정 점검</label>
+      <ul id="statusList" class="status-list"></ul>
+
+      <div class="notice">
+        「우리학교 소장도서」 시트에는 책 제목과 ISBN13을 반드시 입력해야 합니다.
+        ISBN13이 없으면 “이미 소장중인 도서” 확인이 정확히 작동하지 않습니다.
+      </div>
+    </div>
+
+    <div class="card">
+      <label>공개 신청 링크</label>
+      <p id="webAppStatus" class="help"></p>
+      <p class="help">
+        웹 앱을 새로 배포한 뒤 이 창에서 학교 최초 설정을 다시 실행하면
+        사용설명서의 신청 버튼이 새 공개 링크로 연결됩니다.
+      </p>
+    </div>
+  </section>
+
+  <div id="message" class="message"></div>
+
+  <div class="buttons">
+    <button
+      class="secondary"
+      type="button"
+      onclick="google.script.host.close()"
+    >
+      닫기
+    </button>
+
+    <button
+      id="deleteButton"
+      class="danger hidden"
+      type="button"
+      onclick="deleteSetupSheet()"
+    >
+      설정 완료 후 이 탭 삭제
+    </button>
+
+    <button
+      id="saveButton"
+      class="primary"
+      type="button"
+      onclick="saveCurrentMode()"
+    ></button>
+  </div>
+
+  <script>
+    const MODE = '<?= mode ?>';
+
+    const pageTitle =
+      document.getElementById('pageTitle');
+    const pageSubtitle =
+      document.getElementById('pageSubtitle');
+    const apiPanel =
+      document.getElementById('apiPanel');
+    const schoolPanel =
+      document.getElementById('schoolPanel');
+    const yes24Key =
+      document.getElementById('yes24Key');
+    const nlkKey =
+      document.getElementById('nlkKey');
+    const schoolName =
+      document.getElementById('schoolName');
+    const managerName =
+      document.getElementById('managerName');
+    const managerExtension =
+      document.getElementById('managerExtension');
+    const spreadsheetName =
+      document.getElementById('spreadsheetName');
+    const statusList =
+      document.getElementById('statusList');
+    const webAppStatus =
+      document.getElementById('webAppStatus');
+    const message =
+      document.getElementById('message');
+    const saveButton =
+      document.getElementById('saveButton');
+    const deleteButton =
+      document.getElementById('deleteButton');
+
+    window.addEventListener('load', function() {
+      if (MODE === 'api') {
+        pageTitle.textContent = '🔑 도서 API 키 설정';
+        pageSubtitle.textContent =
+          'YES24은 꼭 입력하고, KDC 참고용 키는 필요할 때만 입력하세요.';
+        apiPanel.classList.remove('hidden');
+        saveButton.textContent = '저장하고 YES24 연결 확인';
+      } else {
+        pageTitle.textContent = '🏫 학교 최초 설정';
+        pageSubtitle.textContent =
+          '학교명과 담당자 연락처를 저장하고 신청서와 소장도서 목록에 연결합니다.';
+        schoolPanel.classList.remove('hidden');
+        saveButton.textContent = '이 학교 최초 설정 실행';
+        deleteButton.classList.remove('hidden');
+      }
+
+      loadState();
+    });
+
+    function loadState() {
+      setBusy(true);
+
+      google.script.run
+        .withSuccessHandler(function(state) {
+          setBusy(false);
+          yes24Key.value = state.yes24Key || '';
+          nlkKey.value = state.nlkKey || '';
+          schoolName.value = state.schoolName || '';
+          managerName.value = state.managerName || '';
+          managerExtension.value = state.managerExtension || '';
+          spreadsheetName.textContent =
+            '현재 사본: ' + (state.spreadsheetName || '');
+          renderStatus(state);
+        })
+        .withFailureHandler(function(error) {
+          setBusy(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_getCopySetupState();
+    }
+
+    function renderStatus(state) {
+      const items = [
+        {
+          ok: state.yes24Ready,
+          text: 'YES24 API 키 (필수)'
+        },
+        {
+          ok: state.nlkReady,
+          optional: true,
+          text: '국립중앙도서관 API 키 (KDC 참고용·선택)'
+        },
+        {
+          ok: state.targetSheetReady,
+          text: '희망도서 목록 시트'
+        },
+        {
+          ok: state.librarySheetReady,
+          text: '우리학교 소장도서 시트'
+        },
+        {
+          ok: state.libraryHeadersReady,
+          text: '소장도서 책 제목·ISBN13 열'
+        },
+        {
+          ok: state.configuredSpreadsheetId === state.spreadsheetId,
+          text: '이 학교 신청서 연결'
+        }
+      ];
+
+      statusList.innerHTML = '';
+
+      items.forEach(function(item) {
+        const li = document.createElement('li');
+
+        li.className =
+          'status-item ' +
+          (item.ok || item.optional ? 'ok' : 'need');
+        li.textContent =
+          (
+            item.ok
+              ? '✅ '
+              : item.optional
+                ? '➖ '
+                : '⚠️ '
+          ) +
+          item.text +
+          (
+            item.optional && !item.ok
+              ? ' · 없어도 됨'
+              : ''
+          );
+        statusList.appendChild(li);
+      });
+
+      webAppStatus.textContent = state.webAppUrl
+        ? '✅ 공개 신청 링크가 있습니다.'
+        : '⚠️ 아직 공개 신청 링크가 없습니다. 웹 앱 배포가 필요합니다.';
+    }
+
+    function saveCurrentMode() {
+      if (MODE === 'api') {
+        saveApiKey();
+      } else {
+        runSchoolSetup();
+      }
+    }
+
+    function saveApiKey() {
+      const key = yes24Key.value.trim();
+
+      if (!key) {
+        showMessage(
+          'YES24 API Key를 입력해 주세요.',
+          'error'
+        );
+        return;
+      }
+
+      setBusy(true);
+      showMessage(
+        'YES24 검색 연결을 확인하고 있습니다…',
+        'success'
+      );
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          setBusy(false);
+          showMessage(response.message, 'success');
+        })
+        .withFailureHandler(function(error) {
+          setBusy(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_saveYes24ApiKey({
+          yes24Key: key,
+          nlkKey: nlkKey.value.trim()
+        });
+    }
+
+    function runSchoolSetup() {
+      setBusy(true);
+      showMessage(
+        '현재 학교 사본을 연결하고 점검하고 있습니다…',
+        'success'
+      );
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          setBusy(false);
+          showMessage(response.message, 'success');
+          loadState();
+        })
+        .withFailureHandler(function(error) {
+          setBusy(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_runSchoolInitialSetup({
+          schoolName: schoolName.value.trim(),
+          managerName: managerName.value.trim(),
+          managerExtension: managerExtension.value.trim()
+        });
+    }
+
+    function deleteSetupSheet() {
+      const confirmed = window.confirm(
+        '필수 YES24 API 키와 학교 최초 설정을 모두 마쳤나요?\n' +
+        '설정 탭을 삭제해도 상단 「⚙️ 사본 설정」 메뉴에서 다시 만들 수 있습니다.'
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setBusy(true);
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          window.alert(response.message);
+          google.script.host.close();
+        })
+        .withFailureHandler(function(error) {
+          setBusy(false);
+          showMessage(getErrorMessage(error), 'error');
+        })
+        .HR_deleteCopySetupSheet();
+    }
+
+    function setBusy(isBusy) {
+      saveButton.disabled = isBusy;
+      deleteButton.disabled = isBusy;
+    }
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className =
+        'message show ' + (type || 'success');
+    }
+
+    function getErrorMessage(error) {
+      return error && error.message
+        ? error.message
+        : String(
+          error ||
+          '처리 중 오류가 발생했습니다.'
+        );
+    }
+  </script>
+</body>
+</html>
