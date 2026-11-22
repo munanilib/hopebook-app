@@ -48,6 +48,8 @@ function doGet(e) {
 
   template.siteTitle = siteTitle;
   template.audience = audience;
+  template.fromGate = String(e && e.parameter && e.parameter.g || '') === '1';
+  template.baseUrl = HR_getWebAppBaseUrl_();
   template.managerName = managerName;
   template.managerExtension = managerExtension;
 
@@ -58,6 +60,16 @@ function doGet(e) {
       'viewport',
       'width=device-width, initial-scale=1'
     );
+}
+
+// 이 웹 앱의 주소(…/exec). 못 구하면 빈 글자입니다.
+function HR_getWebAppBaseUrl_() {
+  try {
+    var url = String(ScriptApp.getService().getUrl() || '');
+    return /^https:\/\/script\.google\.com\/.+\/exec$/.test(url) ? url : '';
+  } catch (error) {
+    return '';
+  }
 }
 
 /**
