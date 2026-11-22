@@ -1965,12 +1965,31 @@ function HR_formatGuideSheetLegacy_() {
  * ============================================================
  */
 
+// 메뉴: 「🔄 최신 버전 가져오기」
+// 5분 저장분을 지워서, 시트를 새로고침하면 GitHub의 가장 새 버전을 바로 불러오게 합니다.
+function HR_fetchLatestVersion() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    CacheService.getScriptCache().remove('APP_FRESH_n');
+  } catch (error) {
+    ui.alert('최신 버전을 가져오지 못했습니다', String(error && error.message || error), ui.ButtonSet.OK);
+    return;
+  }
+  ui.alert(
+    '🔄 최신 버전 준비 완료',
+    '다음에 불러올 때 가장 새 버전을 받도록 해 두었습니다.\n\n' +
+    '이제 이 시트 탭을 새로고침(F5)해 주십시오. 새로고침하면 최신 기능과 메뉴가 적용됩니다.',
+    ui.ButtonSet.OK
+  );
+}
+
 function HR_addCopySetupMenu() {
   SpreadsheetApp.getUi()
     .createMenu('⚙️ 사본 설정')
     .addItem('✅ 설정 한 번에 점검', 'HR_showSystemCheck')
     .addItem('🔗 신청 링크 받기', 'HR_showApplyLinksDialog')
     .addItem('📢 업데이트 소식 보기', 'HR_showUpdateNotice')
+    .addItem('🔄 최신 버전 가져오기', 'HR_fetchLatestVersion')
     .addItem('📏 신청 한도 설정', 'HR_showRequestLimitDialog')
     .addSeparator()
     .addItem(
