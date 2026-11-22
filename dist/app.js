@@ -3051,7 +3051,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = '261122-1943';
+var HR_BUILD_ID = '261122-1944';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10987,86 +10987,142 @@ function unifiedRefreshDashboard_() {
     });
   }
 
-  sheet.getRange('A1:L1').merge().setValue('🏠 학교도서관 통합 구입 업무');
-  sheet.getRange('A2:L2').merge().setValue(
-    '희망도서·시리즈 후보·업로드 목록을 모아 중복을 확인하고 서점 전달용 목록으로 정리합니다.'
-  );
+  var GREEN = '#183D35', GREEN_MID = '#2E5B4F', GREEN_SOFT = '#E3EFE9', GOLD = '#D9A441', GOLD_SOFT = '#FBF1D4';
+  var INK = '#26352F', MUTED = '#6C7F77', LINE = '#CFE0D8';
+  var audience = unifiedAudienceCounts_(ss);
+  var today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy년 M월 d일 H:mm');
+  var money = String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
 
+  // 모든 줄 높이를 먼저 기본으로 돌려 둡니다. (이전 모양이 남지 않게)
+  sheet.setRowHeights(1, 20, 24);
+  for (var column = 1; column <= 12; column++) sheet.setColumnWidth(column, 96);
+  sheet.getRange('A1:L20').setVerticalAlignment('middle').setFontColor(INK);
+
+  // 1) 제목 띠
+  sheet.getRange('A1:L1').merge().setValue('🏠 학교도서관 통합 구입 업무')
+    .setBackground(GREEN).setFontColor('#FFFFFF').setFontSize(26).setFontWeight('bold')
+    .setHorizontalAlignment('left').setBorder(false, false, false, false, false, false);
+  sheet.getRange('A2:L2').merge().setValue(
+    '희망도서·시리즈 후보·업로드 목록을 모아 중복을 확인하고 서점 전달용 목록으로 정리합니다.   ·   갱신 ' + today
+  ).setBackground(GREEN).setFontColor('#BFD6CC').setFontSize(11).setHorizontalAlignment('left');
+  sheet.getRange('A3:L3').setBackground(GOLD);
+  sheet.setRowHeight(1, 64);
+  sheet.setRowHeight(2, 32);
+  sheet.setRowHeight(3, 5);
+
+  // 2) 모인 책 현황 카드 4개 (제목 / 숫자 / 설명)
+  sheet.getRange('A4:L4').merge().setValue('📊  모인 책 현황')
+    .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
+  sheet.setRowHeight(4, 38);
+  var requestNote = audience
+    ? '교직원 ' + audience.staff + '권 · 학부모 ' + audience.parent + '권'
+    : '교직원·학부모 신청';
   var cards = [
-    ['A4:C4','희망도서 신청','A5:C7',requestCount + '권'],
-    ['D4:F4','시리즈 후보','D5:F7',seriesCount + '권'],
-    ['G4:I4','파일 업로드','G5:I7',uploadCount + '권'],
-    ['J4:L4','통합 검토','J5:L7',reviewCount + '권']
+    ['A', 'C', '📚 희망도서 신청', requestCount, requestNote],
+    ['D', 'F', '🔎 시리즈 후보', seriesCount, '누락·후속권 점검 결과'],
+    ['G', 'I', '📥 파일 업로드', uploadCount, '엑셀·CSV로 올린 목록'],
+    ['J', 'L', '🛒 통합 검토', reviewCount, '구입 검토함에 모인 책']
   ];
   cards.forEach(function(card) {
-    sheet.getRange(card[0]).merge().setValue(card[1]);
-    sheet.getRange(card[2]).merge().setValue(card[3]);
+    sheet.getRange(card[0] + '5:' + card[1] + '5').merge().setValue(card[2])
+      .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setBackground(GREEN_SOFT).setHorizontalAlignment('center');
+    sheet.getRange(card[0] + '6:' + card[1] + '7').merge().setValue(card[3] + '권')
+      .setFontSize(30).setFontWeight('bold').setFontColor(GREEN).setBackground('#FFFFFF').setHorizontalAlignment('center');
+    sheet.getRange(card[0] + '8:' + card[1] + '8').merge().setValue(card[4])
+      .setFontSize(10).setFontColor(MUTED).setBackground('#FFFFFF').setHorizontalAlignment('center');
+    sheet.getRange(card[0] + '5:' + card[1] + '8')
+      .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    sheet.getRange(card[0] + '5:' + card[1] + '5')
+      .setBorder(true, true, false, true, false, false, GOLD, SpreadsheetApp.BorderStyle.SOLID_THICK);
   });
+  sheet.setRowHeight(5, 32);
+  sheet.setRowHeight(6, 30);
+  sheet.setRowHeight(7, 30);
+  sheet.setRowHeight(8, 28);
 
-  sheet.getRange('A9:D9').merge().setValue('구입 결정  ' + decided + '권');
-  sheet.getRange('E9:H9').merge().setValue('서점 전달용  ' + exportCount + '권');
-  sheet.getRange('I9:L9').merge().setValue(
-    '예상 금액  ' + String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원'
-  );
-
-  sheet.getRange('A11:L11').merge().setValue('업무 순서');
-  sheet.getRange('A12:L16').setValues([
-    ['1. 자료 모으기','','','2. 구입 검토','','','3. 중복 확인','','','4. 서점 전달','',''],
-    ['희망도서·시리즈·엑셀 목록','','','구입할 책 체크·수량 확인','','','소장도서와 자동 대조','','','정가×수량 확인 후 전달','',''],
-    ['📚  🔎  📥','','','🛒 구입 검토함','','','🏫 소장도서 확인','','','📦 서점 전달용','',''],
-    ['','','','','','','','','','','',''],
-    ['필요한 기능은 상단 「🧰 통합 도서업무」 메뉴에서 실행할 수 있습니다.','','','','','','','','','','','']
-  ]);
-
-  sheet.getRange('A1:L1').setBackground('#183D35').setFontColor('#FFFFFF').setFontSize(28).setFontWeight('bold');
-  sheet.getRange('A2:L2').setBackground('#183D35').setFontColor('#DCEAE4').setFontSize(12);
-
-  ['A4:C4','D4:F4','G4:I4','J4:L4'].forEach(function(address) {
-    sheet.getRange(address)
-      .setBackground('#DCEBE5')
-      .setFontColor('#34564D')
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center');
+  // 3) 구입 진행 현황 (금색)
+  sheet.getRange('A10:L10').merge().setValue('💰  구입 진행 현황')
+    .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
+  sheet.setRowHeight(9, 12);
+  sheet.setRowHeight(10, 38);
+  var kpis = [
+    ['A', 'D', '✅ 구입 결정', decided + '권'],
+    ['E', 'H', '📦 서점 전달용', exportCount + '권'],
+    ['I', 'L', '💵 예상 금액', money]
+  ];
+  kpis.forEach(function(kpi) {
+    sheet.getRange(kpi[0] + '11:' + kpi[1] + '11').merge().setValue(kpi[2])
+      .setFontSize(11).setFontWeight('bold').setFontColor('#7A5A12').setHorizontalAlignment('center');
+    sheet.getRange(kpi[0] + '12:' + kpi[1] + '12').merge().setValue(kpi[3])
+      .setFontSize(22).setFontWeight('bold').setFontColor('#5B410A').setHorizontalAlignment('center');
+    sheet.getRange(kpi[0] + '11:' + kpi[1] + '12').setBackground(GOLD_SOFT)
+      .setBorder(true, true, true, true, false, false, GOLD, SpreadsheetApp.BorderStyle.SOLID);
   });
-  ['A5:C7','D5:F7','G5:I7','J5:L7'].forEach(function(address) {
-    sheet.getRange(address)
-      .setBackground('#FAFBF8')
-      .setFontColor('#183D35')
-      .setFontSize(25)
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center')
-      .setVerticalAlignment('middle');
+  sheet.setRowHeight(11, 28);
+  sheet.setRowHeight(12, 44);
+
+  // 4) 업무 순서 (바로가기 포함)
+  sheet.getRange('A14:L14').merge().setValue('🧭  업무 순서')
+    .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
+  sheet.setRowHeight(13, 12);
+  sheet.setRowHeight(14, 38);
+  var steps = [
+    ['A', 'C', '1', '자료 모으기', '희망도서·시리즈·엑셀 목록', UNIFIED_REQUEST_SHEET, '📚 희망도서 목록'],
+    ['D', 'F', '2', '구입 검토', '구입할 책 체크·수량 확인', UNIFIED_REVIEW_SHEET, '🛒 구입 검토함'],
+    ['G', 'I', '3', '중복 확인', '소장도서와 자동 대조', null, '🏫 소장도서 확인'],
+    ['J', 'L', '4', '서점 전달', '정가×수량 확인 후 전달', UNIFIED_EXPORT_SHEET, '📦 서점 전달용']
+  ];
+  steps.forEach(function(step) {
+    var c1 = step[0], c2 = step[1];
+    sheet.getRange(c1 + '15:' + c2 + '15').merge().setValue(step[2] + '  ' + step[3])
+      .setBackground(GREEN_MID).setFontColor('#FFFFFF').setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(c1 + '16:' + c2 + '16').merge().setValue(step[4])
+      .setBackground('#FFFFFF').setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setWrap(true);
+    var link = sheet.getRange(c1 + '17:' + c2 + '17').merge().setBackground('#FFFFFF')
+      .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center');
+    var target = step[5] ? ss.getSheetByName(step[5]) : (ss.getSheetByName('🏫 우리학교 소장도서') || null);
+    if (target) {
+      link.setFormula('=HYPERLINK("#gid=' + target.getSheetId() + '","' + step[6] + ' ›")');
+    } else {
+      link.setValue(step[6]);
+    }
+    sheet.getRange(c1 + '15:' + c2 + '17')
+      .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   });
+  sheet.setRowHeight(15, 34);
+  sheet.setRowHeight(16, 30);
+  sheet.setRowHeight(17, 32);
 
-  ['A9:D9','E9:H9','I9:L9'].forEach(function(address) {
-    sheet.getRange(address)
-      .setBackground('#F7E8BF')
-      .setFontColor('#6B4D11')
-      .setFontSize(15)
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center');
-  });
+  // 5) 안내
+  sheet.getRange('A19:L19').merge()
+    .setValue('💡 필요한 기능은 위쪽 「🧰 통합 도서업무」 메뉴에서 실행하고, 위 업무 순서의 시트 이름을 누르면 해당 시트로 바로 이동합니다.')
+    .setBackground(GOLD_SOFT).setFontSize(10).setFontColor('#7A5A12').setHorizontalAlignment('left').setWrap(true);
+  sheet.setRowHeight(18, 12);
+  sheet.setRowHeight(19, 34);
+  sheet.setFrozenRows(3);
+}
 
-  sheet.getRange('A11:L11').setBackground('#2E5B4F').setFontColor('#FFFFFF').setFontWeight('bold');
-  sheet.getRange('A12:L16')
-    .setBackground('#F8F5ED')
-    .setFontColor('#2F3D38')
-    .setFontSize(12)
-    .setWrap(true)
-    .setVerticalAlignment('middle');
-
-  for (var column = 1; column <= 12; column++) {
-    sheet.setColumnWidth(column, 96);
+// 희망도서 목록에서 교직원/학부모 신청 권수를 셉니다. (열이 없거나 문제가 있으면 null)
+function unifiedAudienceCounts_(ss) {
+  try {
+    var list = ss.getSheetByName(UNIFIED_REQUEST_SHEET);
+    if (!list || list.getLastRow() < 6 || list.getLastColumn() < 1) return null;
+    var headers = list.getRange(5, 1, 1, list.getLastColumn()).getDisplayValues()[0];
+    var col = 0;
+    for (var i = 0; i < headers.length; i++) {
+      if (String(headers[i]).replace(/\s+/g, '') === '신청구분') { col = i + 1; break; }
+    }
+    var titleCol = 2;
+    var rows = list.getRange(6, 1, list.getLastRow() - 5, list.getLastColumn()).getDisplayValues();
+    var staff = 0, parent = 0;
+    rows.forEach(function(row) {
+      if (!String(row[titleCol - 1] || '').trim()) return;
+      if (col && String(row[col - 1]).trim() === '학부모') parent++; else staff++;
+    });
+    return { staff: staff, parent: parent };
+  } catch (error) {
+    return null;
   }
-  sheet.setRowHeight(1, 68);
-  sheet.setRowHeight(2, 34);
-  sheet.setRowHeight(9, 50);
-  sheet.setRowHeight(11, 38);
-  sheet.setRowHeight(12, 42);
-  sheet.setRowHeight(13, 58);
-  sheet.setRowHeight(14, 42);
-  sheet.setRowHeight(16, 42);
-  sheet.setFrozenRows(2);
 }
 
 function unifiedCountData_(sheet, startRow) {
@@ -13087,6 +13143,7 @@ function verifyYes24Connection() {
     "unifiedStyleExportSheet_": unifiedStyleExportSheet_,
     "unifiedEnsureSettingsSheet_": unifiedEnsureSettingsSheet_,
     "unifiedRefreshDashboard_": unifiedRefreshDashboard_,
+    "unifiedAudienceCounts_": unifiedAudienceCounts_,
     "unifiedCountData_": unifiedCountData_,
     "unifiedAuditDataSources": unifiedAuditDataSources,
     "importLegacySeriesSheetsOnce": importLegacySeriesSheetsOnce,
