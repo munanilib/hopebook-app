@@ -2947,6 +2947,13 @@
     .audience-btn:hover,.audience-btn:focus-visible{transform:translateY(-4px);box-shadow:0 22px 50px rgba(0,0,0,.38);outline:none}
     .audience-btn .audience-icon{font-size:clamp(46px,7vw,72px);line-height:1}
     .audience-btn span.audience-sub{font-size:clamp(14px,2.2vw,18px);font-weight:600;opacity:.95}
+    .code-card{max-width:420px;margin:0 auto}
+    .code-input{width:100%;height:60px;box-sizing:border-box;padding:0 16px;border:0;border-radius:16px;font-size:24px;text-align:center;letter-spacing:.2em;background:#fff;color:var(--ink)}
+    .code-message{margin:12px 0 0;color:#ffd9d2;font-weight:700;font-size:15px}
+    .code-message[hidden]{display:none}
+    .code-submit{margin-top:16px;width:100%;height:56px;border:0;border-radius:16px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#fff;font-size:20px;font-weight:900;cursor:pointer}
+    .code-submit[disabled]{opacity:.6;cursor:wait}
+    .code-back{display:inline-block;margin-top:18px;color:rgba(255,255,255,.8);font-size:14px;text-decoration:underline}
     .audience-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px auto 0;font-size:14px}
     .audience-bar[hidden]{display:none}
     .audience-badge{padding:6px 15px;border-radius:999px;background:var(--blue-soft);color:var(--forest-dark);font-weight:800}
@@ -3020,6 +3027,17 @@
         <a class="audience-btn parent" href="#" data-audience="parent"><span class="audience-icon">👨‍👩‍👧</span>학부모<span class="audience-sub">학부모님 희망도서 신청</span></a>
       </div>
     </div>
+  </div>
+  <div id="staffCodeGate" class="audience-gate" hidden>
+    <form class="audience-card code-card" id="staffCodeForm" autocomplete="off">
+      <p class="eyebrow">STAFF ONLY</p>
+      <h2>🔑 교직원 인증</h2>
+      <p class="audience-desc">학교에서 안내한 인증번호를 입력해 주십시오.</p>
+      <input id="staffCodeInput" class="code-input" type="password" inputmode="text" autocomplete="off" maxlength="12" placeholder="인증번호" aria-label="교직원 인증번호">
+      <p id="staffCodeMessage" class="code-message" role="alert" hidden></p>
+      <button type="submit" id="staffCodeSubmit" class="code-submit">확인</button>
+      <a id="staffCodeBack" class="code-back" href="#">← 처음 화면</a>
+    </form>
   </div>
   <header class="header">
     <p class="eyebrow">BOOK REQUEST</p>
@@ -4599,6 +4617,7 @@
       const requestPayload = {
         applicant: applicant.value.trim(),
         audience: window.HR_AUDIENCE || 'staff',
+        staffCode: window.HR_STAFF_CODE || '',
         books: selectedBooks,
         requestId: createRequestId()
       };
@@ -4878,7 +4897,7 @@
             getErrorMessage(error);
           requestListStatus.classList.remove('hide');
         })
-        .HR_getSubmittedRequests(window.HR_AUDIENCE || 'staff');
+        .HR_getSubmittedRequests(window.HR_AUDIENCE || 'staff', window.HR_STAFF_CODE || '');
     }
 
     function renderSubmittedRequests(response) {
@@ -5226,6 +5245,7 @@
         })
         .HR_cancelSubmittedRequest({
           audience: window.HR_AUDIENCE || 'staff',
+          staffCode: window.HR_STAFF_CODE || '',
           row: candidate.item.row,
           title: candidate.item.title,
           isbn: candidate.item.isbn
@@ -5293,6 +5313,7 @@
           .withFailureHandler(onFailure)
           .HR_undoCancelledRequest({
             audience: window.HR_AUDIENCE || 'staff',
+            staffCode: window.HR_STAFF_CODE || '',
             cancelId: item.cancelId
           });
         return;
@@ -5364,6 +5385,7 @@
         })
         .HR_undoCancelledRequest({
           audience: window.HR_AUDIENCE || 'staff',
+          staffCode: window.HR_STAFF_CODE || '',
           cancelId: candidate.cancelId
         });
     }
@@ -5886,6 +5908,7 @@
       var INITIAL = '<?= audience ?>';
       var BASE_URL = '<?= baseUrl ?>';
       var FROM_GATE = '<?= fromGate ?>' === 'true';
+      var STAFF_CODE_REQUIRED = '<?= staffCodeRequired ?>' === 'true';
       var gate = document.getElementById('audienceGate');
       var bar = document.getElementById('audienceBar');
       var badge = document.getElementById('audienceBadge');
@@ -5928,8 +5951,86 @@
         el.addEventListener('change', syncParentApplicant);
       });
 
-      function applyAudience(audience) {
+      // ----- 교직원 인증번호 -----
+      var codeGate = document.getElementById('staffCodeGate');
+      var codeForm = document.getElementById('staffCodeForm');
+      var codeInput = document.getElementById('staffCodeInput');
+      var codeMessage = document.getElementById('staffCodeMessage');
+      var codeSubmit = document.getElementById('staffCodeSubmit');
+      var codeBack = document.getElementById('staffCodeBack');
+      window.HR_STAFF_CODE = '';
+      try { window.HR_STAFF_CODE = window.sessionStorage.getItem('HR_STAFF_CODE') || ''; } catch (e) {}
+
+      function showCodeMessage(text) {
+        codeMessage.textContent = text || '';
+        codeMessage.hidden = !text;
+      }
+
+      function askStaffCode() {
+        gate.hidden = true;
+        bar.hidden = true;
+        codeGate.hidden = false;
+        showCodeMessage('');
+        codeInput.value = '';
+        window.setTimeout(function () { try { codeInput.focus(); } catch (e) {} }, 50);
+      }
+
+      // 이미 입력해 둔 번호가 있으면 서버에 한 번 더 물어보고, 맞으면 바로 들어갑니다.
+      function checkSavedCode(onOk, onNeed) {
+        if (!window.HR_STAFF_CODE || typeof google === 'undefined' || !google.script || !google.script.run) {
+          onNeed();
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function (result) {
+            if (result && result.ok) { onOk(); } else { window.HR_STAFF_CODE = ''; onNeed(); }
+          })
+          .withFailureHandler(function () { onNeed(); })
+          .HR_verifyStaffCode(window.HR_STAFF_CODE);
+      }
+
+      if (codeForm) {
+        codeForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          var typed = String(codeInput.value || '').trim();
+          if (!typed) { showCodeMessage('인증번호를 입력해 주십시오.'); return; }
+          codeSubmit.disabled = true;
+          showCodeMessage('');
+          google.script.run
+            .withSuccessHandler(function (result) {
+              codeSubmit.disabled = false;
+              if (result && result.ok) {
+                window.HR_STAFF_CODE = typed;
+                try { window.sessionStorage.setItem('HR_STAFF_CODE', typed); } catch (e) {}
+                codeGate.hidden = true;
+                applyAudience('staff', true);
+              } else {
+                codeInput.value = '';
+                showCodeMessage('인증번호가 맞지 않습니다. 다시 입력해 주십시오.');
+                codeInput.focus();
+              }
+            })
+            .withFailureHandler(function (error) {
+              codeSubmit.disabled = false;
+              showCodeMessage(typeof getErrorMessage === 'function' ? getErrorMessage(error) : '확인하지 못했습니다. 잠시 뒤 다시 시도해 주십시오.');
+            })
+            .HR_verifyStaffCode(typed);
+        });
+        codeBack.setAttribute('href', BASE_URL || '#');
+        if (BASE_URL) {
+          codeBack.setAttribute('target', '_top');
+        } else {
+          codeBack.addEventListener('click', function (event) { event.preventDefault(); window.location.reload(); });
+        }
+        codeBack.hidden = !FROM_GATE;
+      }
+
+      function applyAudience(audience, codeChecked) {
         var isParent = audience === 'parent';
+        if (!isParent && STAFF_CODE_REQUIRED && !codeChecked) {
+          checkSavedCode(function () { applyAudience(audience, true); }, askStaffCode);
+          return;
+        }
         window.HR_AUDIENCE = audience;
         document.body.classList.toggle('aud-parent', isParent);
         if (window.HR_renderGuide) window.HR_renderGuide(audience);

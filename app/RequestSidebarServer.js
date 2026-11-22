@@ -57,6 +57,7 @@ function doGet(e) {
   template.buildId = HR_BUILD_ID;
   template.limitStaff = HR_getRequestLimit_('staff');
   template.limitParent = HR_getRequestLimit_('parent');
+  template.staffCodeRequired = HR_isStaffCodeEnabled_();
   template.managerName = managerName;
   template.managerExtension = managerExtension;
 
@@ -322,6 +323,7 @@ function HR_submitBookRequest(formData) {
     40
   );
   var requestAudience = HR_audienceKey_(formData && formData.audience);
+  HR_requireStaffAccess_(requestAudience, formData && formData.staffCode);
   var configuredManagerName = String(
     PropertiesService.getScriptProperties()
       .getProperty(HR_MANAGER_NAME_PROPERTY) || ''
@@ -735,6 +737,7 @@ function HR_submitBookRequests(formData) {
       ? formData.books
       : [];
   var requestAudience = HR_audienceKey_(formData && formData.audience);
+  HR_requireStaffAccess_(requestAudience, formData && formData.staffCode);
   var results = [];
   var bookIndex = 0;
   var successCount = 0;
@@ -1965,32 +1968,14 @@ function HR_formatGuideSheetLegacy_() {
  * ============================================================
  */
 
-// 메뉴: 「🔄 최신 버전 가져오기」
-// 5분 저장분을 지워서, 시트를 새로고침하면 GitHub의 가장 새 버전을 바로 불러오게 합니다.
-function HR_fetchLatestVersion() {
-  var ui = SpreadsheetApp.getUi();
-  try {
-    CacheService.getScriptCache().remove('APP_FRESH_n');
-  } catch (error) {
-    ui.alert('최신 버전을 가져오지 못했습니다', String(error && error.message || error), ui.ButtonSet.OK);
-    return;
-  }
-  ui.alert(
-    '🔄 최신 버전 준비 완료',
-    '다음에 불러올 때 가장 새 버전을 받도록 해 두었습니다.\n\n' +
-    '이제 이 시트 탭을 새로고침(F5)해 주십시오. 새로고침하면 최신 기능과 메뉴가 적용됩니다.',
-    ui.ButtonSet.OK
-  );
-}
-
 function HR_addCopySetupMenu() {
   SpreadsheetApp.getUi()
     .createMenu('⚙️ 사본 설정')
     .addItem('✅ 설정 한 번에 점검', 'HR_showSystemCheck')
     .addItem('🔗 신청 링크 받기', 'HR_showApplyLinksDialog')
     .addItem('📢 업데이트 소식 보기', 'HR_showUpdateNotice')
-    .addItem('🔄 최신 버전 가져오기', 'HR_fetchLatestVersion')
     .addItem('📏 신청 한도 설정', 'HR_showRequestLimitDialog')
+    .addItem('🔑 교직원 인증번호 설정', 'HR_showStaffCodeDialog')
     .addSeparator()
     .addItem(
       '🔑 API 키 설정 (YES24 필수)',
@@ -4039,8 +4024,9 @@ function HR_escapeHtml_(value) {
  * 공개 신청 페이지에 최근 희망도서 신청 목록을 제공합니다.
  * 신청자 이름은 개인정보 보호를 위해 절대 반환하지 않습니다.
  */
-function HR_getSubmittedRequests(audience) {
+function HR_getSubmittedRequests(audience, staffCode) {
   var audienceKey = HR_audienceKey_(audience);
+  HR_requireStaffAccess_(audienceKey, staffCode);
   var spreadsheet = HR_getSpreadsheet_();
   var sheet = spreadsheet.getSheetByName(
     HR_TARGET_SHEET_NAME
@@ -4660,6 +4646,7 @@ function HR_getOrCreateCancelBackup_(
  * 원본 행은 숨김 백업 시트에 보관한 뒤 목록에서 삭제합니다.
  */
 function HR_cancelSubmittedRequest(requestData) {
+  HR_requireStaffAccess_(HR_audienceKey_(requestData && requestData.audience), requestData && requestData.staffCode);
   var rowNumber = Number(
     requestData && requestData.row || 0
   );
@@ -4873,6 +4860,7 @@ function HR_cancelSubmittedRequest(requestData) {
  * 방금 취소한 신청 한 건을 숨김 백업에서 원래 목록으로 복구합니다.
  */
 function HR_undoCancelledRequest(requestData) {
+  HR_requireStaffAccess_(HR_audienceKey_(requestData && requestData.audience), requestData && requestData.staffCode);
   var cancelId = String(
     requestData && requestData.cancelId || ''
   ).trim();
