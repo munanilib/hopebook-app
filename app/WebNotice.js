@@ -157,6 +157,16 @@ function HR_applyNoticeDatePickersAndGuide_(spreadsheet) {
 
 
 function HR_getActiveWebNotices(audience) {
+  // 공지는 없어도 신청에는 지장이 없으므로, 어떤 문제가 생겨도 오류를 내지 않고 빈 목록을 돌려줍니다.
+  try {
+    return HR_readActiveWebNotices_(audience);
+  } catch (error) {
+    console.warn('웹 공지를 읽지 못했습니다: ' + error);
+    return [];
+  }
+}
+
+function HR_readActiveWebNotices_(audience) {
   var audienceKey = HR_audienceKey_(audience);
   var spreadsheet = HR_getSpreadsheet_();
   var sheet = spreadsheet.getSheetByName(HR_WEB_NOTICE_SHEET_NAME);
@@ -165,7 +175,9 @@ function HR_getActiveWebNotices(audience) {
     return [];
   }
 
-  var values = sheet.getRange(4, 1, sheet.getLastRow() - 3, 6).getValues();
+  // 옛 시트는 6번째 칸(대상)이 아직 없을 수 있어서, 있는 칸까지만 읽습니다.
+  var columnCount = Math.min(6, sheet.getMaxColumns());
+  var values = sheet.getRange(4, 1, sheet.getLastRow() - 3, columnCount).getValues();
   var now = new Date();
   now.setHours(0, 0, 0, 0);
 

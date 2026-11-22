@@ -5748,7 +5748,7 @@
         noticeWrap.hidden = false;
       }
 
-      function loadWebNotices() {
+      function loadWebNotices(retried) {
         if (
           typeof google === 'undefined' ||
           !google.script ||
@@ -5761,19 +5761,24 @@
         google.script.run
           .withSuccessHandler(renderWebNotices)
           .withFailureHandler(function () {
-            if (noticeWrap) noticeWrap.hidden = true;
+            // 일시적인 오류일 수 있어 한 번 더 시도한 뒤에도 안 되면 조용히 숨깁니다.
+            if (retried) {
+              if (noticeWrap) noticeWrap.hidden = true;
+              return;
+            }
+            window.setTimeout(function () { loadWebNotices(true); }, 4000);
           })
           .HR_getActiveWebNotices(window.HR_AUDIENCE || 'staff');
       }
 
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadWebNotices);
+        document.addEventListener("DOMContentLoaded", function () { loadWebNotices(false); });
       } else {
         loadWebNotices();
       }
 
-      window.HR_reloadWebNotices = loadWebNotices;
-      window.setInterval(loadWebNotices, 300000);
+      window.HR_reloadWebNotices = function () { loadWebNotices(false); };
+      window.setInterval(function () { loadWebNotices(false); }, 300000);
     })();
   </script>
 
