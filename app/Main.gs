@@ -2,14 +2,16 @@
  * 🧪 자동 업데이트 시험판 앱
  * 이 파일을 고쳐서 GitHub(stable)에 올리면 모든 사본에 반영됩니다.
  */
-const TEST_MESSAGE = '자동 업데이트 성공! 두 번째 버전입니다';
+const TEST_MESSAGE = '🎉🎉 자동 업데이트 성공! 세 번째 버전입니다 🎉🎉';
 
 var APP_MENUS = [
-  { title: '🧪 시험판', items: [
+  { title: '🚀 시험판 v3 (자동 업데이트됨!)', items: [
     ['💬 버전 확인', 'showVersion'],
     ['📋 사이드바 열기', 'showSidebar'],
     '-',
-    ['✍️ 시트에 기록 남기기', 'writeTestRow']
+    ['✍️ 시트에 기록 남기기', 'writeTestRow'],
+    '-',
+    ['🎁 새로 생긴 기능', 'newFeature']
   ]}
 ];
 
@@ -18,7 +20,7 @@ function onOpen(e) {
 }
 
 function appVersion_() {
-  return '1';
+  return '3';
 }
 
 function showVersion() {
@@ -29,6 +31,10 @@ function showSidebar() {
   const html = HtmlService.createTemplateFromFile('Sidebar');
   html.message = TEST_MESSAGE;
   SpreadsheetApp.getUi().showSidebar(html.evaluate().setTitle('🧪 시험판'));
+}
+
+function newFeature() {
+  SpreadsheetApp.getUi().alert('🎁 새 기능', '이 메뉴는 v3에서 새로 생겼어요.\n시트의 스크립트는 하나도 바꾸지 않았습니다!', SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function writeTestRow() {
