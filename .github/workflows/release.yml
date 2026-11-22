@@ -1,0 +1,54 @@
+# 매일 새벽 3시(한국 시간)에 main 을 stable 로 올려서 모든 사본에 반영합니다.
+# - 빌드가 깨졌거나 dist 가 최신이 아니면 올리지 않습니다.
+# - 지금 바로 올리고 싶으면 GitHub 의 Actions 탭에서 "Run workflow" 를 누르세요.
+name: 예약 배포 (main → stable)
+
+on:
+  schedule:
+    - cron: '0 18 * * *'   # UTC 18:00 = 한국 시간 03:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 빌드가 최신인지 확인
+        run: |
+          node tools/build.js
+          if ! git diff --quiet -- dist; then
+            echo "::error::dist 가 최신이 아닙니다. node tools/build.js 후 다시 올려 주세요."
+            exit 1
+          fi
+
+      - name: 시크릿·개인정보 검사
+        run: |
+          if grep -rEn "AIza[0-9A-Za-z_-]{20,}|munanilibrary22|munanigpt" app dist shell; then
+            echo "::error::공개 저장소에 올리면 안 되는 값이 있습니다."
+            exit 1
+          fi
+
+      - name: stable 로 올리기
+        run: |
+          git fetch origin stable
+          if [ "$(git rev-parse origin/stable)" = "$(git rev-parse HEAD)" ]; then
+            echo "바뀐 내용이 없어서 건너뜁니다."
+            exit 0
+          fi
+          git push origin HEAD:refs/heads/stable
+          echo "stable 에 반영했습니다: $(git rev-parse --short HEAD)"
