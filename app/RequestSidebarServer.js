@@ -1869,6 +1869,7 @@ function HR_addCopySetupMenu() {
       'HR_showPublicWebAppUrlDialog'
     )
     .addSeparator()
+    .addItem('📥 이전 사본에서 데이터 가져오기', 'HR_importFromOldCopy')
     .addItem('🧰 설정 탭 만들기·새로고침', 'HR_createCopySetupSheet')
     .addItem('🗑️ 설정 완료 후 탭 삭제', 'HR_deleteCopySetupSheet')
     .addToUi();
