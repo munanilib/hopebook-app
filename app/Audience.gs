@@ -211,3 +211,20 @@ function HR_prepareAudienceColumns_() {
   if (list) HR_ensureAudienceColumn_(list);
   HR_ensureNoticeAudienceColumn_(spreadsheet);
 }
+
+// 웹 화면에서 부릅니다: 학부모가 고른 학년·반·번호의 신청 한도와 남은 권수를 알려 줍니다.
+// (신청한 책 제목은 돌려주지 않고 권수만 돌려줍니다.)
+function HR_getParentQuota(grade, classNo, number) {
+  var limit = HR_getRequestLimit_('parent');
+  var g = Number(grade), c = Number(classNo), n = Number(number);
+  var result = { limit: limit, used: 0, remain: limit, known: false };
+  if (!limit || !g || !c || !n) return result;
+
+  var sheet = HR_getSpreadsheet_().getSheetByName(HR_TARGET_SHEET_NAME);
+  if (!sheet) return result;
+  var used = HR_countApplicantRequests_(sheet, 'parent', g + '학년 ' + c + '반 ' + n + '번');
+  result.used = used;
+  result.remain = Math.max(0, limit - used);
+  result.known = true;
+  return result;
+}

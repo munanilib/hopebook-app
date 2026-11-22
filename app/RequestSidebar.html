@@ -2967,6 +2967,11 @@
     /* ===== 학부모/교직원 화면 정리 ===== */
     .parent-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
     .parent-fields .pname{grid-column:1/-1}
+    .parent-quota{margin:12px 0 4px;padding:13px 16px;border-radius:15px;background:#fbf1d4;border:1px solid #ecd48f;color:#5b410a;font-size:15px;line-height:1.55;text-align:center}
+    .parent-quota strong{font-size:20px;color:#2e5b4f}
+    .parent-quota.full{background:#fdecea;border-color:#f0b8b0;color:#8a2a1f}
+    .parent-quota.full strong{color:#b3261e}
+    .parent-quota[hidden]{display:none}
     .parent-fields label{margin:0 0 5px}
     .parent-hint{font-weight:400;font-size:13px;color:var(--sub)}
     #parentApplicantField[hidden],#staffApplicantField[hidden]{display:none}
@@ -3152,6 +3157,7 @@
             <input id="pName" type="text" autocomplete="off" placeholder="예: 홍길동">
           </div>
         </div>
+        <div id="parentQuota" class="parent-quota" hidden aria-live="polite"></div>
         <p class="help">
           🔒 입력하신 학년·반·번호(와 학생 이름)는 희망도서 신청 확인과 도서 구입 처리에만 쓰이며, 도서 구입이 끝나면 함께 파기됩니다. 신청 목록 화면에는 보이지 않습니다.
         </p>
@@ -4901,6 +4907,7 @@
     }
 
     function renderSubmittedRequests(response) {
+      if (typeof window.HR_refreshQuota === 'function') window.HR_refreshQuota();
       const responseItems = Array.isArray(response.items)
         ? response.items
         : [];
@@ -6025,6 +6032,45 @@
         codeBack.hidden = !FROM_GATE;
       }
 
+      // ----- 남은 신청 가능 권수 안내 (학부모) -----
+      var quotaBox = document.getElementById('parentQuota');
+      var LIMIT_PARENT = Number('<?= limitParent ?>') || 0;
+      var quotaTimer = null;
+
+      function renderQuota(info) {
+        if (!quotaBox) return;
+        if (!LIMIT_PARENT) { quotaBox.hidden = true; return; }
+        quotaBox.classList.remove('full');
+        if (!info || !info.known) {
+          quotaBox.innerHTML = '한 학생당 최대 <strong>' + LIMIT_PARENT + '권</strong>까지 신청할 수 있습니다.<br>학년·반·번호를 고르면 남은 권수를 알려 드립니다.';
+        } else if (info.remain <= 0) {
+          quotaBox.classList.add('full');
+          quotaBox.innerHTML = '이미 <strong>' + info.used + '권</strong>을 신청하여 더 신청할 수 없습니다. (최대 ' + info.limit + '권)';
+        } else {
+          quotaBox.innerHTML = '한 학생당 최대 ' + info.limit + '권 중 <strong>' + info.remain + '권</strong> 더 신청할 수 있습니다.' +
+            (info.used ? '<br>이미 ' + info.used + '권을 신청했습니다.' : '');
+        }
+        quotaBox.hidden = false;
+      }
+
+      function refreshQuota() {
+        if (!LIMIT_PARENT || window.HR_AUDIENCE !== 'parent') { if (quotaBox) quotaBox.hidden = true; return; }
+        if (!gradeInput.value || !classInput.value || !numberInput.value) { renderQuota(null); return; }
+        if (typeof google === 'undefined' || !google.script || !google.script.run) { renderQuota(null); return; }
+        google.script.run
+          .withSuccessHandler(renderQuota)
+          .withFailureHandler(function () { renderQuota(null); })
+          .HR_getParentQuota(gradeInput.value, classInput.value, numberInput.value);
+      }
+      window.HR_refreshQuota = refreshQuota;
+
+      [gradeInput, classInput, numberInput].forEach(function (el) {
+        el.addEventListener('change', function () {
+          window.clearTimeout(quotaTimer);
+          quotaTimer = window.setTimeout(refreshQuota, 150);
+        });
+      });
+
       function applyAudience(audience, codeChecked) {
         var isParent = audience === 'parent';
         if (!isParent && STAFF_CODE_REQUIRED && !codeChecked) {
@@ -6046,6 +6092,7 @@
           if (applyTab) applyTab.click();
         }
         if (typeof window.HR_reloadWebNotices === 'function') window.HR_reloadWebNotices();
+        refreshQuota();
         if (typeof loadSubmittedRequests === 'function') {
           try { loadSubmittedRequests(true); } catch (e) {}
         }
