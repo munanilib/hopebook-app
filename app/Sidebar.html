@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><base target="_top">
+<style>body{font-family:sans-serif;padding:12px}button{padding:8px 12px}#out{margin-top:12px;color:#1a7f37}</style>
+</head><body>
+  <h3>🧪 사이드바</h3>
+  <p>템플릿 값: <b><?= message ?></b></p>
+  <button onclick="ask()">서버에 물어보기</button>
+  <div id="out"></div>
+<script>
+function ask(){
+  document.getElementById('out').textContent = '물어보는 중…';
+  google.script.run
+    .withSuccessHandler(function(r){ document.getElementById('out').textContent = 'v' + r.version + ' · ' + r.message + ' · ' + r.time; })
+    .withFailureHandler(function(e){ document.getElementById('out').textContent = '오류: ' + e.message; })
+    .getServerInfo('sidebar');
+}
+</script>
+</body></html>
