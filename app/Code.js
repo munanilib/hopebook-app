@@ -101,6 +101,16 @@ function onOpen() {
     console.warn('신청구분 칸 준비 실패: ' + error);
   }
   try {
+    HR_refreshGuidesOnce_();
+  } catch (error) {
+    console.warn('안내 시트 새 내용 반영 실패: ' + error);
+  }
+  try {
+    HR_arrangeTabsOnce_();
+  } catch (error) {
+    console.warn('시트 탭 정리 실패: ' + error);
+  }
+  try {
     HR_showUpdateNoticeOnOpen_();
   } catch (error) {
     console.warn('업데이트 소식 표시 실패: ' + error);

@@ -115,7 +115,7 @@ function HR_isWebAppExecUrl_(url) {
   return /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+|macros)\/s\/[^/]+\/exec$/.test(String(url || ''));
 }
 
-// 「공개 링크 등록」에 저장한 주소(검사를 통과한 것만). 없으면 빈 글자입니다.
+// 「공개 신청 링크 등록」에 저장한 주소(검사를 통과한 것만). 없으면 빈 글자입니다.
 function HR_getRegisteredWebAppUrl_() {
   var saved = String(
     PropertiesService.getScriptProperties().getProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY) || ''
@@ -133,7 +133,7 @@ function HR_getDetectedWebAppUrl_() {
   }
 }
 
-// 이 웹 앱의 주소. 「공개 링크 등록」에 넣은 주소가 항상 먼저이고, 없을 때만 구글이 알려 주는 주소를 씁니다.
+// 이 웹 앱의 주소. 「공개 신청 링크 등록」에 넣은 주소가 항상 먼저이고, 없을 때만 구글이 알려 주는 주소를 씁니다.
 function HR_getWebAppBaseUrl_() {
   return HR_getRegisteredWebAppUrl_() || HR_getDetectedWebAppUrl_();
 }
@@ -3528,7 +3528,7 @@ function HR_prepareTopSetupButtons_(sheet) {
   sheet.getRange('B7:L8').merge().setValue(headerText);
   sheet.getRange('B10:D13').merge().setValue((apiReady ? '✅ ' : '') + '🔑 API 키 설정');
   sheet.getRange('F10:H13').merge().setValue((schoolReady ? '✅ ' : '') + '🏫 학교 최초 설정');
-  sheet.getRange('J10:L13').merge().setValue((publicReady ? '✅ ' : '') + '🔗 공개 링크 등록');
+  sheet.getRange('J10:L13').merge().setValue((publicReady ? '✅ ' : '') + '🔗 공개 신청 링크 등록');
 
   sheet.setColumnWidths(2, 3, 100);
   sheet.setColumnWidth(5, 28);
