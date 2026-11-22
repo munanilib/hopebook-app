@@ -2,7 +2,7 @@
  * 🧪 자동 업데이트 시험판 앱
  * 이 파일을 고쳐서 GitHub(stable)에 올리면 모든 사본에 반영됩니다.
  */
-const TEST_MESSAGE = '첫 번째 버전입니다';
+const TEST_MESSAGE = '자동 업데이트 성공! 두 번째 버전입니다';
 
 var APP_MENUS = [
   { title: '🧪 시험판', items: [

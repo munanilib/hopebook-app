@@ -159,7 +159,35 @@ function onOpen(e) {
   SpreadsheetApp.getUi()
     .createMenu('⚙️ 시작하기')
     .addItem('✅ 프로그램 사용 시작 (권한 승인)', 'shellSetup')
+    .addItem('🩺 진단 (문제 확인)', 'shellDiag')
     .addToUi();
+}
+
+// 단계별로 시험해서 결과를 '_진단' 시트에 적습니다.
+function shellDiag() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName('_진단') || ss.insertSheet('_진단');
+  sh.clear();
+  var rows = [['단계', '결과']];
+  function step(name, fn) {
+    try { rows.push([name, 'OK ' + (fn() || '')]); }
+    catch (err) { rows.push([name, 'ERROR ' + String(err && err.stack || err)]); }
+  }
+  var props = PropertiesService.getScriptProperties();
+  step('1 속성 읽기', function () { return props.getProperty('SHELL_READY'); });
+  step('2 속성 쓰기', function () { props.setProperty('DIAG', '1'); return 'ok'; });
+  step('3 트리거 목록', function () {
+    return ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction() + ':' + t.getEventType(); }).join(', ');
+  });
+  step('4 코드 받기', function () { return shellReadCode_(true).length + '자'; });
+  step('5 eval', function () { __APP = null; return typeof shellApp_(); });
+  step('6 메뉴 목록', function () { return JSON.stringify(shellApp_().menus); });
+  step('7 메뉴맵 저장값', function () { return props.getProperty('SHELL_MENU_MAP'); });
+  step('8 마지막 오류', function () { return props.getProperty('SHELL_LAST_ERROR'); });
+  step('9 m01 실행', function () { return shellMenu_('m01'); });
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+  sh.setColumnWidth(2, 700);
+  ss.setActiveSheet(sh);
 }
 
 function shellSetup() {

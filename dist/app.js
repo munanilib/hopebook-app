@@ -1,4 +1,4 @@
-/* 자동 생성 파일 — 직접 고치지 마세요. (node tools/build.js)  v1 */
+/* 자동 생성 파일 — 직접 고치지 마세요. (node tools/build.js)  v2 */
 var APP_FACTORY = function (__host) {
   var HtmlService = __host.html;
 
@@ -7,7 +7,7 @@ var APP_FACTORY = function (__host) {
  * 🧪 자동 업데이트 시험판 앱
  * 이 파일을 고쳐서 GitHub(stable)에 올리면 모든 사본에 반영됩니다.
  */
-const TEST_MESSAGE = '첫 번째 버전입니다';
+const TEST_MESSAGE = '자동 업데이트 성공! 두 번째 버전입니다';
 
 var APP_MENUS = [
   { title: '🧪 시험판', items: [
@@ -68,7 +68,7 @@ function doGet(e) {
     "doGet": doGet
   };
   return {
-    version: "1",
+    version: "2",
     files: {"Sidebar":"<!DOCTYPE html>\n<html><head><base target=\"_top\">\n<style>body{font-family:sans-serif;padding:12px}button{padding:8px 12px}#out{margin-top:12px;color:#1a7f37}</style>\n</head><body>\n  <h3>🧪 사이드바</h3>\n  <p>템플릿 값: <b><?= message ?></b></p>\n  <button onclick=\"ask()\">서버에 물어보기</button>\n  <div id=\"out\"></div>\n<script>\nfunction ask(){\n  document.getElementById('out').textContent = '물어보는 중…';\n  google.script.run\n    .withSuccessHandler(function(r){ document.getElementById('out').textContent = 'v' + r.version + ' · ' + r.message + ' · ' + r.time; })\n    .withFailureHandler(function(e){ document.getElementById('out').textContent = '오류: ' + e.message; })\n    .getServerInfo('sidebar');\n}\n</script>\n</body></html>\n","Web":"<!DOCTYPE html>\n<html><head><base target=\"_top\">\n<style>body{font-family:sans-serif;padding:24px;max-width:480px;margin:auto}#out{margin-top:16px;font-size:18px;color:#1a7f37}</style>\n</head><body>\n  <h2>🧪 시험판 웹 페이지</h2>\n  <p>로그인 없이 열리는 페이지입니다.</p>\n  <div id=\"out\">불러오는 중…</div>\n<script>\ngoogle.script.run\n  .withSuccessHandler(function(r){ document.getElementById('out').textContent = 'v' + r.version + ' · ' + r.message + ' (' + r.time + ')'; })\n  .withFailureHandler(function(e){ document.getElementById('out').textContent = '오류: ' + e.message; })\n  .getServerInfo('web');\n</script>\n</body></html>\n"},
     menus: (typeof APP_MENUS !== 'undefined') ? APP_MENUS : [],
     rpc: ["showVersion","showSidebar","writeTestRow","getServerInfo"],
