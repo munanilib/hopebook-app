@@ -211,3 +211,92 @@ function HR_prepareAudienceColumns_() {
   if (list) HR_ensureAudienceColumn_(list);
   HR_ensureNoticeAudienceColumn_(spreadsheet);
 }
+
+/* ---------- 학부모 개인정보 파기 ---------- */
+
+// 학부모가 입력한 학년·반·번호·학생 이름은 구입이 끝나면 함께 파기합니다.
+// 「3학년 2반 15번 …」 모양의 신청자 글만 찾아서 「(파기됨)」으로 바꾸고,
+// 책 신청 내용과 교직원 이름은 그대로 둡니다.
+var HR_SCRUBBED_TEXT = '(파기됨)';
+
+// 한 시트의 한 열에서 학부모 신청자 글을 파기하고 바꾼 칸 수를 돌려줍니다.
+function HR_scrubApplicantColumn_(sheet, column, firstRow) {
+  if (!sheet || column < 1) return 0;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < firstRow || sheet.getLastColumn() < column) return 0;
+
+  var range = sheet.getRange(firstRow, column, lastRow - firstRow + 1, 1);
+  var values = range.getValues();
+  var changed = 0;
+  var out = values.map(function(row) {
+    if (HR_parseParentApplicant_(row[0])) {
+      changed++;
+      return [HR_SCRUBBED_TEXT];
+    }
+    return [row[0]];   // 다른 칸은 원래 값 그대로
+  });
+  if (changed) range.setValues(out);
+  return changed;
+}
+
+// 신청 목록·접수 백업·취소 백업·숨김 보관 시트에서 학부모 개인정보를 모두 파기합니다.
+function HR_scrubParentApplicants_() {
+  var spreadsheet = HR_getSpreadsheet_();
+  var result = { list: 0, backup: 0, cancelBackup: 0, archive: 0, total: 0 };
+
+  var list = spreadsheet.getSheetByName(HR_TARGET_SHEET_NAME);
+  var listApplicantColumn = 0;
+  if (list) {
+    listApplicantColumn = HR_findHeaderColumn_(getHeaders(list), '신청자', 11);
+    result.list = HR_scrubApplicantColumn_(list, listApplicantColumn, FIRST_DATA_ROW);
+  }
+
+  // 접수 백업: 3번째 칸이 신청자
+  result.backup = HR_scrubApplicantColumn_(
+    spreadsheet.getSheetByName(HR_REQUEST_BACKUP_SHEET_NAME), 3, 2
+  );
+
+  // 취소 백업: 8칸의 관리 정보 뒤에 원래 목록의 줄이 그대로 복사되어 있음
+  if (listApplicantColumn) {
+    result.cancelBackup = HR_scrubApplicantColumn_(
+      spreadsheet.getSheetByName(HR_REQUEST_CANCEL_BACKUP_SHEET_NAME), 8 + listApplicantColumn, 2
+    );
+  }
+
+  // 「새 신청 시작」 때 목록을 통째로 보관한 숨김 시트들(🗂 희망도서 …)
+  spreadsheet.getSheets().forEach(function(sheet) {
+    if (String(sheet.getName()).indexOf('🗂 희망도서') !== 0) return;
+    var column = HR_findHeaderColumn_(getHeaders(sheet), '신청자', 11);
+    result.archive += HR_scrubApplicantColumn_(sheet, column, FIRST_DATA_ROW);
+  });
+
+  result.total = result.list + result.backup + result.cancelBackup + result.archive;
+  return result;
+}
+
+// 메뉴: 「🧹 학부모 개인정보 파기」
+function HR_destroyParentInfo() {
+  var ui = SpreadsheetApp.getUi();
+  var answer = ui.alert(
+    '🧹 학부모 개인정보 파기',
+    '학부모가 입력한 학년·반·번호·학생 이름을 모두 지웁니다.\n' +
+    '(신청 목록, 숨김 백업, 새 신청 시작 때 만든 보관 시트)\n\n' +
+    '책 신청 내용은 그대로 두고, 신청자 칸만 「(파기됨)」으로 바뀝니다. 교직원 이름은 지우지 않습니다.\n\n' +
+    '⚠️ 도서 구입이 끝난 뒤에만 사용하세요. 지운 정보는 되돌릴 수 없고, 학생별 신청 한도도 0권부터 다시 셉니다.\n\n' +
+    '계속할까요?',
+    ui.ButtonSet.YES_NO
+  );
+  if (answer !== ui.Button.YES) return;
+
+  var result = HR_scrubParentApplicants_();
+  SpreadsheetApp.flush();
+  ui.alert(
+    '✅ 파기를 마쳤습니다',
+    result.total
+      ? '학부모 개인정보 ' + result.total + '건을 파기했습니다.\n' +
+        '• 신청 목록 ' + result.list + '건\n• 접수 백업 ' + result.backup + '건\n' +
+        '• 취소 백업 ' + result.cancelBackup + '건\n• 보관 시트 ' + result.archive + '건'
+      : '파기할 학부모 개인정보가 없습니다. (이미 파기했거나 학부모 신청이 없습니다.)',
+    ui.ButtonSet.OK
+  );
+}
