@@ -2976,6 +2976,24 @@
     @media (max-width:620px){
       .header .audience-bar{position:static;margin:14px 0 0;justify-content:flex-start;flex-wrap:wrap}
     }
+
+    /* ===== 신청 방법: 가운데 큰 안내창 ===== */
+    .guide-hover:hover .guide-popover,
+    .guide-hover:focus-within .guide-popover{opacity:0;visibility:hidden;pointer-events:none}
+    .guide-popover{position:fixed;top:50%;left:50%;right:auto;z-index:10001;width:min(620px,calc(100vw - 28px));max-height:calc(100vh - 40px);padding:26px 22px 22px;border:0;border-radius:26px;background:var(--paper);box-shadow:0 24px 70px rgba(0,0,0,.35);transform:translate(-50%,-46%)}
+    .guide-popover::before{display:none}
+    body.guide-open .guide-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,-50%)}
+    #guideBackdrop{position:fixed;inset:0;z-index:10000;background:rgba(32,63,53,.62);opacity:0;visibility:hidden;transition:opacity .16s}
+    body.guide-open #guideBackdrop{opacity:1;visibility:visible}
+    .guide-popover h2{margin:0 0 16px;font-size:26px;color:var(--forest-dark)}
+    .guide-popover ol{gap:10px}
+    .guide-popover li{grid-template-columns:1fr;gap:4px;padding:14px 16px;border-radius:16px;background:var(--cream);border:1px solid #efe2bd}
+    .guide-popover strong{font-size:18px;color:var(--gold-dark)}
+    .guide-popover span{font-size:16px;line-height:1.6;color:var(--ink)}
+    .guide-popover p{margin:14px 0 0;padding:13px 15px;border-radius:14px;background:var(--blue-soft);color:var(--forest-dark);font-size:15px;font-weight:700;line-height:1.6}
+    .guide-popover p.guide-limit{margin-top:10px;background:#fff6da;color:#7a5a12}
+    .guide-close{display:block;width:100%;margin-top:16px;padding:15px;border:0;border-radius:15px;background:linear-gradient(135deg,var(--forest),var(--forest-dark));color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+    @media (max-width:620px){ .guide-popover{padding:22px 16px 18px} .guide-popover h2{font-size:22px} .guide-popover strong{font-size:17px} .guide-popover span{font-size:15px} }
 </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -3039,16 +3057,17 @@
         ❓ 신청 방법
       </button>
 
-      <div id="guidePopover" class="guide-popover" role="tooltip">
-        <h2>이렇게 신청하세요</h2>
-        <ol>
+      <div id="guidePopover" class="guide-popover" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+        <h2 id="guideTitle">이렇게 신청하세요</h2>
+        <ol id="guideSteps">
           <li><strong>1. 책 검색</strong><span>책 제목 또는 ISBN을 입력하고 「책 검색하기」를 누릅니다.</span></li>
           <li><strong>2. 신청바구니에 담기</strong><span>표지·저자·출판사·연도·정가를 확인하고 「신청바구니에 담기」를 누릅니다.</span></li>
           <li><strong>3. 다른 책도 계속 담기</strong><span>검색어를 바꿔도 담은 책은 유지되며, 한 번에 최대 20권까지 담을 수 있습니다.</span></li>
           <li><strong>4. 한꺼번에 신청</strong><span>화면 아래 신청바구니에서 「선택한 도서 신청하기」를 누릅니다.</span></li>
           <li><strong>5. 결과 확인·취소</strong><span>「신청 목록」에서 접수 결과와 서지정보를 확인하고, 필요하면 신청을 취소하거나 되돌릴 수 있습니다.</span></li>
         </ol>
-        <p>희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.</p>
+        <p id="guideNote">희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.</p>
+        <button type="button" class="guide-close" id="guideClose">알겠어요</button>
       </div>
     </div>
   </nav>
@@ -5726,6 +5745,86 @@
     })();
   </script>
 
+
+  <script>
+    // 신청 방법 안내: 교직원용/학부모용을 따로 보여 주고, 신청 한도가 있으면 같이 알려 줍니다.
+    (function () {
+      var LIMITS = { staff: Number('<?= limitStaff ?>') || 0, parent: Number('<?= limitParent ?>') || 0 };
+      var hover = document.getElementById('guideHover');
+      var pop = document.getElementById('guidePopover');
+      var title = document.getElementById('guideTitle');
+      var steps = document.getElementById('guideSteps');
+      var note = document.getElementById('guideNote');
+      if (!hover || !pop) return;
+
+      // 위쪽 메뉴 줄의 흐림 효과 때문에 창이 잘리지 않도록 화면 맨 바깥으로 옮깁니다.
+      var backdrop = document.createElement('div');
+      backdrop.id = 'guideBackdrop';
+      document.body.appendChild(backdrop);
+      document.body.appendChild(pop);
+      pop.addEventListener('click', function (event) { event.stopPropagation(); });
+      function close() { if (typeof closeGuidePopover === 'function') closeGuidePopover(); }
+      backdrop.addEventListener('click', close);
+      document.getElementById('guideClose').addEventListener('click', close);
+      document.addEventListener('keydown', function (event) { if (event.key === 'Escape') close(); });
+      new MutationObserver(function () {
+        document.body.classList.toggle('guide-open', hover.classList.contains('open'));
+      }).observe(hover, { attributes: true, attributeFilter: ['class'] });
+
+      var COMMON = [
+        ['2. 신청바구니에 담기', '표지·저자·출판사·연도·정가를 확인하고 「신청바구니에 담기」를 누릅니다. 여러 권을 담을 수 있고, 한 번에 최대 20권까지 신청할 수 있어요.'],
+        ['3. 신청하기', '화면 아래 신청바구니에서 「선택한 도서 신청하기」를 누릅니다.'],
+        ['4. 결과 확인·취소', '「신청 목록」에서 접수 결과를 확인하세요. 잘못 신청했다면 취소할 수 있고, 바로 되돌릴 수도 있어요.']
+      ];
+      var CONTENT = {
+        staff: {
+          title: '선생님, 이렇게 신청하세요',
+          steps: [
+            ['1. 신청자 이름 쓰기', '「신청자」 칸에 이름을 입력하세요. (예: 홍길동)'],
+            ['2. 책 검색하기', '책 제목 또는 ISBN을 입력하고 「책 검색하기」를 누릅니다.'],
+            ['3. 신청바구니에 담기', COMMON[0][1]],
+            ['4. 신청하기', COMMON[1][1]],
+            ['5. 결과 확인·취소', COMMON[2][1]]
+          ],
+          note: '희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.'
+        },
+        parent: {
+          title: '학부모님, 이렇게 신청하세요',
+          steps: [
+            ['1. 우리 아이 정보 쓰기', '학년·반·번호를 꼭 입력해 주세요. 학생 이름은 안 써도 돼요.'],
+            ['2. 책 검색하기', '읽고 싶은 책의 제목 또는 ISBN을 입력하고 「책 검색하기」를 누릅니다.'],
+            ['3. 신청바구니에 담기', COMMON[0][1]],
+            ['4. 신청하기', COMMON[1][1]],
+            ['5. 결과 확인·취소', COMMON[2][1]]
+          ],
+          note: '입력한 학년·반·번호는 신청 확인에만 쓰이고, 신청 목록에는 보이지 않아요. 이미 학교에 있는 책이나 이미 신청된 책은 신청되지 않아요.'
+        }
+      };
+
+      function esc(text) {
+        return String(text).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+      }
+
+      window.HR_renderGuide = function (audience) {
+        var key = audience === 'parent' ? 'parent' : 'staff';
+        var data = CONTENT[key], limit = LIMITS[key];
+        title.textContent = data.title;
+        steps.innerHTML = data.steps.map(function (s) {
+          return '<li><strong>' + esc(s[0]) + '</strong><span>' + esc(s[1]) + '</span></li>';
+        }).join('');
+        note.textContent = data.note;
+        var old = pop.querySelector('.guide-limit');
+        if (old) old.parentNode.removeChild(old);
+        if (limit > 0) {
+          var p = document.createElement('p');
+          p.className = 'guide-limit';
+          p.textContent = (key === 'parent' ? '한 학생당' : '한 사람당') + ' 최대 ' + limit + '권까지 신청할 수 있어요.';
+          note.parentNode.insertBefore(p, note.nextSibling);
+        }
+      };
+      window.HR_renderGuide('staff');
+    })();
+  </script>
   <script>
     (function () {
       var INITIAL = '<?= audience ?>';
@@ -5766,6 +5865,7 @@
         var isParent = audience === 'parent';
         window.HR_AUDIENCE = audience;
         document.body.classList.toggle('aud-parent', isParent);
+        if (window.HR_renderGuide) window.HR_renderGuide(audience);
         gate.hidden = true;
         bar.hidden = false;
         badge.textContent = isParent ? '👨‍👩‍👧 학부모 신청' : '🧑‍🏫 교직원 신청';

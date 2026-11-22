@@ -50,6 +50,8 @@ function doGet(e) {
   template.audience = audience;
   template.fromGate = String(e && e.parameter && e.parameter.g || '') === '1';
   template.baseUrl = HR_getWebAppBaseUrl_();
+  template.limitStaff = HR_getRequestLimit_('staff');
+  template.limitParent = HR_getRequestLimit_('parent');
   template.managerName = managerName;
   template.managerExtension = managerExtension;
 
