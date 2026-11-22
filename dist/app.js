@@ -4896,7 +4896,7 @@ function HR_createCopySetupSheet() {
   );
 
   spreadsheet.setActiveSheet(setupSheet);
-  setupsheet.getRange('A3').activate();
+  setupSheet.getRange('A3').activate();
 
   return {
     success: true,
@@ -4997,8 +4997,10 @@ sheet.clear();
       text: 'D10:L13',
       number: '1',
       value:
-        '사본 만들고 메뉴 확인하기\n' +
-        '원본 시트에서 「파일 → 사본 만들기」를 누르고 새 학교 이름으로 저장하세요. 새 파일이 열리면 5~10초 기다립니다. 화면 위쪽에 「⚙️ 사본 설정」이 안 보이면 브라우저 새로고침 버튼을 한 번 누르세요.'
+        '사본 만들고 시작 버튼 누르기\n' +
+        '① 원본 시트에서 「파일 → 사본 만들기」를 누르고 새 학교 이름으로 저장하세요.\n' +
+        '② 새 파일이 열리면 5~10초 기다린 뒤 브라우저 새로고침 버튼을 한 번 누르세요.\n' +
+        '③ 위쪽 「⚙️ 시작하기」 → 「✅ 프로그램 사용 시작」을 누르세요. 구글 허용 창이 뜨면 내 계정 → 「고급」 → 「이동(안전하지 않음)」 → 「허용」 순서로 누르세요. 처음 한 번만 하면 되고, 경고가 뜨는 건 정상이에요. 몇 초 뒤 「⚙️ 사본 설정」 메뉴가 나타납니다.'
     },
     {
       badge: 'B15:C18',
@@ -5204,7 +5206,8 @@ sheet.clear();
   sheet
     .getRange('B81')
     .setValue(
-      'YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 없어도 됩니다.'
+      'YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 없어도 됩니다.\n' +
+      '이 시트의 프로그램은 저절로 최신 기능으로 바뀝니다. 따로 업데이트하지 않아도 돼요.'
     )
     .setBackground('#EDF4FF')
     .setFontColor('#284E86')
@@ -5237,13 +5240,16 @@ sheet.clear();
     sheet.setRowHeight(rowNumber, 34);
   });
   [
-    10, 11, 12, 13, 15, 16, 17, 18,
+    15, 16, 17, 18,
     21, 22, 23, 24, 32, 33, 34, 35,
     44, 45, 46, 47, 49, 50, 51, 52,
     61, 62, 63, 65, 66, 67, 69, 70, 71,
     73, 74, 75, 77, 78, 79
   ].forEach(function(rowNumber) {
     sheet.setRowHeight(rowNumber, 34);
+  });
+  [10, 11, 12, 13].forEach(function(rowNumber) {
+    sheet.setRowHeight(rowNumber, 62);
   });
   [26, 27, 28, 29, 30].forEach(function(rowNumber) {
     sheet.setRowHeight(rowNumber, 40);
@@ -5255,7 +5261,7 @@ sheet.clear();
     sheet.setRowHeight(rowNumber, 42);
   });
   [81, 82].forEach(function(rowNumber) {
-    sheet.setRowHeight(rowNumber, 31);
+    sheet.setRowHeight(rowNumber, 38);
   });
   [
     6, 9, 14, 20, 25, 31, 36, 43, 48, 53,
