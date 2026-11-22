@@ -4645,7 +4645,28 @@
 
           submissionInProgress = false;
           setCartLoading(false);
-          showMessage(getErrorMessage(error), 'error');
+          const failText = getErrorMessage(error);
+
+          // 꼭 알아야 하는 안내(신청 한도, 학부모 정보 빠짐)는 눈에 띄는 팝업으로 보여 줍니다.
+          if (/최대 \d+권까지 신청할 수 있어요/.test(failText)) {
+            message.className = 'message';
+            showNoticeModal({
+              type: 'duplicate',
+              icon: '✋',
+              title: '신청 한도를 넘었어요',
+              description: failText
+            });
+          } else if (/학년·반·번호를 모두 골라/.test(failText)) {
+            message.className = 'message';
+            showNoticeModal({
+              type: 'duplicate',
+              icon: '🧒',
+              title: '우리 아이 정보를 골라 주세요',
+              description: failText
+            });
+          } else {
+            showMessage(failText, 'error');
+          }
         })
         .HR_submitBookRequests(requestPayload);
     }
