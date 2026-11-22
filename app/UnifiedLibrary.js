@@ -2640,7 +2640,11 @@ function unifiedEnsureUploadSheet_() {
   var sheet = ss.getSheetByName(UNIFIED_UPLOAD_SHEET);
 
   if (!sheet) {
-    sheet = ss.insertSheet(UNIFIED_UPLOAD_SHEET);
+    // 처음 만들 때는 「희망도서 목록」 바로 오른쪽에 놓습니다. (목록이 없으면 맨 뒤)
+    var listSheet = ss.getSheetByName(UNIFIED_REQUEST_SHEET);
+    sheet = listSheet
+      ? ss.insertSheet(UNIFIED_UPLOAD_SHEET, listSheet.getIndex())
+      : ss.insertSheet(UNIFIED_UPLOAD_SHEET);
   }
 
   if (sheet.getMaxColumns() < 11) {

@@ -3056,7 +3056,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = '261122-1949';
+var HR_BUILD_ID = '261122-1952';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -11408,7 +11408,11 @@ function unifiedEnsureUploadSheet_() {
   var sheet = ss.getSheetByName(UNIFIED_UPLOAD_SHEET);
 
   if (!sheet) {
-    sheet = ss.insertSheet(UNIFIED_UPLOAD_SHEET);
+    // 처음 만들 때는 「희망도서 목록」 바로 오른쪽에 놓습니다. (목록이 없으면 맨 뒤)
+    var listSheet = ss.getSheetByName(UNIFIED_REQUEST_SHEET);
+    sheet = listSheet
+      ? ss.insertSheet(UNIFIED_UPLOAD_SHEET, listSheet.getIndex())
+      : ss.insertSheet(UNIFIED_UPLOAD_SHEET);
   }
 
   if (sheet.getMaxColumns() < 11) {
