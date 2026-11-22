@@ -9,6 +9,8 @@
 var HR_AUDIENCE_HEADER = '신청구분';
 var HR_AUDIENCE_LABELS = { staff: '교직원', parent: '학부모' };
 var HR_LIMIT_PROPERTIES = { staff: 'HR_LIMIT_STAFF', parent: 'HR_LIMIT_PARENT' };
+// 한 번도 정하지 않았을 때의 기본값(0 = 제한 없음). 메뉴에서 정하면 그 값이 우선합니다.
+var HR_DEFAULT_LIMITS = { staff: 0, parent: 5 };
 var HR_NOTICE_AUDIENCE_HEADER = '대상';
 var HR_NOTICE_AUDIENCE_VALUES = ['전체', '교직원', '학부모'];
 
@@ -79,8 +81,9 @@ function HR_applicantKey_(audienceKey, applicant) {
 
 function HR_getRequestLimit_(audienceKey) {
   var raw = PropertiesService.getScriptProperties().getProperty(HR_LIMIT_PROPERTIES[audienceKey]);
-  var value = Number(raw || 0);
-  return isFinite(value) && value > 0 ? Math.floor(value) : 0; // 0 = 제한 없음
+  if (raw === null || String(raw).trim() === '') return HR_DEFAULT_LIMITS[audienceKey] || 0; // 아직 안 정함 → 기본값
+  var value = Number(raw);
+  return isFinite(value) && value > 0 ? Math.floor(value) : 0; // 0 = 제한 없음(직접 정한 경우)
 }
 
 // 지금 목록에서 같은 구분·같은 신청자가 이미 신청한 권수
@@ -169,9 +172,10 @@ function HR_showRequestLimitDialog() {
     var current = HR_getRequestLimit_(key);
     var answer = ui.prompt(
       '📏 신청 한도 설정 · ' + HR_audienceLabel_(key),
-      '1인당 신청할 수 있는 권수를 숫자로 입력하세요.\n' +
+      '1인당 신청(구입)할 수 있는 권수를 숫자로 입력하세요.\n' +
       (key === 'parent' ? '(학부모는 한 학생(학년·반·번호)당입니다.)\n' : '') +
-      '0을 넣으면 제한 없음입니다.\n\n지금 설정: ' + (current ? current + '권' : '제한 없음'),
+      '0을 넣으면 제한 없음입니다.\n\n지금 설정: ' + (current ? current + '권' : '제한 없음') +
+      (props.getProperty(HR_LIMIT_PROPERTIES[key]) === null && HR_DEFAULT_LIMITS[key] ? ' (기본값)' : ''),
       ui.ButtonSet.OK_CANCEL
     );
     if (answer.getSelectedButton() !== ui.Button.OK) return;
