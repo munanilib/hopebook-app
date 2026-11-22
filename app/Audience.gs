@@ -133,16 +133,16 @@ function HR_requestLimitMessage_(audienceKey, applicant, addCount) {
 
   var remain = Math.max(0, limit - used);
   var who = audienceKey === 'parent' ? '한 학생당' : '한 사람당';
-  var head = who + ' 최대 ' + limit + '권까지 신청할 수 있어요.';
+  var head = who + ' 최대 ' + limit + '권까지 신청할 수 있습니다.';
 
   if (remain <= 0) {
-    return head + ' 이미 ' + used + '권을 모두 신청하셨어요.';
+    return head + ' 이미 ' + used + '권을 모두 신청하셨습니다.';
   }
   if (used === 0) {
-    return head + ' 지금 ' + addCount + '권을 담으셨어요. ' + limit + '권 이하로 줄여서 다시 신청해 주세요.';
+    return head + ' 지금 ' + addCount + '권을 담으셨습니다. ' + limit + '권 이하로 줄여서 다시 신청해 주십시오.';
   }
-  return head + ' 이미 ' + used + '권을 신청하셨어서 이번에는 ' + remain + '권까지만 가능해요. 담은 ' +
-    addCount + '권을 ' + remain + '권 이하로 줄여 주세요.';
+  return head + ' 이미 ' + used + '권을 신청하셨으므로 이번에는 ' + remain + '권까지만 가능합니다. 담은 ' +
+    addCount + '권을 ' + remain + '권 이하로 줄여 주십시오.';
 }
 
 /* ---------- 공지 대상(전체/교직원/학부모) ---------- */
@@ -181,7 +181,7 @@ function HR_showRequestLimitDialog() {
     var current = HR_getRequestLimit_(key);
     var answer = ui.prompt(
       '📏 신청 한도 설정 · ' + HR_audienceLabel_(key),
-      '1인당 신청(구입)할 수 있는 권수를 숫자로 입력하세요.\n' +
+      '1인당 신청(구입)할 수 있는 권수를 숫자로 입력하십시오.\n' +
       (key === 'parent' ? '(학부모는 한 학생(학년·반·번호)당입니다.)\n' : '') +
       '0을 넣으면 제한 없음입니다.\n\n지금 설정: ' + (current ? current + '권' : '제한 없음') +
       (props.getProperty(HR_LIMIT_PROPERTIES[key]) === null && HR_DEFAULT_LIMITS[key] ? ' (기본값)' : ''),
@@ -193,7 +193,7 @@ function HR_showRequestLimitDialog() {
     if (text === '') { result.push(HR_audienceLabel_(key) + ': 그대로 둠'); continue; }
     var value = Number(text);
     if (!isFinite(value) || value < 0 || value > 500) {
-      ui.alert('숫자를 0~500 사이로 입력해 주세요.');
+      ui.alert('숫자를 0~500 사이로 입력해 주십시오.');
       return;
     }
     value = Math.floor(value);

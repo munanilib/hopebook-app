@@ -756,7 +756,7 @@ function HR_submitBookRequests(formData) {
   }
 
   if (requestAudience === 'parent' && !HR_parseParentApplicant_(applicant)) {
-    throw new Error('학년·반·번호를 모두 골라 주세요. (예: 3학년 2반 15번)');
+    throw new Error('학년·반·번호를 모두 골라 주십시오. (예: 3학년 2반 15번)');
   }
 
   var limitMessage = HR_requestLimitMessage_(
