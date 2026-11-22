@@ -18,6 +18,7 @@ function HR_upgradeNoticeDatePickersAndGuide() {
     visited[spreadsheetId] = true;
     var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     HR_applyNoticeDatePickersAndGuide_(spreadsheet);
+    HR_ensureNoticeAudienceColumn_(spreadsheet);
     results.push(spreadsheet.getName());
   });
 
@@ -155,7 +156,8 @@ function HR_applyNoticeDatePickersAndGuide_(spreadsheet) {
 }
 
 
-function HR_getActiveWebNotices() {
+function HR_getActiveWebNotices(audience) {
+  var audienceKey = HR_audienceKey_(audience);
   var spreadsheet = HR_getSpreadsheet_();
   var sheet = spreadsheet.getSheetByName(HR_WEB_NOTICE_SHEET_NAME);
 
@@ -163,7 +165,7 @@ function HR_getActiveWebNotices() {
     return [];
   }
 
-  var values = sheet.getRange(4, 1, sheet.getLastRow() - 3, 5).getValues();
+  var values = sheet.getRange(4, 1, sheet.getLastRow() - 3, 6).getValues();
   var now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -174,7 +176,16 @@ function HR_getActiveWebNotices() {
     var start = HR_noticeDate_(row[3], false);
     var end = HR_noticeDate_(row[4], true);
 
+    var target = String(row[5] || '전체').trim();
+
     if (!enabled || !message) {
+      return result;
+    }
+    // 「대상」이 교직원/학부모면 해당 구분에만 보여 줍니다. 비어 있거나 전체면 모두에게 보여 줍니다.
+    if (
+      (target === '교직원' && audienceKey !== 'staff') ||
+      (target === '학부모' && audienceKey !== 'parent')
+    ) {
       return result;
     }
     if (start && now.getTime() < start.getTime()) {

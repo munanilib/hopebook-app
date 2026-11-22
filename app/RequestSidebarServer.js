@@ -27,8 +27,9 @@ var HR_YES24_API_MANAGE_URL =
 /**
  * 권한 승인 없이 사용하는 공개 신청 웹앱 화면입니다.
  */
-function doGet() {
+function doGet(e) {
   var properties = PropertiesService.getScriptProperties();
+  var audience = HR_audienceFromParameter_(e && e.parameter && e.parameter.type);
   var schoolName = String(
     properties.getProperty(HR_SCHOOL_NAME_PROPERTY) || ''
   ).trim();
@@ -46,6 +47,7 @@ function doGet() {
   );
 
   template.siteTitle = siteTitle;
+  template.audience = audience;
   template.managerName = managerName;
   template.managerExtension = managerExtension;
 
@@ -241,6 +243,7 @@ function HR_submitBookRequest(formData) {
     formData && formData.applicant,
     40
   );
+  var requestAudience = HR_audienceKey_(formData && formData.audience);
   var configuredManagerName = String(
     PropertiesService.getScriptProperties()
       .getProperty(HR_MANAGER_NAME_PROPERTY) || ''
@@ -447,6 +450,9 @@ function HR_submitBookRequest(formData) {
       sheet.getRange(row, applicantColumn),
       applicant
     );
+    sheet
+      .getRange(row, HR_ensureAudienceColumn_(sheet))
+      .setValue(HR_audienceLabel_(requestAudience));
 
     // 검색 화면에서 이미 받은 YES24 결과를 그대로 사용합니다.
     // 같은 책을 다시 API로 조회하지 않아 접수 시간을 줄입니다.
@@ -650,6 +656,7 @@ function HR_submitBookRequests(formData) {
     formData && Array.isArray(formData.books)
       ? formData.books
       : [];
+  var requestAudience = HR_audienceKey_(formData && formData.audience);
   var results = [];
   var bookIndex = 0;
   var successCount = 0;
@@ -670,6 +677,19 @@ function HR_submitBookRequests(formData) {
     );
   }
 
+  if (requestAudience === 'parent' && !HR_parseParentApplicant_(applicant)) {
+    throw new Error('학년·반·번호를 모두 입력해 주세요. (예: 3학년 2반 15번)');
+  }
+
+  var limitMessage = HR_requestLimitMessage_(
+    requestAudience,
+    applicant,
+    selectedBooks.length
+  );
+  if (limitMessage) {
+    throw new Error(limitMessage);
+  }
+
   for (
     bookIndex = 0;
     bookIndex < selectedBooks.length;
@@ -681,6 +701,7 @@ function HR_submitBookRequests(formData) {
     try {
       result = HR_submitBookRequest({
         applicant: applicant,
+        audience: requestAudience,
         query: selectedBook.isbn || selectedBook.title,
         book: selectedBook,
         requestId: requestIdBase + '-' + bookIndex
@@ -1871,6 +1892,7 @@ function HR_addCopySetupMenu() {
     .createMenu('⚙️ 사본 설정')
     .addItem('✅ 설정 한 번에 점검', 'HR_showSystemCheck')
     .addItem('📢 업데이트 소식 보기', 'HR_showUpdateNotice')
+    .addItem('📏 신청 한도 설정', 'HR_showRequestLimitDialog')
     .addSeparator()
     .addItem(
       '🔑 API 키 설정 (YES24 필수)',
@@ -3913,7 +3935,8 @@ function HR_escapeHtml_(value) {
  * 공개 신청 페이지에 최근 희망도서 신청 목록을 제공합니다.
  * 신청자 이름은 개인정보 보호를 위해 절대 반환하지 않습니다.
  */
-function HR_getSubmittedRequests() {
+function HR_getSubmittedRequests(audience) {
+  var audienceKey = HR_audienceKey_(audience);
   var spreadsheet = HR_getSpreadsheet_();
   var sheet = spreadsheet.getSheetByName(
     HR_TARGET_SHEET_NAME
@@ -4035,6 +4058,8 @@ function HR_getSubmittedRequests() {
     )
     .getFormulas();
 
+  var audienceColumn = HR_findAudienceColumn_(headers);
+
   for (rowIndex = 0; rowIndex < values.length; rowIndex++) {
     var row = values[rowIndex];
     var title = String(
@@ -4042,6 +4067,14 @@ function HR_getSubmittedRequests() {
     ).trim();
 
     if (!title) {
+      continue;
+    }
+
+    // 다른 구분(교직원/학부모)의 신청은 보여 주지 않습니다. 구분이 비어 있으면 교직원입니다.
+    if (
+      (audienceColumn ? HR_audienceKey_(row[audienceColumn - 1]) : 'staff') !==
+      audienceKey
+    ) {
       continue;
     }
 
@@ -4093,7 +4126,8 @@ function HR_getSubmittedRequests() {
   items = items.concat(
     HR_getPendingCancelledItems_(
       spreadsheet,
-      headers
+      headers,
+      audienceKey
     )
   );
 
@@ -4108,7 +4142,8 @@ function HR_getSubmittedRequests() {
 
 function HR_getPendingCancelledItems_(
   spreadsheet,
-  sourceHeaders
+  sourceHeaders,
+  audienceKey
 ) {
   var backupSheet = spreadsheet.getSheetByName(
     HR_REQUEST_CANCEL_BACKUP_SHEET_NAME
@@ -4236,6 +4271,14 @@ function HR_getPendingCancelledItems_(
       !/^취소/.test(backupStatus) ||
       !title
     ) {
+      continue;
+    }
+
+    var pendingAudienceColumn = HR_findAudienceColumn_(headers);
+    var pendingAudience = pendingAudienceColumn
+      ? HR_audienceKey_(sourceRow[pendingAudienceColumn - 1])
+      : 'staff';
+    if (pendingAudience !== HR_audienceKey_(audienceKey)) {
       continue;
     }
 
@@ -4619,6 +4662,18 @@ function HR_cancelSubmittedRequest(requestData) {
       );
     }
 
+    var cancelAudienceColumn = HR_findAudienceColumn_(headers);
+    var cancelRowAudience = cancelAudienceColumn
+      ? HR_audienceKey_(
+        sheet.getRange(rowNumber, cancelAudienceColumn).getDisplayValue()
+      )
+      : 'staff';
+    if (cancelRowAudience !== HR_audienceKey_(requestData && requestData.audience)) {
+      throw new Error(
+        '다른 구분(교직원/학부모)의 신청은 취소할 수 없습니다.'
+      );
+    }
+
     if (/구입|입수|선정|반려/.test(currentStatus)) {
       return {
         success: false,
@@ -4820,6 +4875,17 @@ function HR_undoCancelledRequest(requestData) {
     }
 
     headers = getHeaders(sheet);
+    var undoAudienceColumn = HR_findAudienceColumn_(headers);
+    var undoRowAudience = (undoAudienceColumn && originalColumnCount >= undoAudienceColumn)
+      ? HR_audienceKey_(
+        backupSheet.getRange(backupRow, 8 + undoAudienceColumn).getDisplayValue()
+      )
+      : 'staff';
+    if (undoRowAudience !== HR_audienceKey_(requestData && requestData.audience)) {
+      throw new Error(
+        '다른 구분(교직원/학부모)의 신청은 되돌릴 수 없습니다.'
+      );
+    }
     titleColumn = HR_findAnyHeaderColumn_(
       headers,
       ['도서명', '책 제목', '책제목', '서명', '제목']

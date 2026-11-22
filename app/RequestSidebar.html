@@ -2933,12 +2933,41 @@
   }
 }
 
+
+    /* ===== 교직원 / 학부모 구분 ===== */
+    .audience-gate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(32,63,53,.93)}
+    .audience-gate[hidden]{display:none}
+    .audience-card{background:var(--paper);border-radius:22px;max-width:440px;width:100%;padding:30px 22px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+    .audience-card .eyebrow{margin:0 0 4px}
+    .audience-card h2{margin:6px 0 8px;color:var(--forest-dark);font-size:27px}
+    .audience-card p.audience-desc{color:var(--sub);margin:0 0 14px;line-height:1.55;font-size:15px}
+    .audience-btn{display:block;width:100%;margin:12px 0;padding:19px 14px;border:0;border-radius:16px;font-size:21px;font-weight:800;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--forest),var(--forest-dark))}
+    .audience-btn.parent{background:linear-gradient(135deg,var(--gold),var(--gold-dark))}
+    .audience-btn span{display:block;font-size:13px;font-weight:500;opacity:.94;margin-top:5px}
+    .audience-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px auto 0;font-size:14px}
+    .audience-bar[hidden]{display:none}
+    .audience-badge{padding:6px 15px;border-radius:999px;background:var(--blue-soft);color:var(--forest-dark);font-weight:800}
+    .audience-bar .audience-switch{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;cursor:pointer;color:var(--sub);font-size:13px}
+    .parent-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .parent-fields label,.parent-name-label{font-size:13px;color:var(--sub);display:block;margin-bottom:4px}
+    .parent-fields input,.parent-fields select,#pName{width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink)}
+    .parent-name-label{margin-top:10px}
+    .parent-fields input,.parent-fields select{text-align:center}
 </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
+  <div id="audienceGate" class="audience-gate" hidden>
+    <div class="audience-card" role="dialog" aria-modal="true" aria-labelledby="audienceGateTitle">
+      <p class="eyebrow">BOOK REQUEST</p>
+      <h2 id="audienceGateTitle">어떤 분이신가요?</h2>
+      <p class="audience-desc">신청하는 분을 골라 주세요.<br>교직원과 학부모의 신청은 따로 관리돼요.</p>
+      <button class="audience-btn" type="button" data-audience="staff">🧑‍🏫 교직원<span>선생님·교직원 희망도서 신청</span></button>
+      <button class="audience-btn parent" type="button" data-audience="parent">👨‍👩‍👧 학부모<span>학부모님 희망도서 신청</span></button>
+    </div>
+  </div>
   <header class="header">
     <p class="eyebrow">BOOK REQUEST</p>
     <h1>📚 <?= siteTitle ?></h1>
@@ -2950,6 +2979,11 @@
 
   
   </header>
+
+  <div id="audienceBar" class="audience-bar" hidden>
+    <span id="audienceBadge" class="audience-badge"></span>
+    <button id="audienceSwitch" class="audience-switch" type="button">구분 바꾸기</button>
+  </div>
 
   <section id="hrNoticeTicker" class="hr-notice-ticker" aria-label="도서관 공지 전광판" aria-live="polite" hidden>
     <div class="hr-notice-inner">
@@ -3007,7 +3041,7 @@
     </div>
 
     <form id="requestForm">
-      <div class="field">
+      <div class="field" id="staffApplicantField">
         <label for="applicant">신청자</label>
 
         <input
@@ -3024,6 +3058,29 @@
 
         <p class="help">
           희망도서 신청 시 우선 대출 혜택을 받을 수 있습니다.
+        </p>
+      </div>
+
+      <div class="field" id="parentApplicantField" hidden>
+        <label>우리 아이 정보</label>
+        <div class="parent-fields">
+          <div>
+            <label for="pGrade">학년 (1~6)</label>
+            <select id="pGrade"><option value="">선택</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select>
+          </div>
+          <div>
+            <label for="pClass">반 (숫자)</label>
+            <input id="pClass" type="number" min="1" max="30" inputmode="numeric" placeholder="2">
+          </div>
+          <div>
+            <label for="pNumber">번호 (숫자)</label>
+            <input id="pNumber" type="number" min="1" max="60" inputmode="numeric" placeholder="15">
+          </div>
+        </div>
+        <label class="parent-name-label" for="pName">학생 이름 (선택)</label>
+        <input id="pName" type="text" autocomplete="off" placeholder="예: 홍길동">
+        <p class="help">
+          학년·반·번호는 신청 확인에만 쓰이고, 신청 목록에는 이름이 보이지 않아요.
         </p>
       </div>
 
@@ -4485,6 +4542,7 @@
 
       const requestPayload = {
         applicant: applicant.value.trim(),
+        audience: window.HR_AUDIENCE || 'staff',
         books: selectedBooks,
         requestId: createRequestId()
       };
@@ -4743,7 +4801,7 @@
             getErrorMessage(error);
           requestListStatus.classList.remove('hide');
         })
-        .HR_getSubmittedRequests();
+        .HR_getSubmittedRequests(window.HR_AUDIENCE || 'staff');
     }
 
     function renderSubmittedRequests(response) {
@@ -5090,6 +5148,7 @@
           });
         })
         .HR_cancelSubmittedRequest({
+          audience: window.HR_AUDIENCE || 'staff',
           row: candidate.item.row,
           title: candidate.item.title,
           isbn: candidate.item.isbn
@@ -5156,6 +5215,7 @@
           .withSuccessHandler(onSuccess)
           .withFailureHandler(onFailure)
           .HR_undoCancelledRequest({
+            audience: window.HR_AUDIENCE || 'staff',
             cancelId: item.cancelId
           });
         return;
@@ -5226,6 +5286,7 @@
           });
         })
         .HR_undoCancelledRequest({
+          audience: window.HR_AUDIENCE || 'staff',
           cancelId: candidate.cancelId
         });
     }
@@ -5625,7 +5686,7 @@
           .withFailureHandler(function () {
             if (noticeWrap) noticeWrap.hidden = true;
           })
-          .HR_getActiveWebNotices();
+          .HR_getActiveWebNotices(window.HR_AUDIENCE || 'staff');
       }
 
       if (document.readyState === 'loading') {
@@ -5636,6 +5697,79 @@
 
       window.HR_reloadWebNotices = loadWebNotices;
       window.setInterval(loadWebNotices, 300000);
+    })();
+  </script>
+
+  <script>
+    (function () {
+      var INITIAL = '<?= audience ?>';
+      var gate = document.getElementById('audienceGate');
+      var bar = document.getElementById('audienceBar');
+      var badge = document.getElementById('audienceBadge');
+      var switchButton = document.getElementById('audienceSwitch');
+      var staffField = document.getElementById('staffApplicantField');
+      var parentField = document.getElementById('parentApplicantField');
+      var gradeInput = document.getElementById('pGrade');
+      var classInput = document.getElementById('pClass');
+      var numberInput = document.getElementById('pNumber');
+      var nameInput = document.getElementById('pName');
+      var uploadTab = document.querySelector('[data-panel="uploadPanel"]');
+      var applyTab = document.querySelector('[data-panel="applyPanel"]');
+      var applicantInput = document.getElementById('applicant');
+
+      window.HR_AUDIENCE = '';
+
+      function syncParentApplicant() {
+        var grade = gradeInput.value;
+        var classNo = String(classInput.value || '').trim();
+        var number = String(numberInput.value || '').trim();
+        var name = String(nameInput.value || '').trim();
+        applicantInput.value = (grade && classNo && number)
+          ? grade + '학년 ' + classNo + '반 ' + number + '번' + (name ? ' ' + name : '')
+          : '';
+      }
+
+      [gradeInput, classInput, numberInput, nameInput].forEach(function (el) {
+        el.addEventListener('input', syncParentApplicant);
+        el.addEventListener('change', syncParentApplicant);
+      });
+
+      function applyAudience(audience) {
+        var isParent = audience === 'parent';
+        window.HR_AUDIENCE = audience;
+        gate.hidden = true;
+        bar.hidden = false;
+        badge.textContent = isParent ? '👨‍👩‍👧 학부모 신청' : '🧑‍🏫 교직원 신청';
+        staffField.hidden = isParent;
+        parentField.hidden = !isParent;
+        if (uploadTab) uploadTab.hidden = isParent;      // 목록 업로드는 교직원 전용
+        if (isParent) {
+          applicantInput.value = '';
+          syncParentApplicant();
+          if (applyTab) applyTab.click();
+        }
+        if (typeof window.HR_reloadWebNotices === 'function') window.HR_reloadWebNotices();
+        if (typeof loadSubmittedRequests === 'function') {
+          try { loadSubmittedRequests(true); } catch (e) {}
+        }
+      }
+
+      gate.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-audience]');
+        if (button) applyAudience(button.getAttribute('data-audience'));
+      });
+
+      switchButton.addEventListener('click', function () {
+        window.location.reload();
+      });
+
+      if (INITIAL === 'parent' || INITIAL === 'staff') {
+        switchButton.hidden = true;     // 전용 링크로 들어온 경우 구분을 바꿀 수 없습니다.
+        applyAudience(INITIAL);
+      } else {
+        gate.hidden = false;
+        if (typeof window.HR_reloadWebNotices === 'function') window.HR_reloadWebNotices();
+      }
     })();
   </script>
 </body>
