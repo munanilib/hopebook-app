@@ -70,7 +70,6 @@ function onOpen() {
     .addItem('⚙️ 실시간 자동화 권한 승인', 'installEditTrigger')
     .addSeparator()
     .addItem('🔐 관리자 · 새 희망도서 신청 시작', 'startNewRequestRound')
-    .addItem('🧹 학부모 개인정보 파기', 'HR_destroyParentInfo')
     .addToUi();
 
   SpreadsheetApp.getUi()
@@ -172,7 +171,6 @@ function startNewRequestRound() {
     '현재 신청 목록 ' + requestCount +
       '건을 숨김 보관한 뒤 새 신청 목록으로 비웁니다.\n\n' +
       '구입 검토함·서점 전달용·우리학교 소장도서·설정은 그대로 유지됩니다.\n' +
-      '🔒 학부모가 입력한 개인정보(학년·반·번호·이름)는 보관 시트와 백업에서도 함께 파기됩니다.\n' +
       '계속할까요?',
     ui.ButtonSet.YES_NO
   );
@@ -197,14 +195,6 @@ function startNewRequestRound() {
       .clearContent();
   }
 
-  // 구입이 끝난 회차의 학부모 개인정보는 보관 시트·백업에서도 함께 파기합니다.
-  let scrubbedCount = 0;
-  try {
-    scrubbedCount = HR_scrubParentApplicants_().total;
-  } catch (error) {
-    console.warn('학부모 개인정보 파기 실패: ' + error);
-  }
-
   if (typeof ensureSelectionControls_ === 'function') {
     ensureSelectionControls_();
   }
@@ -217,8 +207,7 @@ function startNewRequestRound() {
     '새 신청 회차를 시작했습니다.',
     '이전 목록 ' + requestCount + '건은 「' + archiveName +
       '」에 숨김 보관했습니다.\n' +
-      '필요하면 보기 → 숨겨진 시트에서 다시 확인할 수 있습니다.\n' +
-      (scrubbedCount ? '🔒 학부모 개인정보 ' + scrubbedCount + '건은 함께 파기했습니다.' : ''),
+      '필요하면 보기 → 숨겨진 시트에서 다시 확인할 수 있습니다.',
     ui.ButtonSet.OK
   );
 }
@@ -2304,8 +2293,7 @@ function resetHopeBooksForNewSemester() {
     '아래 작업을 진행할까요?\n\n' +
       '• 희망도서 목록: 예시 행은 남기고 실제 신청 목록만 비우기\n' +
       '• 시리즈 누락 점검, 엑셀 업로드 목록, 구입 검토함: 데이터 비우기\n' +
-      '• 서점 전달용: 내용을 보존하고 시트 숨기기\n' +
-      '• 🔒 학부모가 입력한 개인정보(학년·반·번호·이름): 목록·백업·보관 시트에서 함께 파기\n\n' +
+      '• 서점 전달용: 내용을 보존하고 시트 숨기기\n\n' +
       '사용방법·신청안내·웹 공지·대시보드·우리학교 소장도서·취소복구·백업은 유지합니다.',
     ui.ButtonSet.YES_NO
   );
@@ -2341,11 +2329,6 @@ function resetHopeBooksForNewSemester() {
   ss.getSheetByName('🔎 시리즈 누락 점검')
     .getRange('A3').setValue('새 학기 준비 완료 · 점검 결과가 비워졌습니다.');
   bookstore.hideSheet();
-  try {
-    HR_scrubParentApplicants_();   // 학부모 개인정보는 백업·보관 시트에서도 함께 파기
-  } catch (error) {
-    console.warn('학부모 개인정보 파기 실패: ' + error);
-  }
-  ss.toast('신청·검토 데이터 초기화 완료 · 학부모 개인정보 파기 · 서점 전달용 시트는 숨김 처리했습니다.', '새 학기 준비', 8);
+  ss.toast('신청·검토 데이터 초기화 완료 · 서점 전달용 시트는 숨김 처리했습니다.', '새 학기 준비', 8);
 }
 
