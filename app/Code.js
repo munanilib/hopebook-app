@@ -116,6 +116,11 @@ function onOpen() {
     console.warn('업데이트 소식 표시 실패: ' + error);
   }
   try {
+    HR_notifyInquiryAnswersOnOpen_();
+  } catch (error) {
+    console.warn('문의 답변 확인 실패: ' + error);
+  }
+  try {
     ensureSelectionControls_();
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);

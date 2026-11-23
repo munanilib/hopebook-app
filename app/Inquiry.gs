@@ -105,6 +105,13 @@ function HR_getMyInquiries() {
   } catch (error) {
     return { ok: false, message: '답변을 불러오지 못했습니다. (' + String(error && error.message || error).slice(0, 160) + ')' };
   }
+  // 답이 온 문의는 직접 확인했으니, 시트를 열 때 다시 알려 주지 않게 표시합니다.
+  var changed = false;
+  tickets.forEach(function(t) {
+    var a = answers[t.id];
+    if (a && a.status === '답변완료' && !t.done) { t.done = true; changed = true; }
+  });
+  if (changed) PropertiesService.getScriptProperties().setProperty(HR_INQUIRY_TICKETS_PROPERTY, JSON.stringify(tickets));
   return {
     ok: true,
     items: tickets.slice().reverse().map(function(t) {
@@ -115,4 +122,34 @@ function HR_getMyInquiries() {
       };
     })
   };
+}
+
+// 시트를 열 때: 아직 답을 못 본 문의가 있으면 가볍게 확인해서, 답이 도착했으면 알림을 한 번 띄웁니다.
+// - 보낸 문의가 없거나 모두 확인했으면 인터넷 요청을 하지 않습니다.
+// - 같은 답은 한 번만 알립니다.
+function HR_notifyInquiryAnswersOnOpen_() {
+  var tickets = HR_readInquiryTickets_();
+  var waiting = tickets.filter(function(t) { return !t.done; });
+  if (!waiting.length) return;
+
+  var response = UrlFetchApp.fetch(
+    HR_INQUIRY_URL + '?action=answers&tickets=' + encodeURIComponent(waiting.map(function(t) { return t.id; }).join(',')),
+    { muteHttpExceptions: true }
+  );
+  var data = JSON.parse(response.getContentText());
+  if (!data || !data.ok) return;
+
+  var arrived = 0;
+  tickets.forEach(function(t) {
+    var a = (data.items || {})[t.id];
+    if (!t.done && a && a.status === '답변완료') { t.done = true; arrived++; }
+  });
+  if (!arrived) return;
+
+  PropertiesService.getScriptProperties().setProperty(HR_INQUIRY_TICKETS_PROPERTY, JSON.stringify(tickets));
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    '개발자가 문의 ' + arrived + '건에 답변을 남겼습니다. 메뉴 「⚙️ 사본 설정 → 📬 내 문의·답변 보기」에서 확인하십시오.',
+    '💬 답변이 도착했습니다',
+    15
+  );
 }

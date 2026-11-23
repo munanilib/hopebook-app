@@ -417,6 +417,11 @@ function onOpen() {
     console.warn('업데이트 소식 표시 실패: ' + error);
   }
   try {
+    HR_notifyInquiryAnswersOnOpen_();
+  } catch (error) {
+    console.warn('문의 답변 확인 실패: ' + error);
+  }
+  try {
     ensureSelectionControls_();
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);
@@ -2893,6 +2898,13 @@ function HR_getMyInquiries() {
   } catch (error) {
     return { ok: false, message: '답변을 불러오지 못했습니다. (' + String(error && error.message || error).slice(0, 160) + ')' };
   }
+  // 답이 온 문의는 직접 확인했으니, 시트를 열 때 다시 알려 주지 않게 표시합니다.
+  var changed = false;
+  tickets.forEach(function(t) {
+    var a = answers[t.id];
+    if (a && a.status === '답변완료' && !t.done) { t.done = true; changed = true; }
+  });
+  if (changed) PropertiesService.getScriptProperties().setProperty(HR_INQUIRY_TICKETS_PROPERTY, JSON.stringify(tickets));
   return {
     ok: true,
     items: tickets.slice().reverse().map(function(t) {
@@ -2903,6 +2915,36 @@ function HR_getMyInquiries() {
       };
     })
   };
+}
+
+// 시트를 열 때: 아직 답을 못 본 문의가 있으면 가볍게 확인해서, 답이 도착했으면 알림을 한 번 띄웁니다.
+// - 보낸 문의가 없거나 모두 확인했으면 인터넷 요청을 하지 않습니다.
+// - 같은 답은 한 번만 알립니다.
+function HR_notifyInquiryAnswersOnOpen_() {
+  var tickets = HR_readInquiryTickets_();
+  var waiting = tickets.filter(function(t) { return !t.done; });
+  if (!waiting.length) return;
+
+  var response = UrlFetchApp.fetch(
+    HR_INQUIRY_URL + '?action=answers&tickets=' + encodeURIComponent(waiting.map(function(t) { return t.id; }).join(',')),
+    { muteHttpExceptions: true }
+  );
+  var data = JSON.parse(response.getContentText());
+  if (!data || !data.ok) return;
+
+  var arrived = 0;
+  tickets.forEach(function(t) {
+    var a = (data.items || {})[t.id];
+    if (!t.done && a && a.status === '답변완료') { t.done = true; arrived++; }
+  });
+  if (!arrived) return;
+
+  PropertiesService.getScriptProperties().setProperty(HR_INQUIRY_TICKETS_PROPERTY, JSON.stringify(tickets));
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    '개발자가 문의 ' + arrived + '건에 답변을 남겼습니다. 메뉴 「⚙️ 사본 설정 → 📬 내 문의·답변 보기」에서 확인하십시오.',
+    '💬 답변이 도착했습니다',
+    15
+  );
 }
 
 
@@ -3211,7 +3253,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v01395c0';
+var HR_BUILD_ID = 'v7263992';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -13430,6 +13472,7 @@ function verifyYes24Connection() {
     "HR_readInquiryTickets_": HR_readInquiryTickets_,
     "HR_sendInquiry": HR_sendInquiry,
     "HR_getMyInquiries": HR_getMyInquiries,
+    "HR_notifyInquiryAnswersOnOpen_": HR_notifyInquiryAnswersOnOpen_,
     "HR_manualRowHeight_": HR_manualRowHeight_,
     "HR_buildManualSheet_": HR_buildManualSheet_,
     "HR_refreshGuidesOnce_": HR_refreshGuidesOnce_,
