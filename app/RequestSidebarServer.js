@@ -1989,6 +1989,8 @@ function HR_addCopySetupMenu() {
     .addItem('📢 업데이트 소식 보기', 'HR_showUpdateNotice')
     .addItem('📏 신청 한도 설정', 'HR_showRequestLimitDialog')
     .addItem('🔑 교직원 인증번호 설정', 'HR_showStaffCodeDialog')
+    .addItem('💬 개발자에게 문의하기', 'HR_showInquiryDialog')
+    .addItem('📬 내 문의·답변 보기', 'HR_showMyInquiriesDialog')
     .addSeparator()
     .addItem(
       '🔑 API 키 설정 (YES24 필수)',

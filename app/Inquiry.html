@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:18px 20px 22px;background:#f8f5ed;font-family:Arial,"Noto Sans KR",sans-serif;color:#2e3a33}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;padding:11px;border:1px solid #c9d3cc;border-radius:12px;background:#fff;font-size:15px;font-weight:700;color:#4b5a52;cursor:pointer}
+  .tab.on{background:#244d42;border-color:#244d42;color:#fff}
+  label{display:block;margin:12px 0 5px;font-size:13px;font-weight:700;color:#314e43}
+  input,select,textarea{width:100%;padding:10px 12px;border:1px solid #cfd8d2;border-radius:10px;font-size:15px;font-family:inherit;background:#fff}
+  textarea{height:150px;resize:vertical;line-height:1.5}
+  .hint{margin:6px 2px 0;font-size:12px;color:#6a786f;line-height:1.5}
+  .warn{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fdf1d6;color:#6b4d0a;font-size:12.5px;line-height:1.5}
+  .school{display:inline-block;margin-bottom:2px;padding:3px 10px;border-radius:999px;background:#e3efe9;color:#1f5c4a;font-size:12.5px;font-weight:700}
+  button.go{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:#244d42;color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+  button.go:disabled{opacity:.55;cursor:default}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:14px;line-height:1.5}
+  .msg.ok{background:#e3efe9;color:#1f5c4a}.msg.err{background:#fdecea;color:#8a2a1f}
+  .item{margin-bottom:12px;padding:13px 14px;border:1px solid #d9e2dc;border-radius:12px;background:#fff}
+  .item .top{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:#6a786f}
+  .badge{padding:2px 9px;border-radius:999px;font-weight:700;font-size:12px}
+  .badge.wait{background:#eceff0;color:#55616a}.badge.done{background:#dcefe6;color:#1f5c4a}
+  .q{margin:8px 0 0;font-size:14.5px;font-weight:700;color:#244d42}
+  .a{margin:9px 0 0;padding:10px 12px;border-radius:9px;background:#fdf6e3;font-size:14px;line-height:1.55;white-space:pre-wrap}
+  .empty{padding:30px 10px;text-align:center;color:#6a786f;font-size:14px}
+  .hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="tabs">
+  <button type="button" class="tab" id="tabSend">✏️ 문의하기</button>
+  <button type="button" class="tab" id="tabMine">📬 내 문의</button>
+</div>
+
+<div id="paneSend">
+  <span class="school" id="school"></span>
+  <label for="kind">종류</label>
+  <select id="kind"></select>
+  <label for="name">이름 (선택)</label>
+  <input id="name" type="text" maxlength="40" autocomplete="off" placeholder="예: 홍길동 선생님" value="<?= savedName ?>">
+  <label for="body">문의 내용</label>
+  <textarea id="body" maxlength="2000" placeholder="어떤 화면에서 무엇을 하셨을 때 어떻게 되었는지 적어 주시면 빨리 도와드릴 수 있습니다."></textarea>
+  <label for="email">답장 받을 이메일 (선택)</label>
+  <input id="email" type="email" maxlength="100" autocomplete="off" placeholder="비워 두셔도 「내 문의」 탭에서 답을 볼 수 있습니다.">
+  <input class="hp" id="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <div class="warn">🔒 학생 이름·학년반번호 같은 개인정보는 적지 마십시오. 학교 이름과 앱 버전만 함께 전달됩니다.</div>
+  <button class="go" id="send" type="button">보내기</button>
+  <div id="sendMsg" class="msg" hidden></div>
+</div>
+
+<div id="paneMine" hidden>
+  <div id="mineList"></div>
+  <button class="go" id="refresh" type="button">새로고침</button>
+</div>
+
+<script>
+  var KINDS = <?!= kinds ?>;
+  var SCHOOL = '<?= school ?>';
+  var START = '<?= tab ?>';
+  var $ = function (id) { return document.getElementById(id); };
+
+  $('school').textContent = SCHOOL ? '🏫 ' + SCHOOL : '🏫 학교 이름 미설정';
+  KINDS.forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = k; $('kind').appendChild(o); });
+
+  function show(tab) {
+    $('paneSend').hidden = tab !== 'send';
+    $('paneMine').hidden = tab !== 'mine';
+    $('tabSend').className = 'tab' + (tab === 'send' ? ' on' : '');
+    $('tabMine').className = 'tab' + (tab === 'mine' ? ' on' : '');
+    if (tab === 'mine') loadMine();
+  }
+  $('tabSend').onclick = function () { show('send'); };
+  $('tabMine').onclick = function () { show('mine'); };
+
+  function msg(el, text, ok) { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); el.hidden = false; }
+
+  $('send').onclick = function () {
+    var btn = $('send');
+    var body = $('body').value.trim();
+    if (body.length < 5) { msg($('sendMsg'), '문의 내용을 5글자 이상 적어 주세요.', false); return; }
+    btn.disabled = true; btn.textContent = '보내는 중…'; $('sendMsg').hidden = true;
+    google.script.run
+      .withSuccessHandler(function (r) {
+        btn.disabled = false; btn.textContent = '보내기';
+        if (r && r.ok) {
+          $('body').value = '';
+          msg($('sendMsg'), '✅ 문의를 보냈습니다. 답이 달리면 「📬 내 문의」 탭에서 볼 수 있습니다.', true);
+        } else {
+          msg($('sendMsg'), (r && r.message) || '보내지 못했습니다.', false);
+        }
+      })
+      .withFailureHandler(function (e) {
+        btn.disabled = false; btn.textContent = '보내기';
+        msg($('sendMsg'), '보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.', false);
+      })
+      .HR_sendInquiry({ kind: $('kind').value, name: $('name').value, body: body, email: $('email').value, website: $('website').value });
+  };
+
+  function esc(t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; }
+
+  function loadMine() {
+    var list = $('mineList');
+    list.innerHTML = '<div class="empty">불러오는 중…</div>';
+    google.script.run
+      .withSuccessHandler(function (r) {
+        if (!r || !r.ok) { list.innerHTML = '<div class="empty">' + esc((r && r.message) || '불러오지 못했습니다.') + '</div>'; return; }
+        if (!r.items.length) { list.innerHTML = '<div class="empty">아직 보낸 문의가 없습니다.</div>'; return; }
+        list.innerHTML = r.items.map(function (it) {
+          var done = it.status === '답변완료';
+          return '<div class="item"><div class="top"><span>' + esc(it.at) + ' · ' + esc(it.kind) + '</span>' +
+            '<span class="badge ' + (done ? 'done' : 'wait') + '">' + (done ? '답변 도착' : '답변 대기') + '</span></div>' +
+            '<p class="q">' + esc(it.preview) + '</p>' +
+            (done && it.answer ? '<div class="a">💬 ' + esc(it.answer) + (it.answeredAt ? '\n(' + esc(it.answeredAt) + ')' : '') + '</div>' : '') +
+            '</div>';
+        }).join('');
+      })
+      .withFailureHandler(function () { list.innerHTML = '<div class="empty">불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</div>'; })
+      .HR_getMyInquiries();
+  }
+  $('refresh').onclick = loadMine;
+  show(START === 'mine' ? 'mine' : 'send');
+</script>
+</body>
+</html>
