@@ -1339,6 +1339,16 @@
       background: #fbfcff;
     }
 
+    .request-thumb {
+      display: block;
+      width: 64px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin: 4px 0 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+
     .request-item-top {
       display: flex;
       align-items: center;
@@ -3025,10 +3035,10 @@
   <div id="audienceGate" class="audience-gate" hidden>
     <div class="audience-card" role="region" aria-labelledby="audienceGateTitle">
       <p class="eyebrow">BOOK REQUEST</p>
-      <h2 id="audienceGateTitle">희망도서 신청</h2>
+      <h2 id="audienceGateTitle"><?= siteTitle ?></h2>
       <p class="audience-desc">신청하시는 분을 골라 주십시오.<br>교직원과 학부모의 신청은 따로 관리됩니다.</p>
       <div class="audience-choices">
-        <a class="audience-btn" href="#" data-audience="staff"><span class="audience-icon">🧑‍🏫</span>교직원<span class="audience-sub">선생님·교직원 희망도서 신청</span></a>
+        <a class="audience-btn" href="#" data-audience="staff"><span class="audience-icon">🧑‍🏫</span>교직원<span class="audience-sub">교직원 희망도서 신청</span></a>
         <a class="audience-btn parent" href="#" data-audience="parent"><span class="audience-icon">👨‍👩‍👧</span>학부모<span class="audience-sub">학부모님 희망도서 신청</span></a>
       </div>
     </div>
@@ -3326,7 +3336,7 @@
       <div>
         <p class="panel-eyebrow">REQUEST LIST</p>
         <h2 id="requestsTitle">📋 신청된 희망도서</h2>
-        <p>신청자 이름은 표시하지 않고 도서 정보만 보여줍니다.</p>
+        <p>내가 신청한 도서만 표시되며, 취소도 신청한 본인만 할 수 있습니다.</p>
       </div>
       <button id="requestRefresh" class="refresh-button" type="button">
         새로고침
@@ -4910,11 +4920,23 @@
             getErrorMessage(error);
           requestListStatus.classList.remove('hide');
         })
-        .HR_getSubmittedRequests(window.HR_AUDIENCE || 'staff', window.HR_STAFF_CODE || '');
+        .HR_getSubmittedRequests(window.HR_AUDIENCE || 'staff', window.HR_STAFF_CODE || '', applicant.value.trim());
     }
 
     function renderSubmittedRequests(response) {
       if (typeof window.HR_refreshQuota === 'function') window.HR_refreshQuota();
+      if (response.needApplicant) {
+        submittedRequestItems = [];
+        requestActiveCount.textContent = '0';
+        requestCancelledCount.textContent = '0';
+        requestList.innerHTML = '';
+        requestSummary.classList.remove('show');
+        requestListStatus.textContent = (window.HR_AUDIENCE === 'parent')
+          ? '「도서 신청」 화면에서 학년·반·번호를 먼저 선택해 주십시오. 선택하신 학생의 신청만 보여 드립니다.'
+          : '「도서 신청」 화면에서 신청자 이름을 먼저 입력해 주십시오. 입력하신 분의 신청만 보여 드립니다.';
+        requestListStatus.classList.remove('hide');
+        return;
+      }
       const responseItems = Array.isArray(response.items)
         ? response.items
         : [];
@@ -5150,6 +5172,15 @@
         top.appendChild(sequence);
         top.appendChild(status);
         card.appendChild(top);
+        if (coverUrl) {
+          const thumb = document.createElement('img');
+          thumb.className = 'request-thumb';
+          thumb.src = coverUrl;
+          thumb.alt = (item.title || '책') + ' 표지';
+          thumb.loading = 'lazy';
+          thumb.addEventListener('error', function() { thumb.remove(); });
+          card.appendChild(thumb);
+        }
         card.appendChild(title);
         card.appendChild(meta);
 
@@ -5260,6 +5291,7 @@
         .HR_cancelSubmittedRequest({
           audience: window.HR_AUDIENCE || 'staff',
           staffCode: window.HR_STAFF_CODE || '',
+          applicant: applicant.value.trim(),
           row: candidate.item.row,
           title: candidate.item.title,
           isbn: candidate.item.isbn
@@ -5328,6 +5360,7 @@
           .HR_undoCancelledRequest({
             audience: window.HR_AUDIENCE || 'staff',
             staffCode: window.HR_STAFF_CODE || '',
+            applicant: applicant.value.trim(),
             cancelId: item.cancelId
           });
         return;
@@ -5400,6 +5433,7 @@
         .HR_undoCancelledRequest({
           audience: window.HR_AUDIENCE || 'staff',
           staffCode: window.HR_STAFF_CODE || '',
+          applicant: applicant.value.trim(),
           cancelId: candidate.cancelId
         });
     }
@@ -6074,6 +6108,20 @@
       // 열어 둔 채로 다른 쪽에서 신청이 늘어도 맞게 보이도록 30초마다 다시 확인합니다.
       window.setInterval(function () { if (!document.hidden) refreshQuota(); }, 30000);
 
+      // 신청자가 바뀌면 신청 목록을 그 사람 기준으로 다시 불러옵니다.
+      var listTimer = null;
+      function reloadListForApplicant() {
+        window.clearTimeout(listTimer);
+        listTimer = window.setTimeout(function () {
+          submittedRequestsLoaded = false;
+          if (typeof loadSubmittedRequests === 'function') { try { loadSubmittedRequests(true); } catch (e) {} }
+        }, 600);
+      }
+      [gradeInput, classInput, numberInput, nameInput, applicantInput].forEach(function (el) {
+        el.addEventListener('change', reloadListForApplicant);
+      });
+      applicantInput.addEventListener('input', reloadListForApplicant);
+
       [gradeInput, classInput, numberInput].forEach(function (el) {
         el.addEventListener('change', function () {
           window.clearTimeout(quotaTimer);
@@ -6097,6 +6145,8 @@
         parentField.hidden = !isParent;
         if (uploadTab) uploadTab.hidden = isParent;      // 목록 업로드는 교직원 전용
         if (isParent) {
+          // 학부모에게는 도서관 담당자·내선번호를 보여 주지 않습니다.
+          Array.prototype.forEach.call(document.querySelectorAll('.school-contact-row'), function (node) { node.remove(); });
           applicantInput.value = '';
           syncParentApplicant();
           if (applyTab) applyTab.click();

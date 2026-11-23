@@ -4046,9 +4046,14 @@ function HR_escapeHtml_(value) {
  * 공개 신청 페이지에 최근 희망도서 신청 목록을 제공합니다.
  * 신청자 이름은 개인정보 보호를 위해 절대 반환하지 않습니다.
  */
-function HR_getSubmittedRequests(audience, staffCode) {
+function HR_getSubmittedRequests(audience, staffCode, applicant) {
   var audienceKey = HR_audienceKey_(audience);
   HR_requireStaffAccess_(audienceKey, staffCode);
+  // 신청한 본인의 신청만 돌려줍니다. (학부모: 학년·반·번호, 교직원: 이름)
+  var myKey = HR_applicantKey_(audienceKey, applicant);
+  if (!myKey) {
+    return { totalCount: 0, shownCount: 0, items: [], needApplicant: true, updatedAt: new Date().toISOString() };
+  }
   var spreadsheet = HR_getSpreadsheet_();
   var sheet = spreadsheet.getSheetByName(
     HR_TARGET_SHEET_NAME
@@ -4171,6 +4176,7 @@ function HR_getSubmittedRequests(audience, staffCode) {
     .getFormulas();
 
   var audienceColumn = HR_findAudienceColumn_(headers);
+  var applicantColumn = HR_findHeaderColumn_(headers, '신청자', 11);
 
   for (rowIndex = 0; rowIndex < values.length; rowIndex++) {
     var row = values[rowIndex];
@@ -4187,6 +4193,10 @@ function HR_getSubmittedRequests(audience, staffCode) {
       (audienceColumn ? HR_audienceKey_(row[audienceColumn - 1]) : 'staff') !==
       audienceKey
     ) {
+      continue;
+    }
+
+    if (HR_applicantKey_(audienceKey, row[applicantColumn - 1]) !== myKey) {
       continue;
     }
 
@@ -4239,7 +4249,8 @@ function HR_getSubmittedRequests(audience, staffCode) {
     HR_getPendingCancelledItems_(
       spreadsheet,
       headers,
-      audienceKey
+      audienceKey,
+      myKey
     )
   );
 
@@ -4255,7 +4266,8 @@ function HR_getSubmittedRequests(audience, staffCode) {
 function HR_getPendingCancelledItems_(
   spreadsheet,
   sourceHeaders,
-  audienceKey
+  audienceKey,
+  myKey
 ) {
   var backupSheet = spreadsheet.getSheetByName(
     HR_REQUEST_CANCEL_BACKUP_SHEET_NAME
@@ -4391,6 +4403,10 @@ function HR_getPendingCancelledItems_(
       ? HR_audienceKey_(sourceRow[pendingAudienceColumn - 1])
       : 'staff';
     if (pendingAudience !== HR_audienceKey_(audienceKey)) {
+      continue;
+    }
+    var pendingApplicantColumn = HR_findHeaderColumn_(headers, '신청자', 11);
+    if (HR_applicantKey_(audienceKey, sourceRow[pendingApplicantColumn - 1]) !== myKey) {
       continue;
     }
 
@@ -4787,6 +4803,17 @@ function HR_cancelSubmittedRequest(requestData) {
       );
     }
 
+    // 신청한 본인만 취소할 수 있습니다.
+    var cancelApplicantColumn = HR_findHeaderColumn_(headers, '신청자', 11);
+    var cancelMyKey = HR_applicantKey_(cancelRowAudience, requestData && requestData.applicant);
+    var cancelRowKey = HR_applicantKey_(
+      cancelRowAudience,
+      sheet.getRange(rowNumber, cancelApplicantColumn).getDisplayValue()
+    );
+    if (!cancelMyKey || cancelMyKey !== cancelRowKey) {
+      throw new Error('신청한 본인만 취소할 수 있습니다.');
+    }
+
     if (/구입|입수|선정|반려/.test(currentStatus)) {
       return {
         success: false,
@@ -4999,6 +5026,18 @@ function HR_undoCancelledRequest(requestData) {
       throw new Error(
         '다른 구분(교직원/학부모)의 신청은 되돌릴 수 없습니다.'
       );
+    }
+    // 신청한 본인만 되돌릴 수 있습니다.
+    var undoApplicantColumn = HR_findHeaderColumn_(headers, '신청자', 11);
+    var undoMyKey = HR_applicantKey_(undoRowAudience, requestData && requestData.applicant);
+    var undoRowKey = (originalColumnCount >= undoApplicantColumn)
+      ? HR_applicantKey_(
+        undoRowAudience,
+        backupSheet.getRange(backupRow, 8 + undoApplicantColumn).getDisplayValue()
+      )
+      : '';
+    if (!undoMyKey || undoMyKey !== undoRowKey) {
+      throw new Error('신청한 본인만 되돌릴 수 있습니다.');
     }
     titleColumn = HR_findAnyHeaderColumn_(
       headers,
