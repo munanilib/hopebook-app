@@ -2793,7 +2793,7 @@ function HR_importSheet_(s, dest, name) {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-6';
+var HR_GUIDE_VERSION = '2026-11-23-7';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -2878,7 +2878,7 @@ var HR_MANUAL_SECTIONS = [
     title: '📢 소식과 공지',
     items: [
       ['업데이트 소식',
-        '새 기능이 생기면 시트를 열 때 안내 창이 한 번 뜹니다. 다시 보려면 「⚙️ 사본 설정 → 📢 업데이트 소식 보기」를 누르십시오.'],
+        '새 소식이 있으면 시트를 열 때마다 안내 창이 뜹니다. 닫은 뒤 다시 보려면 「⚙️ 사본 설정 → 📢 업데이트 소식 보기」를 누르십시오.'],
       ['웹 공지 (신청 화면 위쪽)',
         '「📢 웹 공지」 탭에서 「표시」를 체크하면 신청 페이지 위쪽에 공지가 뜹니다. 「대상」 칸에서 전체·교직원·학부모를 고를 수 있습니다. 시작일·종료일은 비워도 됩니다.']
     ]
@@ -3084,7 +3084,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v31ce52e';
+var HR_BUILD_ID = 'v65d1e98';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12501,9 +12501,9 @@ function seriesFormatKey_(value) {
 /**
  * 📢 업데이트 소식
  *
- * 개발자가 「📢 업데이트 소식 관리」 구글 시트에 소식을 쓰면, 사본이 열릴 때 한 번 안내 창으로 보여 줍니다.
+ * 개발자가 「📢 업데이트 소식 관리」 구글 시트에 소식을 쓰면, 사본이 열릴 때마다 안내 창으로 보여 줍니다.
  * - 시트의 「상태」 칸이 「🟢 보이기」(또는 TRUE)인 줄 중 가장 위에 있는 소식 하나를 보여 줍니다.
- * - 한 번 본 소식은 다시 안 뜹니다. 제목이나 내용을 바꾸면 새 소식으로 보고 다시 보여 줍니다.
+ * - 상태가 「🟢 보이기」인 동안에는 열 때마다 뜹니다. 그만 보여 주려면 상태를 끕니다.
  * - 시작일·종료일은 비워도 됩니다. 기간 밖이면 보여 주지 않습니다.
  * - 인터넷이 안 되거나 시트를 못 읽으면 조용히 건너뜁니다.
  */
@@ -12620,14 +12620,11 @@ function HR_showNoticeDialog_(notice) {
   SpreadsheetApp.getUi().showModelessDialog(html, '📢 업데이트 소식');
 }
 
-// 시트를 열 때: 새 소식이면 한 번만 보여 줍니다.
+// 시트를 열 때마다: 「🟢 보이기」인 소식이 있으면 보여 줍니다. (그만 보여 주려면 소식 시트에서 상태를 끄십시오.)
 function HR_showUpdateNoticeOnOpen_() {
   var notice = HR_fetchNotice_();
   if (!notice) return;
-  var props = PropertiesService.getUserProperties();
-  if (props.getProperty(HR_NOTICE_SEEN_PROPERTY) === notice.id) return;
   HR_showNoticeDialog_(notice);
-  props.setProperty(HR_NOTICE_SEEN_PROPERTY, notice.id);
 }
 
 // 메뉴에서: 언제든 다시 봅니다.
