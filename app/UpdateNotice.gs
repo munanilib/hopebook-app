@@ -3,7 +3,7 @@
  *
  * 개발자가 「📢 업데이트 소식 관리」 구글 시트에 소식을 쓰면, 사본이 열릴 때마다 안내 창으로 보여 줍니다.
  * - 시트의 「상태」 칸이 「🟢 보이기」(또는 TRUE)인 줄 중 가장 위에 있는 소식 하나를 보여 줍니다.
- * - 상태가 「🟢 보이기」인 동안에는 열 때마다 뜹니다. 그만 보여 주려면 상태를 끕니다.
+ * - 상태가 「🟢 보이기」인 동안에는 열 때마다 뜹니다. 보는 사람은 「이 소식 다시 보지 않기」로 끌 수 있고, 개발자는 상태를 끄면 모두에게 멈춥니다.
  * - 시작일·종료일은 비워도 됩니다. 기간 밖이면 보여 주지 않습니다.
  * - 인터넷이 안 되거나 시트를 못 읽으면 조용히 건너뜁니다.
  */
@@ -111,10 +111,16 @@ function HR_showNoticeDialog_(notice) {
     '.body{font-size:15px;line-height:1.65;background:#fff;border:1px solid #d9e2dc;border-radius:12px;padding:16px;max-height:230px;overflow:auto}' +
     '.ok{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:#244d42;color:#fff;font-size:16px;font-weight:700;cursor:pointer}' +
     '.ok:hover{background:#183d35}' +
+    '.skip{display:block;width:100%;margin-top:8px;padding:11px;border:1px solid #c9d3cc;border-radius:12px;background:#fff;color:#4b5a52;font-size:14px;font-weight:700;cursor:pointer}' +
+    '.skip:hover{background:#eef3ef}' +
     '</style></head><body><div class="badge">📢 업데이트 소식</div>' +
     '<h1 class="title">' + HR_escapeNoticeHtml_(notice.title) + '</h1>' +
     '<div class="body">' + HR_escapeNoticeHtml_(notice.body).replace(/\n/g, '<br>') + '</div>' +
     '<button class="ok" onclick="google.script.host.close()">확인했어요</button>' +
+    '<button class="skip" id="skip" onclick="var b=this;b.disabled=true;b.textContent=\'처리 중…\';' +
+    'google.script.run.withSuccessHandler(function(){google.script.host.close()})' +
+    '.withFailureHandler(function(){google.script.host.close()})' +
+    '.HR_dismissUpdateNotice(\'' + notice.id + '\')">이 소식 다시 보지 않기</button>' +
     '</body></html>'
   ).setWidth(460).setHeight(430);
   SpreadsheetApp.getUi().showModelessDialog(html, '📢 업데이트 소식');
@@ -124,7 +130,16 @@ function HR_showNoticeDialog_(notice) {
 function HR_showUpdateNoticeOnOpen_() {
   var notice = HR_fetchNotice_();
   if (!notice) return;
+  // 「다시 보지 않기」를 누른 소식은 열 때 띄우지 않습니다. (제목이나 내용이 바뀌면 새 소식으로 다시 뜹니다.)
+  if (PropertiesService.getUserProperties().getProperty(HR_NOTICE_SEEN_PROPERTY) === notice.id) return;
   HR_showNoticeDialog_(notice);
+}
+
+// 안내 창의 「이 소식 다시 보지 않기」 버튼
+function HR_dismissUpdateNotice(id) {
+  var text = String(id || '');
+  if (!/^n[0-9a-z]{1,12}$/.test(text)) return;
+  PropertiesService.getUserProperties().setProperty(HR_NOTICE_SEEN_PROPERTY, text);
 }
 
 // 메뉴에서: 언제든 다시 봅니다.
