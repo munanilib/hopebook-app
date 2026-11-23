@@ -2793,7 +2793,7 @@ function HR_importSheet_(s, dest, name) {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-9';
+var HR_GUIDE_VERSION = '2026-11-23-10';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3089,7 +3089,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v13a4eab';
+var HR_BUILD_ID = 'v114e5c8';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12862,12 +12862,25 @@ function HR_styleWebNoticeSheet_(sheet) {
     .setBackground('#eef5f1').setFontColor('#52685f').setFontSize(11).setFontWeight('normal')
     .setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
   sheet.getRange('A3:F3')
-    .setBackground('#d7a843').setFontColor('#ffffff').setFontSize(12).setFontWeight('bold')
+    .setFontColor('#ffffff').setFontSize(12).setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  // 칸마다 색을 달리합니다: [칸 이름 색, 본문 연한 색]
+  var COLUMN_COLORS = [
+    ['#2f7258', '#eaf4ef'],   // 표시   - 초록
+    ['#4a78b5', '#e8f0fa'],   // 종류   - 파랑
+    ['#d7a843', '#fdf6e3'],   // 공지 내용 - 금색
+    ['#3a8f8f', '#e6f4f4'],   // 시작일 - 청록
+    ['#c9694f', '#fbece7'],   // 종료일 - 산호
+    ['#7a5aa6', '#f1ebf8']    // 대상   - 보라
+  ];
+  COLUMN_COLORS.forEach(function(color, i) {
+    sheet.getRange(3, i + 1).setBackground(color[0]);
+    sheet.getRange(4, i + 1, 997, 1).setBackground(color[1]);
+  });
 
   // 본문: 여섯 칸을 같은 높이·같은 줄무늬·같은 선으로 맞춥니다.
   var body = sheet.getRange('A4:F1000');
-  body.setFontSize(11).setFontColor('#2e3a33').setBackground('#ffffff').setVerticalAlignment('middle')
+  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle')
     .setBorder(false, false, true, false, false, false, '#e3e9e5', SpreadsheetApp.BorderStyle.SOLID);
   sheet.getRange('A4:B1000').setHorizontalAlignment('center');
   sheet.getRange('C4:C1000').setHorizontalAlignment('left').setWrap(true);

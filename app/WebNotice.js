@@ -193,12 +193,25 @@ function HR_styleWebNoticeSheet_(sheet) {
     .setBackground('#eef5f1').setFontColor('#52685f').setFontSize(11).setFontWeight('normal')
     .setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
   sheet.getRange('A3:F3')
-    .setBackground('#d7a843').setFontColor('#ffffff').setFontSize(12).setFontWeight('bold')
+    .setFontColor('#ffffff').setFontSize(12).setFontWeight('bold')
     .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  // 칸마다 색을 달리합니다: [칸 이름 색, 본문 연한 색]
+  var COLUMN_COLORS = [
+    ['#2f7258', '#eaf4ef'],   // 표시   - 초록
+    ['#4a78b5', '#e8f0fa'],   // 종류   - 파랑
+    ['#d7a843', '#fdf6e3'],   // 공지 내용 - 금색
+    ['#3a8f8f', '#e6f4f4'],   // 시작일 - 청록
+    ['#c9694f', '#fbece7'],   // 종료일 - 산호
+    ['#7a5aa6', '#f1ebf8']    // 대상   - 보라
+  ];
+  COLUMN_COLORS.forEach(function(color, i) {
+    sheet.getRange(3, i + 1).setBackground(color[0]);
+    sheet.getRange(4, i + 1, 997, 1).setBackground(color[1]);
+  });
 
   // 본문: 여섯 칸을 같은 높이·같은 줄무늬·같은 선으로 맞춥니다.
   var body = sheet.getRange('A4:F1000');
-  body.setFontSize(11).setFontColor('#2e3a33').setBackground('#ffffff').setVerticalAlignment('middle')
+  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle')
     .setBorder(false, false, true, false, false, false, '#e3e9e5', SpreadsheetApp.BorderStyle.SOLID);
   sheet.getRange('A4:B1000').setHorizontalAlignment('center');
   sheet.getRange('C4:C1000').setHorizontalAlignment('left').setWrap(true);
