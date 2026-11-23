@@ -211,8 +211,14 @@ function HR_styleWebNoticeSheet_(sheet) {
 
   // 본문: 여섯 칸을 같은 높이·같은 줄무늬·같은 선으로 맞춥니다.
   var body = sheet.getRange('A4:F1000');
-  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle')
-    .setBorder(false, false, true, false, false, false, '#e3e9e5', SpreadsheetApp.BorderStyle.SOLID);
+  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle');
+  // 칸칸마다 또렷한 선: 머리글~본문 전체에 가로·세로 선을 긋고, 표 바깥 테두리는 진하게 합니다.
+  sheet.getRange('A3:F1000')
+    .setBorder(true, true, true, true, true, true, '#b9cec5', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange('A3:F1000')
+    .setBorder(true, true, true, true, false, false, '#244f42', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.getRange('A3:F3')
+    .setBorder(null, null, true, null, true, null, '#244f42', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   sheet.getRange('A4:B1000').setHorizontalAlignment('center');
   sheet.getRange('C4:C1000').setHorizontalAlignment('left').setWrap(true);
   sheet.getRange('D4:F1000').setHorizontalAlignment('center');

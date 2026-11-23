@@ -2793,7 +2793,7 @@ function HR_importSheet_(s, dest, name) {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-10';
+var HR_GUIDE_VERSION = '2026-11-23-11';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3089,7 +3089,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v114e5c8';
+var HR_BUILD_ID = 'vb939456';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12880,8 +12880,14 @@ function HR_styleWebNoticeSheet_(sheet) {
 
   // 본문: 여섯 칸을 같은 높이·같은 줄무늬·같은 선으로 맞춥니다.
   var body = sheet.getRange('A4:F1000');
-  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle')
-    .setBorder(false, false, true, false, false, false, '#e3e9e5', SpreadsheetApp.BorderStyle.SOLID);
+  body.setFontSize(11).setFontColor('#2e3a33').setVerticalAlignment('middle');
+  // 칸칸마다 또렷한 선: 머리글~본문 전체에 가로·세로 선을 긋고, 표 바깥 테두리는 진하게 합니다.
+  sheet.getRange('A3:F1000')
+    .setBorder(true, true, true, true, true, true, '#b9cec5', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange('A3:F1000')
+    .setBorder(true, true, true, true, false, false, '#244f42', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.getRange('A3:F3')
+    .setBorder(null, null, true, null, true, null, '#244f42', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   sheet.getRange('A4:B1000').setHorizontalAlignment('center');
   sheet.getRange('C4:C1000').setHorizontalAlignment('left').setWrap(true);
   sheet.getRange('D4:F1000').setHorizontalAlignment('center');
