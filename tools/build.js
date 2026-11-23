@@ -80,6 +80,8 @@ ${code}
 
 fs.mkdirSync(DIST, { recursive: true });
 fs.writeFileSync(path.join(DIST, 'app.js'), bundle);
+// 아주 작은 버전 번호 파일: 사본의 껍데기가 이것만 먼저 확인해서, 바뀌지 않았으면 큰 파일을 다시 받지 않습니다.
+fs.writeFileSync(path.join(DIST, 'version.txt'), buildId + '\n');
 
 // 껍데기
 let shell = fs.readFileSync(path.join(ROOT, 'shell', 'Loader.gs'), 'utf8');

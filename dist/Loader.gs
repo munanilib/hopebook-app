@@ -39,12 +39,23 @@ function shellReadCode_(forceFresh) {
     if (fresh) return fresh;
   }
   try {
+    // 먼저 아주 작은 「버전 번호」만 확인합니다. 저장해 둔 코드와 번호가 같으면 큰 파일을 다시 받지 않습니다.
+    // (version.txt 가 없거나 못 읽으면 예전처럼 전체를 받습니다.)
+    var ver = shellRemoteVersion_();
+    if (ver && !forceFresh && cache.get('APP_VER') === ver) {
+      var same = shellCacheGet_(cache, 'APP_BACKUP');
+      if (same) {
+        shellCachePut_(cache, 'APP_FRESH', same, APP_CACHE_SECONDS);
+        return same;
+      }
+    }
     var res = UrlFetchApp.fetch(APP_CODE_URL + '?t=' + Date.now(), { muteHttpExceptions: true });
     if (res.getResponseCode() !== 200) throw new Error('HTTP ' + res.getResponseCode());
     var code = res.getContentText('UTF-8');
     if (code.indexOf('APP_FACTORY') < 0) throw new Error('올바른 app.js 가 아닙니다.');
     shellCachePut_(cache, 'APP_FRESH', code, APP_CACHE_SECONDS);
     shellCachePut_(cache, 'APP_BACKUP', code, APP_BACKUP_SECONDS);
+    if (ver) cache.put('APP_VER', ver, APP_BACKUP_SECONDS);
     return code;
   } catch (e) {
     var backup = shellCacheGet_(cache, 'APP_BACKUP');
@@ -53,6 +64,18 @@ function shellReadCode_(forceFresh) {
       return backup;
     }
     throw new Error('프로그램 코드를 불러오지 못했습니다. 인터넷 연결을 확인하고 잠시 뒤 다시 시도해 주세요.\n(' + e + ')');
+  }
+}
+
+// GitHub 의 version.txt (예: v1a2b3c4) 를 읽습니다. 못 읽으면 빈 글자를 돌려줍니다.
+function shellRemoteVersion_() {
+  try {
+    var res = UrlFetchApp.fetch(APP_CODE_URL.replace(/app\.js$/, 'version.txt') + '?t=' + Date.now(), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return '';
+    var text = String(res.getContentText('UTF-8') || '').trim();
+    return /^v[0-9a-f]{7}$/.test(text) ? text : '';
+  } catch (e) {
+    return '';
   }
 }
 
