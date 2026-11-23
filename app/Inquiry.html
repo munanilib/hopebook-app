@@ -95,7 +95,7 @@
       })
       .withFailureHandler(function (e) {
         btn.disabled = false; btn.textContent = '보내기';
-        msg($('sendMsg'), '보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.', false);
+        msg($('sendMsg'), '보내지 못했습니다. (' + String((e && e.message) || e || '알 수 없는 오류').slice(0, 200) + ')', false);
       })
       .HR_sendInquiry({ kind: $('kind').value, name: $('name').value, body: body, email: $('email').value, website: $('website').value });
   };

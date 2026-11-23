@@ -50,20 +50,29 @@ function HR_sendInquiry(form) {
   if (HR_INQUIRY_KINDS.indexOf(kind) < 0) kind = '기타';
   if (body.length < 5) return { ok: false, message: '문의 내용을 5글자 이상 적어 주세요.' };
 
-  var response = UrlFetchApp.fetch(HR_INQUIRY_URL, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({
-      school: school, name: name, kind: kind, body: body, email: email,
-      ver: typeof HR_BUILD_ID !== 'undefined' ? HR_BUILD_ID : '', website: String(form && form.website || '')
-    }),
-    muteHttpExceptions: true
-  });
+  var response;
   var result;
+  try {
+    response = UrlFetchApp.fetch(HR_INQUIRY_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        school: school, name: name, kind: kind, body: body, email: email,
+        ver: typeof HR_BUILD_ID !== 'undefined' ? HR_BUILD_ID : '', website: String(form && form.website || '')
+      }),
+      muteHttpExceptions: true
+    });
+  } catch (error) {
+    // 대표적인 원인: 사본에 「외부 서비스 연결」 권한이 아직 없을 때
+    return { ok: false, message: '문의를 보내지 못했습니다. (' + String(error && error.message || error).slice(0, 160) + ')' };
+  }
   try {
     result = JSON.parse(response.getContentText());
   } catch (error) {
-    return { ok: false, message: '접수하지 못했습니다. 잠시 뒤 다시 시도해 주세요.' };
+    return {
+      ok: false,
+      message: '받는 곳의 응답을 읽지 못했습니다. (응답 코드 ' + response.getResponseCode() + ') 잠시 뒤 다시 시도해 주세요.'
+    };
   }
   if (!result || !result.ok) {
     return { ok: false, message: (result && result.message) || '접수하지 못했습니다. 잠시 뒤 다시 시도해 주세요.' };
@@ -94,7 +103,7 @@ function HR_getMyInquiries() {
     var data = JSON.parse(response.getContentText());
     if (data && data.ok) answers = data.items || {};
   } catch (error) {
-    return { ok: false, message: '답변을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.' };
+    return { ok: false, message: '답변을 불러오지 못했습니다. (' + String(error && error.message || error).slice(0, 160) + ')' };
   }
   return {
     ok: true,
