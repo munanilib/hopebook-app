@@ -2793,7 +2793,7 @@ function HR_importSheet_(s, dest, name) {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-8';
+var HR_GUIDE_VERSION = '2026-11-23-9';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -2995,6 +2995,11 @@ function HR_refreshGuidesOnce_() {
     if (props.getProperty(HR_GUIDE_VERSION_PROPERTY) === HR_GUIDE_VERSION) return;
     createUnifiedGuides_();
     try {
+      HR_styleWebNoticeSheet_(spreadsheet.getSheetByName(HR_WEB_NOTICE_SHEET_NAME));   // 웹 공지 시트도 새 모양으로 한 번 다시 꾸밉니다.
+    } catch (error) {
+      console.warn('웹 공지 시트 꾸미기 실패: ' + error);
+    }
+    try {
       unifiedRefreshDashboard_();   // 대시보드도 새 디자인으로 한 번 다시 그립니다.
     } catch (error) {
       console.warn('대시보드 갱신 실패: ' + error);
@@ -3084,7 +3089,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vab87c62';
+var HR_BUILD_ID = 'v13a4eab';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12683,6 +12688,7 @@ function HR_upgradeNoticeDatePickersAndGuide() {
     var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     HR_applyNoticeDatePickersAndGuide_(spreadsheet);
     HR_ensureNoticeAudienceColumn_(spreadsheet);
+    HR_styleWebNoticeSheet_(spreadsheet.getSheetByName(HR_WEB_NOTICE_SHEET_NAME));
     results.push(spreadsheet.getName());
   });
 
@@ -12817,6 +12823,82 @@ function HR_applyNoticeDatePickersAndGuide_(spreadsheet) {
     .setWrap(true)
     .setVerticalAlignment('middle')
     .setBorder(true, true, true, true, false, false, '#d6e2dc', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+
+// 「📢 웹 공지」 시트를 6칸(표시·종류·공지 내용·시작일·종료일·대상)으로 한 덩어리처럼 예쁘게 다시 꾸밉니다.
+// 이미 적어 둔 공지 내용은 그대로 두고 모양만 바꿉니다. 여러 번 불러도 같은 결과입니다.
+function HR_styleWebNoticeSheet_(sheet) {
+  if (!sheet) return;
+  var LAST = 6;
+  if (sheet.getMaxColumns() < LAST) sheet.insertColumnsAfter(sheet.getMaxColumns(), LAST - sheet.getMaxColumns());
+  if (sheet.getMaxRows() < 1000) sheet.insertRowsAfter(sheet.getMaxRows(), 1000 - sheet.getMaxRows());
+
+  // 머리말: 제목·안내는 여섯 칸 전체에 걸쳐 놓고, 칸 이름도 여섯 개를 한 줄로 맞춥니다.
+  sheet.getRange('A1:F1').breakApart();
+  sheet.getRange('A2:F2').breakApart();
+  sheet.getRange('A1:F1').merge();
+  sheet.getRange('A2:F2').merge();
+  sheet.getRange('A1').setValue('📢 웹페이지 공지 전광판');
+  sheet.getRange('A2').setValue(
+    '「표시」에 체크하면 웹페이지 맨 위에 공지가 올라갑니다.  ' +
+    '「대상」에서 전체 · 교직원 · 학부모 중 누구에게 보일지 고를 수 있습니다. (비워 두면 전체)  ' +
+    '시작일·종료일은 비워도 됩니다.'
+  );
+  sheet.getRange('A3:F3').setValues([['표시', '종류', '공지 내용', '시작일', '종료일', '대상']]);
+
+  sheet.setHiddenGridlines(true);
+  sheet.setFrozenRows(3);
+  sheet.setTabColor('#9AA6A0');
+  [80, 90, 560, 120, 120, 110].forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
+  sheet.setRowHeight(1, 60);
+  sheet.setRowHeight(2, 48);
+  sheet.setRowHeight(3, 38);
+
+  sheet.getRange('A1:F1')
+    .setBackground('#244f42').setFontColor('#ffffff').setFontSize(20).setFontWeight('bold')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle');
+  sheet.getRange('A2:F2')
+    .setBackground('#eef5f1').setFontColor('#52685f').setFontSize(11).setFontWeight('normal')
+    .setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
+  sheet.getRange('A3:F3')
+    .setBackground('#d7a843').setFontColor('#ffffff').setFontSize(12).setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  // 본문: 여섯 칸을 같은 높이·같은 줄무늬·같은 선으로 맞춥니다.
+  var body = sheet.getRange('A4:F1000');
+  body.setFontSize(11).setFontColor('#2e3a33').setBackground('#ffffff').setVerticalAlignment('middle')
+    .setBorder(false, false, true, false, false, false, '#e3e9e5', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange('A4:B1000').setHorizontalAlignment('center');
+  sheet.getRange('C4:C1000').setHorizontalAlignment('left').setWrap(true);
+  sheet.getRange('D4:F1000').setHorizontalAlignment('center');
+
+  // 칸 모양: 체크박스 · 종류 · 날짜 · 대상(드롭다운)
+  sheet.getRange('A4:A1000').insertCheckboxes();
+  sheet.getRange('B4:B1000').setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(['일반', '긴급'], true).setAllowInvalid(false).build()
+  );
+  sheet.getRange('D4:E1000')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
+      .setHelpText('셀을 눌러 달력에서 날짜를 선택하세요.').build())
+    .setNumberFormat('yyyy. m. d.');
+  sheet.getRange('F4:F1000').setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(HR_NOTICE_AUDIENCE_VALUES, true).setAllowInvalid(true)
+      .setHelpText('전체 · 교직원 · 학부모 중에서 고르세요. 비워 두면 전체입니다.').build()
+  );
+
+  // 색으로 한눈에: 긴급은 빨간 글자, 대상은 칩처럼 색을 칠합니다.
+  function rule(rangeA1, text, bg, fg) {
+    return SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(text).setBackground(bg).setFontColor(fg).setBold(true)
+      .setRanges([sheet.getRange(rangeA1)]).build();
+  }
+  sheet.setConditionalFormatRules([
+    rule('B4:B1000', '긴급', '#fdecea', '#b3261e'),
+    rule('F4:F1000', '학부모', '#fdf0d0', '#8a5a00'),
+    rule('F4:F1000', '교직원', '#dcefe6', '#1f5c4a'),
+    rule('F4:F1000', '전체', '#eceff0', '#55616a')
+  ]);
 }
 
 
@@ -12981,6 +13063,7 @@ function HR_setupWebNoticeSheet() {
   sheet.getRange('C4')
     .setValue('예: 희망도서 신청은 8월 31일까지입니다.');
   sheet.getRange('A4').setValue(false);
+  HR_styleWebNoticeSheet_(sheet);
 
   return {
     success: true,
@@ -13411,6 +13494,7 @@ function verifyYes24Connection() {
     "HR_showUpdateNotice": HR_showUpdateNotice,
     "HR_upgradeNoticeDatePickersAndGuide": HR_upgradeNoticeDatePickersAndGuide,
     "HR_applyNoticeDatePickersAndGuide_": HR_applyNoticeDatePickersAndGuide_,
+    "HR_styleWebNoticeSheet_": HR_styleWebNoticeSheet_,
     "HR_getActiveWebNotices": HR_getActiveWebNotices,
     "HR_readActiveWebNotices_": HR_readActiveWebNotices_,
     "HR_noticeDate_": HR_noticeDate_,
