@@ -2992,6 +2992,10 @@
     body.aud-parent .view-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
     @media (min-width:760px){
       body.aud-parent #requestForm{grid-template-columns:1fr 170px}
+      /* 학부모 화면: 검색창과 「책 검색하기」 버튼의 높이를 맞춥니다. (버튼을 입력칸과 같은 줄에 둡니다.) */
+      body.aud-parent #requestForm{align-items:start}
+      body.aud-parent #requestForm label[for="query"]{line-height:24px;margin-bottom:8px}
+      body.aud-parent #requestForm .submit-button{margin-top:32px;margin-bottom:0;min-height:57px;height:57px}
       body.aud-parent #parentApplicantField{grid-column:1/-1}
       .parent-fields{grid-template-columns:repeat(3,minmax(0,.55fr)) minmax(0,1.4fr)}
       .parent-fields .pname{grid-column:auto}
