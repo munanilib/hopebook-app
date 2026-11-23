@@ -3084,7 +3084,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v8fb24fc';
+var HR_BUILD_ID = 'vab87c62';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12511,7 +12511,8 @@ var HR_NOTICE_SHEET_ID = '1aR1O-pNTpSotlsJ5uCvRNHioUdMNhC2vKVOlsluITdM';
 var HR_NOTICE_URL =
   'https://docs.google.com/spreadsheets/d/' + HR_NOTICE_SHEET_ID +
   '/export?format=csv';
-var HR_NOTICE_SEEN_PROPERTY = 'HR_NOTICE_SEEN_ID';
+// 「다시 보지 않기」를 누른 소식 번호. (예전에 한 번 보여 준 기록 HR_NOTICE_SEEN_ID 는 더 이상 쓰지 않습니다.)
+var HR_NOTICE_SEEN_PROPERTY = 'HR_NOTICE_DISMISSED_ID';
 
 // CSV 한 덩어리를 2차원 배열로 바꿉니다(따옴표·줄바꿈 처리).
 function HR_parseCsv_(text) {
