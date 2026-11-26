@@ -2347,6 +2347,15 @@ function onSelectionChange(e) {
 
   var sheet = e.range.getSheet();
 
+  // 시트 맨 위의 클릭 막대(전체 선택·보내기·점검 시작 등)
+  try {
+    if (unifiedHandleBarClick_(sheet, e.range)) {
+      return;
+    }
+  } catch (error) {
+    console.warn('클릭 막대 처리 실패: ' + error);
+  }
+
   if (sheet.getName() !== HR_COPY_SETUP_SHEET_NAME) {
     return;
   }

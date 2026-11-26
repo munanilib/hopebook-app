@@ -369,6 +369,8 @@ function styleRequestListSheet() {
   }
 
   sheet.getRange(1, 1, 4, lastColumn).setBorder(true,true,true,true,false,false,'#D5DED8',SpreadsheetApp.BorderStyle.SOLID);
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 function buildBookstoreExportSheet() {
@@ -740,6 +742,8 @@ function bookstoreStyleExportSheet_(sheet, rowCount) {
   }
 
   sheet.getRange('A1:J5').setFontFamily('Arial');
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 function bookstoreFindColumn_(headers, aliases) {
@@ -2269,6 +2273,7 @@ function FIX_ACTION_LAYOUT_20260820() {
       '#B88428',SpreadsheetApp.BorderStyle.SOLID_MEDIUM
     );
     exportSheet.setRowHeight(4, 44);
+    unifiedDrawActionBars_(exportSheet);
   }
 
   SpreadsheetApp.flush();
@@ -2293,8 +2298,6 @@ function ensureSelectionControls_() {
 function toggleSelectionColumn_(sheet, startRow, column, checked) {
   const lastRow = sheet.getLastRow();
   if (lastRow < startRow) {
-    sheet.getRange(4, 1)
-      .setValue(false);
     SpreadsheetApp.getActive().toast('선택할 도서가 없습니다.', '목록 없음', 4);
     return;
   }
@@ -2351,7 +2354,7 @@ function resetHopeBooksForNewSemester() {
     if (lastRow >= item.firstDataRow && lastColumn > 0) {
       sheet.getRange(item.firstDataRow, 1, lastRow - item.firstDataRow + 1, lastColumn).clearContent();
     }
-    item.checkboxes.forEach(a1 => sheet.getRange(a1).setValue(false));
+    unifiedDrawActionBars_(sheet);   // 클릭 막대를 처음 모양으로
   });
 
   ss.getSheetByName('🔎 시리즈 누락 점검')

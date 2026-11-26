@@ -173,6 +173,8 @@ function seriesAddWorkButton_(sheet) {
     true,true,true,true,false,false,
     '#B88428',SpreadsheetApp.BorderStyle.SOLID_MEDIUM
   );
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 function setSeriesYes24Key() {
@@ -1773,6 +1775,7 @@ function unifiedAddMenu_() {
     .addItem('🧭 시트 탭 정리', 'HR_arrangeTabs')
     .addSeparator()
     .addItem('📚 희망도서를 구입 검토함으로 보내기', 'sendHopeRequestsToReview')
+    .addItem('🔎 시리즈 누락 점검 (쉬운 창)', 'HR_showSeriesCheckDialog')
     .addItem('🔎 시리즈 누락·후속권 이어서 점검', 'refreshMissingSeriesBooks')
     .addItem('🛒 체크한 시리즈를 구입 검토함으로 보내기', 'sendSelectedSeriesToReview')
     .addItem('📥 업로드 목록을 열기', 'openUnifiedUploadSheet')
@@ -2040,6 +2043,8 @@ function unifiedStyleReviewSheet_(sheet) {
   sheet.getRange(6, 9, formatRowCount, 1).setNumberFormat('#,##0"원"');
   sheet.getRange(6, 10, formatRowCount, 1).setNumberFormat('0');
   sheet.getRange(6, 11, formatRowCount, 1).setNumberFormat('#,##0"원"');
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 function buildUnifiedBookstoreExportSheet() {
@@ -2165,6 +2170,8 @@ function unifiedStyleExportSheet_(sheet, count) {
     sheet.getRange(6, 9, count, 1).setNumberFormat('#,##0"원"');
     sheet.setRowHeights(6, count, 60);
   }
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 function unifiedEnsureSettingsSheet_() {
@@ -2978,8 +2985,7 @@ function sendSelectedUploadItemsToReview() {
 
   var result = unifiedRefreshPurchaseReview_(selected);
   sheet.getRange(6, 1, Math.max(1, sheet.getLastRow() - 5), 1).setValue(false);
-  sheet.getRange('A4').setValue(false);
-  sheet.getRange('D4').setValue(false);
+  unifiedResetBarState_(sheet);
 
   var review = ss.getSheetByName(UNIFIED_REVIEW_SHEET);
   if (review) ss.setActiveSheet(review);
@@ -3104,6 +3110,8 @@ function unifiedStyleUploadSheet_(sheet, rowCount) {
       '#DCE6DF', SpreadsheetApp.BorderStyle.SOLID
     );
   }
+
+  unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
 
