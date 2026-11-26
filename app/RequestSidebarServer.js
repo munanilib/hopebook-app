@@ -2347,8 +2347,11 @@ function onSelectionChange(e) {
 
   var sheet = e.range.getSheet();
 
-  // 시트 맨 위의 클릭 막대(전체 선택·보내기·점검 시작 등)
+  // 시트 맨 위의 클릭 막대(전체 선택·보내기·점검 시작 등)와 대시보드의 「지금까지 확정」 칸
   try {
+    if (unifiedHandleDashboardClick_(sheet, e.range)) {
+      return;
+    }
     if (unifiedHandleBarClick_(sheet, e.range)) {
       return;
     }

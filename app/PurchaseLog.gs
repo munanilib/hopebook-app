@@ -6,6 +6,7 @@
  * 대시보드의 남은 예산 = 총 예산 − 지금까지 확정한 모든 회차 금액 − 지금 고른(아직 확정 전) 금액
  * - 확정한 책은 구입 검토함에서 「주문완료」로 바뀌고 체크가 풀려서, 다음 회차와 섞이지 않습니다.
  * - 기록 시트에서 금액·메모를 고치거나 줄을 지우면 예산이 그대로 다시 계산됩니다.
+ * - 기록 시트는 평소에는 숨겨져 있습니다. 대시보드의 「✅ 지금까지 확정」 칸을 누르거나 메뉴 「🧾 구입 기록 보기」로 엽니다.
  */
 var UNIFIED_PURCHASE_LOG_SHEET = '🧾 구입 기록';
 var PURCHASE_LOG_FIRST_ROW = 5;
@@ -40,6 +41,7 @@ function unifiedEnsurePurchaseLogSheet_() {
   sheet.getRange(PURCHASE_LOG_FIRST_ROW, 4, 500, 1).setNumberFormat('#,##0"원"').setHorizontalAlignment('right');
   sheet.getRange(PURCHASE_LOG_FIRST_ROW, 2, 500, 1).setNumberFormat('yyyy-mm-dd');
   sheet.getRange('A4:E504').setBorder(true, true, true, true, true, true, '#D3DDD7', SpreadsheetApp.BorderStyle.SOLID);
+  try { sheet.hideSheet(); } catch (error) {}   // 평소에는 숨겨 두고, 필요할 때만 엽니다.
   return sheet;
 }
 
@@ -138,4 +140,35 @@ function unifiedConfirmPurchaseRound_() {
   } finally {
     lock.releaseLock();
   }
+}
+
+// 숨겨 둔 「🧾 구입 기록」 시트를 열어서 보여 줍니다.
+function unifiedShowPurchaseLog() {
+  var ss = seriesSpreadsheet_();
+  var sheet = unifiedEnsurePurchaseLogSheet_();
+  sheet.showSheet();
+  ss.setActiveSheet(sheet);
+  ss.toast('다 보셨으면 메뉴 「🧰 통합 도서업무 → 🧾 구입 기록 숨기기」로 다시 숨길 수 있습니다.', '🧾 구입 기록', 7);
+}
+
+function unifiedHidePurchaseLog() {
+  var ss = seriesSpreadsheet_();
+  var sheet = ss.getSheetByName(UNIFIED_PURCHASE_LOG_SHEET);
+  if (!sheet) return;
+  var dashboard = ss.getSheetByName(UNIFIED_DASHBOARD_SHEET);
+  if (dashboard) ss.setActiveSheet(dashboard);
+  sheet.hideSheet();
+  ss.toast('구입 기록을 숨겼습니다.', '🧾 구입 기록', 4);
+}
+
+// 대시보드의 「✅ 지금까지 확정」 칸(D16:F16)을 누르면 기록 시트를 엽니다. 처리했으면 true
+function unifiedHandleDashboardClick_(sheet, range) {
+  if (sheet.getName() !== UNIFIED_DASHBOARD_SHEET) return false;
+  if (range.getRow() !== 16 || range.getNumRows() !== 1 || range.getColumn() < 4 || range.getLastColumn() > 6) return false;
+  try {
+    unifiedShowPurchaseLog();
+  } catch (error) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(String(error && error.message || error), '구입 기록을 열지 못했습니다', 7);
+  }
+  return true;
 }

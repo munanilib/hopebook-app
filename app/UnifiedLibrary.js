@@ -1781,6 +1781,8 @@ function unifiedAddMenu_() {
     .addItem('📥 업로드 목록을 열기', 'openUnifiedUploadSheet')
     .addItem('💵 예산 설정', 'unifiedSetBudget')
     .addItem('✅ 이번 회차 구입 확정', 'unifiedConfirmPurchaseRound')
+    .addItem('🧾 구입 기록 보기', 'unifiedShowPurchaseLog')
+    .addItem('🧾 구입 기록 숨기기', 'unifiedHidePurchaseLog')
     .addSeparator()
     .addItem('📦 중복 확인 후 서점 전달용으로 보내기', 'buildUnifiedBookstoreExportSheet')
     .addSeparator()
@@ -2532,17 +2534,19 @@ function unifiedRefreshDashboard_() {
 
   // 3-2) 예산 현황: 제목(15) / 이름(16) / 값(17) / 설명(18) / 막대(19) / 요약(20)
   var logSheet = unifiedEnsurePurchaseLogSheet_();
+  // 예전에 보이는 채로 만들어진 기록 시트는 한 번 숨깁니다.
+  var docProps = PropertiesService.getDocumentProperties();
+  if (docProps.getProperty('UNIFIED_LOG_HIDDEN_ONCE') !== '1') {
+    try { if (!logSheet.isSheetHidden()) logSheet.hideSheet(); } catch (error) {}
+    docProps.setProperty('UNIFIED_LOG_HIDDEN_ONCE', '1');
+  }
   sheet.getRange('A15:L15').merge().setValue('🧾  예산 현황')
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
   sheet.setRowHeight(14, 12);
   sheet.setRowHeight(15, 38);
-  [['A', 'C', '💰 총 예산 (눌러서 입력)'], ['D', 'F', '✅ 지금까지 확정'], ['G', 'I', '🛒 이번 회차 예정'], ['J', 'L', '🟢 남은 예산']].forEach(function(item) {
+  [['A', 'C', '💰 총 예산 (눌러서 입력)'], ['D', 'F', '✅ 지금까지 확정 (눌러서 보기)'], ['G', 'I', '🛒 이번 회차 예정'], ['J', 'L', '🟢 남은 예산']].forEach(function(item) {
     var label = sheet.getRange(item[0] + '16:' + item[1] + '16').merge();
-    if (item[0] === 'D') {
-      label.setFormula('=HYPERLINK("#gid=' + logSheet.getSheetId() + '","' + item[2] + ' ›")');
-    } else {
-      label.setValue(item[2]);
-    }
+    label.setValue(item[2]);   // 「지금까지 확정」 칸은 누르면 숨겨 둔 기록 시트가 열립니다.
     label.setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center').setBackground(GREEN_SOFT);
     sheet.getRange(item[0] + '17:' + item[1] + '17').merge().setValue('-')
       .setFontSize(20).setFontWeight('bold').setFontColor('#1F5C4A').setHorizontalAlignment('center').setBackground('#FFFFFF');
