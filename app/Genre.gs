@@ -146,3 +146,40 @@ function HR_searchGenre(genreKey, ageKey) {
   try { if (books.length) cache.put(cacheKey, JSON.stringify(books), HR_GENRE_CACHE_SECONDS); } catch (ignore) {}
   return books;
 }
+
+/**
+ * 개발자용: YES24 분류(진열대) 번호 목록을 창에 보여 줍니다. (복사해서 개발자에게 전달)
+ * 어린이·유아·청소년·소설·동화·만화 관련 분류만 추려서 「번호 | 전체 경로」로 적습니다.
+ */
+function HR_showGenreCategoryList() {
+  var ui = SpreadsheetApp.getUi();
+  var key = HR_getYes24Key_();
+  var data;
+  try {
+    data = yes24Get_('/category/list', {}, key);
+  } catch (error) {
+    ui.alert('분류 목록을 불러오지 못했습니다', String(error && error.message || error), ui.ButtonSet.OK);
+    return;
+  }
+  var rows = Array.isArray(data.data) ? data.data : [];
+  var words = ['어린이', '유아', '청소년', '초등', '동화', '소설', '만화', '그림책', '추리', '공포', '판타지', '로맨스', 'SF'];
+  var lines = rows.filter(function(row) {
+    var id = String(row.categoryId || '');
+    var path = String(row.categoryFullPath || row.categoryName || '');
+    return id.indexOf('001') === 0 && words.some(function(w) { return path.indexOf(w) >= 0; });
+  }).map(function(row) {
+    return String(row.categoryId) + ' | ' + String(row.categoryFullPath || row.categoryName || '');
+  });
+  var total = rows.length;
+  var text = lines.slice(0, 700).join('\n');
+  var safe = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var html = HtmlService.createHtmlOutput(
+    '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;font-family:Arial,sans-serif}' +
+    'textarea{width:100%;height:300px;font-size:12px;box-sizing:border-box}button{margin-top:8px;padding:10px 16px;font-size:15px;font-weight:700}</style></head><body>' +
+    '<div style="margin-bottom:8px">전체 ' + total + '개 중 관련 ' + lines.length + '개입니다. 아래를 모두 복사해 개발자에게 붙여 주세요.</div>' +
+    '<textarea id="t" readonly>' + safe + '</textarea><br>' +
+    '<button onclick="var t=document.getElementById(\'t\');t.select();document.execCommand(\'copy\');this.textContent=\'복사했어요\'">전체 복사</button>' +
+    '</body></html>'
+  ).setWidth(640).setHeight(440);
+  ui.showModalDialog(html, 'YES24 분류 목록');
+}
