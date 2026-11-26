@@ -2292,6 +2292,13 @@ function ensureSelectionControls_() {
   if (reviewSheet) {
     unifiedEnsureReviewSheet_();
   }
+
+  // 업로드 목록 시트는 파일을 올리기 전에도 미리 만들어 둡니다.
+  try {
+    unifiedEnsureUploadSheetReady_();
+  } catch (error) {
+    console.warn('업로드 목록 시트 준비 실패: ' + error);
+  }
 }
 
 

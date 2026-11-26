@@ -2806,6 +2806,13 @@ function ensureSelectionControls_() {
   if (reviewSheet) {
     unifiedEnsureReviewSheet_();
   }
+
+  // 업로드 목록 시트는 파일을 올리기 전에도 미리 만들어 둡니다.
+  try {
+    unifiedEnsureUploadSheetReady_();
+  } catch (error) {
+    console.warn('업로드 목록 시트 준비 실패: ' + error);
+  }
 }
 
 
@@ -3497,7 +3504,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v4afcfc6';
+var HR_BUILD_ID = 'v5c43f6f';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9420,7 +9427,7 @@ function setupSeriesFinder() {
     checkedAt: new Date()
   });
   seriesSpreadsheet_().toast(
-    '상단의 「🔎 시리즈 점검」 메뉴에서 후속권·누락권 찾기를 눌러 주세요.',
+    '시리즈 시트 위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 눌러 주세요.',
     '설정 완료',
     8
   );
@@ -10683,7 +10690,7 @@ function seriesBuildResultSheet_(candidates, meta) {
     sheet.getRange('A6:N7').merge().setValue(
       Number(meta.searchedCount || 0) > 0
         ? '현재 YES24 검색 결과에서 추가 구매 후보를 찾지 못했습니다.'
-        : '상단 메뉴 「🔎 시리즈 점검 → 후속권·누락권 이어서 점검」를 누르면 결과가 채워집니다.'
+        : '위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 누르면 결과가 채워집니다.'
     );
     sheet.getRange('A6:N7').setHorizontalAlignment('center').setVerticalAlignment('middle');
   }
@@ -10893,7 +10900,7 @@ function setupSeriesWorkSheet() {
   spreadsheet.setActiveSheet(sheet);
   spreadsheet.setActiveRange(sheet.getRange('A1'));
   spreadsheet.toast(
-    '검색 결과에서 필요한 책을 체크한 뒤 「🔎 시리즈 점검 → 체크한 도서 업무목록으로 보내기」를 누르세요.',
+    '검색 결과에서 필요한 책을 체크한 뒤 위쪽의 「📤 선택한 책 구입 검토함으로 보내기 ›」 막대를 누르세요.',
     '업무목록 준비 완료',
     8
   );
@@ -11199,6 +11206,7 @@ function setupUnifiedLibraryWorkflow() {
   }
 
   unifiedEnsureReviewSheet_();
+  unifiedEnsureUploadSheetReady_();
   createUnifiedGuides_();
   sendHopeRequestsToReview();
   applyUnifiedLibraryDesign();
@@ -12186,6 +12194,26 @@ function unifiedEnsureUploadSheet_() {
   }
 
   return sheet;
+}
+
+// 「📥 엑셀 업로드 목록」 시트를 미리 만들어 둡니다. (웹에서 파일을 올려야 그제서야 생기지 않도록)
+// 이미 있으면 아무것도 바꾸지 않습니다. 「희망도서 목록」 바로 오른쪽에 놓습니다.
+function unifiedEnsureUploadSheetReady_() {
+  var ss = seriesSpreadsheet_();
+  if (ss.getSheetByName(UNIFIED_UPLOAD_SHEET)) return false;
+
+  var sheet = unifiedEnsureUploadSheet_();
+  sheet.setHiddenGridlines(true);
+  sheet.getRange('A1:K1').merge().setValue('📥 파일 업로드 도서 목록');
+  sheet.getRange('A2:K2').merge().setValue(
+    '웹페이지의 「📥 목록 업로드」에서 엑셀·CSV를 올리면 필요한 서지정보만 여기에 채워집니다. 구입할 책을 고른 뒤 구입 검토함으로 보내세요.'
+  );
+  sheet.getRange('A3:K3').merge().setValue('아직 올린 파일이 없습니다.');
+  sheet.getRange(5, 1, 1, 11).setValues([[
+    '선택', '도서명', '저자', '출판사', '출판연도', 'ISBN13', '정가', '수량', '금액', '시리즈명', '비고'
+  ]]);
+  unifiedStyleUploadSheet_(sheet, 0);   // 모양과 클릭 막대
+  return true;
 }
 
 function unifiedReplaceUploadRows_(books, fileName) {
@@ -14068,6 +14096,7 @@ function verifyYes24Connection() {
     "sendHopeRequestsToReview": sendHopeRequestsToReview,
     "sendSelectedSeriesToReview": sendSelectedSeriesToReview,
     "unifiedEnsureUploadSheet_": unifiedEnsureUploadSheet_,
+    "unifiedEnsureUploadSheetReady_": unifiedEnsureUploadSheetReady_,
     "unifiedReplaceUploadRows_": unifiedReplaceUploadRows_,
     "unifiedReadSelectedUploadItems_": unifiedReadSelectedUploadItems_,
     "sendSelectedUploadItemsToReview": sendSelectedUploadItemsToReview,
