@@ -120,7 +120,7 @@ function HR_showNoticeDialog_(notice) {
     '<button class="ok" onclick="google.script.host.close()">확인했어요</button>' +
     '<button class="skip" id="skip" onclick="var b=this;b.disabled=true;b.textContent=\'처리 중…\';' +
     'google.script.run.withSuccessHandler(function(){google.script.host.close()})' +
-    '.withFailureHandler(function(){google.script.host.close()})' +
+    '.withFailureHandler(function(e){b.disabled=false;b.textContent=\'저장하지 못했어요. 다시 눌러 주세요\';})' +
     '.HR_dismissUpdateNotice(\'' + notice.id + '\')">이 소식 다시 보지 않기</button>' +
     '</body></html>'
   ).setWidth(460).setHeight(430);
@@ -132,7 +132,7 @@ function HR_showUpdateNoticeOnOpen_() {
   var notice = HR_fetchNotice_();
   if (!notice) return;
   // 「다시 보지 않기」를 누른 소식은 열 때 띄우지 않습니다. (제목이나 내용이 바뀌면 새 소식으로 다시 뜹니다.)
-  if (PropertiesService.getUserProperties().getProperty(HR_NOTICE_SEEN_PROPERTY) === notice.id) return;
+  if (HR_noticeDismissed_(notice.id)) return;
   HR_showNoticeDialog_(notice);
 }
 
@@ -140,7 +140,18 @@ function HR_showUpdateNoticeOnOpen_() {
 function HR_dismissUpdateNotice(id) {
   var text = String(id || '');
   if (!/^n[0-9a-z]{1,12}$/.test(text)) return;
-  PropertiesService.getUserProperties().setProperty(HR_NOTICE_SEEN_PROPERTY, text);
+  // 사용자 저장소(열 때 실행하는 계정과 다를 수 있음)와 시트 저장소 둘 다에 적어 둡니다.
+  var saved = false;
+  try { PropertiesService.getUserProperties().setProperty(HR_NOTICE_SEEN_PROPERTY, text); saved = true; } catch (e1) {}
+  try { PropertiesService.getDocumentProperties().setProperty(HR_NOTICE_SEEN_PROPERTY, text); saved = true; } catch (e2) {}
+  if (!saved) throw new Error('저장하지 못했습니다.');
+}
+
+function HR_noticeDismissed_(id) {
+  var found = false;
+  try { if (PropertiesService.getUserProperties().getProperty(HR_NOTICE_SEEN_PROPERTY) === id) found = true; } catch (e1) {}
+  try { if (PropertiesService.getDocumentProperties().getProperty(HR_NOTICE_SEEN_PROPERTY) === id) found = true; } catch (e2) {}
+  return found;
 }
 
 // 메뉴에서: 언제든 다시 봅니다.
