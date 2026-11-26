@@ -2464,7 +2464,7 @@
         display: grid;
         grid-template-columns: 0.82fr 1.18fr 170px;
         gap: 14px;
-        align-items: end;
+        align-items: start;
       }
 
       #requestForm .field {
@@ -2475,10 +2475,18 @@
         min-height: 39px;
       }
 
+      /* 입력칸과 「책 검색하기」 버튼의 윗선·높이를 맞춥니다. (이름표 한 줄 = 24px + 8px) */
+      #requestForm .field > label {
+        line-height: 24px;
+        margin-bottom: 8px;
+      }
+
       #requestForm .submit-button {
         width: 170px;
-        margin-top: 0;
-        margin-bottom: 1px;
+        height: 57px;
+        min-height: 57px;
+        margin-top: 32px;
+        margin-bottom: 0;
       }
     }
 
