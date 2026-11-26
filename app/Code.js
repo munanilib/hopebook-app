@@ -646,7 +646,7 @@ function onEdit(e) {
   // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
   if (cell !== 'A4' || !checkboxChanged) {
     try {
-      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11])) unifiedUpdateDashboardNumbers_();
+      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11, 12])) unifiedUpdateDashboardNumbers_();
       else if (sheetName === UNIFIED_EXPORT_SHEET && unifiedEditTouches_(range, [7, 8, 9])) unifiedUpdateDashboardNumbers_();
       else if (
         (sheetName === TARGET_SHEET_NAME || sheetName === UNIFIED_UPLOAD_SHEET || sheetName === UNIFIED_REVIEW_SHEET) &&
@@ -2347,6 +2347,11 @@ function ensureSelectionControls_() {
   const reviewSheet = spreadsheet.getSheetByName(UNIFIED_REVIEW_SHEET);
   if (reviewSheet) {
     unifiedEnsureReviewSheet_();
+    try {
+      unifiedApplyBookFlagsToReview_(reviewSheet);   // 이미 모여 있던 책에도 만화·문제집 표시를 붙입니다.
+    } catch (error) {
+      console.warn('책 종류 표시 실패: ' + error);
+    }
   }
 
   // 업로드 목록 시트는 파일을 올리기 전에도 미리 만들어 둡니다.

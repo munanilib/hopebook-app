@@ -582,6 +582,103 @@ function HR_getMaxClasses_() {
 }
 
 
+/* ===== BookFlags.gs ===== */
+/**
+ * 🏷️ 책 종류 표시: 만화 · 문제집·학습지
+ *
+ * 구입 검토함 · 서점 전달용 · 시리즈 후보 · 업로드 목록의 「비고」 맨 앞에 표시를 붙입니다.
+ *   📙 만화                   : 만화·학습만화·웹툰 등 (읽는 책이라 사도 되지만 구분해서 보기 위해)
+ *   ⚠ 문제집·학습지 의심       : 문제집·학습지·워크북·기출·수능·자습서 등 (실수로 사지 않도록 경고)
+ * 서점 전달용을 만들기 전에는 문제집·학습지로 보이는 책이 있으면 한 번 더 확인을 묻습니다.
+ * 제목(그리고 있으면 YES24 분야)만 보고 판단하는 추정이라, 틀릴 수 있으면 「비고」에서 표시를 지우면 됩니다.
+ */
+var BOOK_FLAG_COMIC = '📙 만화';
+var BOOK_FLAG_WORKBOOK = '⚠ 문제집·학습지 의심';
+
+function unifiedBookFlags_(title, category) {
+  var text = String(title || '');
+  var cat = String(category || '');
+  var compact = text.replace(/\s+/g, '');
+
+  var comic = /만화|코믹|웹툰|카툰|그래픽\s*노블/.test(text) ||
+    /만화|웹툰|코믹/.test(cat) ||
+    /^(Why\?|와이|살아남기|마법천자문|수학도둑|과학도둑|먼나라이웃나라|한국사대모험)/.test(compact.replace(/^\(.*?\)/, ''));
+
+  var strong = /문제집|학습지|워크북|익힘책|자습서|평가문제|단원평가|기출|모의고사|수능\s*(?:특강|완성|대비|연계|개념|문제|국어|영어|수학|한국사|탐구|영역|독해)|내신\s*(?:대비|문제|완성|만점|필수|\d\s*등급)|오답\s*노트|받아쓰기|따라\s*쓰기|쓰기\s*노트|연산\s*(?:문제|훈련|노트|학습)|EBS|개념\s*원리|디딤돌|우공비|마더텅|완자|기본서|급수\s*한자|한자\s*쓰기/i.test(text) ||
+    /(?:^|[\s\[(])쎈(?:[\s\])]|$)/.test(text) ||
+    /참고서|수험서|자격증|문제집|학습지|교재/.test(cat);
+  // 「초등 3학년 수학」처럼 학년·과목만 있는 제목은 이야기책일 수도 있어서, 읽을거리 말이 없을 때만 의심합니다.
+  var gradeSubject = /(?:초등|중등|중학|고등)?\s*\d\s*학년\s*(?:\d\s*학기\s*)?(?:국어|수학|영어|과학|사회)/.test(text) &&
+    !/이야기|동화|소설|위인|탐험|모험|그림책|만화|인물|여행/.test(text);
+
+  return { comic: Boolean(comic), workbook: Boolean(strong || gradeSubject) };
+}
+
+// 비고 글 맨 앞에 붙은 표시들을 읽습니다.
+function unifiedFlagsFromNote_(note) {
+  var text = String(note || '');
+  return { comic: text.indexOf(BOOK_FLAG_COMIC) >= 0, workbook: text.indexOf(BOOK_FLAG_WORKBOOK) >= 0 };
+}
+
+function unifiedFlagTagText_(flags) {
+  var tags = [];
+  if (flags && flags.workbook) tags.push(BOOK_FLAG_WORKBOOK);
+  if (flags && flags.comic) tags.push(BOOK_FLAG_COMIC);
+  return tags.join(' · ');
+}
+
+// 비고에 없는 표시만 맨 앞에 붙입니다. (이미 붙은 표시는 그대로 두고, 선생님이 지운 표시는 다시 붙입니다.)
+function unifiedComposeNote_(note, flags) {
+  var current = String(note || '').trim();
+  var have = unifiedFlagsFromNote_(current);
+  var add = unifiedFlagTagText_({ workbook: flags.workbook && !have.workbook, comic: flags.comic && !have.comic });
+  if (!add) return current;
+  return current ? add + ' · ' + current : add;
+}
+
+// 구입 검토함 비고 열(L)에 표시를 붙입니다. 바뀐 줄이 있을 때만 씁니다. 문제집·학습지 의심 권수를 돌려줍니다.
+function unifiedApplyBookFlagsToReview_(sheet) {
+  if (!sheet || sheet.getLastRow() < 6) return 0;
+  var count = sheet.getLastRow() - 5;
+  var rows = sheet.getRange(6, 1, count, 12).getValues();
+  var notes = [], changed = false, workbooks = 0;
+  rows.forEach(function(row) {
+    var title = String(row[3] || '').trim();
+    var note = String(row[11] || '');
+    if (!title) { notes.push([note]); return; }
+    var next = unifiedComposeNote_(note, unifiedBookFlags_(title, ''));
+    if (next !== note) changed = true;
+    if (unifiedFlagsFromNote_(next).workbook) workbooks++;
+    notes.push([next]);
+  });
+  if (changed) sheet.getRange(6, 12, count, 1).setValues(notes);
+  return workbooks;
+}
+
+// 서점 전달용을 만들기 전 확인: 문제집·학습지로 보이는 책을 보여 주고 그래도 포함할지 묻습니다.
+// 돌려주는 값: true=계속, false=멈춤
+function unifiedConfirmWorkbooks_(books) {
+  var titles = [];
+  (books || []).forEach(function(row) {
+    var flags = unifiedBookFlags_(row[3], '');
+    var noted = unifiedFlagsFromNote_(row[11]);
+    if (flags.workbook || noted.workbook) titles.push(String(row[3] || '').trim());
+  });
+  if (!titles.length) return true;
+
+  var ui;
+  try { ui = SpreadsheetApp.getUi(); } catch (error) { return true; }
+  var list = titles.slice(0, 10).map(function(title) { return '· ' + title; }).join('\n') +
+    (titles.length > 10 ? '\n… 외 ' + (titles.length - 10) + '권' : '');
+  var answer = ui.alert(
+    '⚠ 문제집·학습지로 보이는 책이 ' + titles.length + '권 있습니다',
+    list + '\n\n그래도 서점 전달용에 포함할까요?\n(아니오를 누르면 만들기를 멈춥니다. 구입 검토함에서 체크를 풀거나 「보류」로 바꿔 주세요.\n문제집이 아닌 책이면 비고의 「⚠ 문제집·학습지 의심」 표시를 지우면 됩니다.)',
+    ui.ButtonSet.YES_NO
+  );
+  return answer === ui.Button.YES;
+}
+
+
 /* ===== Code.js ===== */
 /**
  * ============================================================
@@ -1231,7 +1328,7 @@ function onEdit(e) {
   // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
   if (cell !== 'A4' || !checkboxChanged) {
     try {
-      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11])) unifiedUpdateDashboardNumbers_();
+      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11, 12])) unifiedUpdateDashboardNumbers_();
       else if (sheetName === UNIFIED_EXPORT_SHEET && unifiedEditTouches_(range, [7, 8, 9])) unifiedUpdateDashboardNumbers_();
       else if (
         (sheetName === TARGET_SHEET_NAME || sheetName === UNIFIED_UPLOAD_SHEET || sheetName === UNIFIED_REVIEW_SHEET) &&
@@ -2932,6 +3029,11 @@ function ensureSelectionControls_() {
   const reviewSheet = spreadsheet.getSheetByName(UNIFIED_REVIEW_SHEET);
   if (reviewSheet) {
     unifiedEnsureReviewSheet_();
+    try {
+      unifiedApplyBookFlagsToReview_(reviewSheet);   // 이미 모여 있던 책에도 만화·문제집 표시를 붙입니다.
+    } catch (error) {
+      console.warn('책 종류 표시 실패: ' + error);
+    }
   }
 
   // 업로드 목록 시트는 파일을 올리기 전에도 미리 만들어 둡니다.
@@ -3329,7 +3431,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-26-7';
+var HR_GUIDE_VERSION = '2026-11-26-8';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3347,7 +3449,7 @@ var HR_MANUAL_SECTIONS = [
       ['② 후보 모으기',
         '「📚 희망도서 목록」의 신청을 「🛒 구입 검토함」으로 보냅니다. 시리즈 누락·후속권 점검 결과(🔎)와 엑셀 업로드(📥) 후보도 같은 검토함에 모입니다.'],
       ['③ 구입 결정',
-        '「🛒 구입 검토함」에서 살 책의 「선택」을 체크하고 수량·메모를 확인합니다. 우리 학교에 이미 있는 책은 자동으로 걸러집니다.'],
+        '「🛒 구입 검토함」에서 살 책의 「선택」을 체크하고 수량·메모를 확인합니다. 우리 학교에 이미 있는 책은 자동으로 걸러집니다. 만화는 비고에 「📙 만화」, 문제집·학습지로 보이는 책은 「⚠ 문제집·학습지 의심」(줄이 연한 빨강)으로 표시되고, 서점 전달용을 만들기 전에 한 번 더 물어봅니다. 표시가 틀리면 비고에서 지우면 됩니다.'],
       ['④ 서점에 전달',
         '검토함의 금색 버튼을 누르면 「📦 서점 전달용」이 만들어집니다. 개인정보 없이 같은 책은 수량으로 합치고 금액도 계산해 줍니다. 파일 → 다운로드 → Microsoft Excel(.xlsx)로 저장해 서점에 보내십시오.']
     ]
@@ -3808,7 +3910,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v8337c7b';
+var HR_BUILD_ID = 'v72374dc';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -11030,10 +11132,13 @@ function seriesBuildResultSheet_(candidates, meta) {
         book.isbn,
         book.price || '',
         linkFormula,
-        (book.saleStatus === '절판' ? '절판 · ' : '') +
-          (book.type === '신간 후속권'
-            ? '현재 마지막 권 다음에 나온 책'
-            : '보유 권차 사이에서 빠진 책')
+        unifiedComposeNote_(
+          (book.saleStatus === '절판' ? '절판 · ' : '') +
+            (book.type === '신간 후속권'
+              ? '현재 마지막 권 다음에 나온 책'
+              : '보유 권차 사이에서 빠진 책'),
+          unifiedBookFlags_(book.title, '')
+        )
       ];
     });
     sheet.getRange(6, 1, rows.length, headers.length).setValues(rows);
@@ -11618,6 +11723,7 @@ function unifiedReadRequestItems_(sheet) {
       publisher: map.publisher ? row[map.publisher - 1] : '',
       year: map.year ? (String(row[map.year - 1] || '').match(/\d{4}/) || [''])[0] : '',
       isbn: isbn,
+      category: map.category ? String(row[map.category - 1] || '') : '',
       price: price || 0,
       quantity: 1
     };
@@ -11661,6 +11767,7 @@ function unifiedHeaderMap_(headers) {
     if (!map.isbn && /^ISBN(13)?$/.test(h)) map.isbn = index + 1;
     if (!map.price && /^(정가|도서정가|가격)$/.test(h)) map.price = index + 1;
     if (!map.status && /^(처리상태|자동입력상태|상태)$/.test(h)) map.status = index + 1;
+    if (!map.category && /^(분야|카테고리|주제|KDC)$/.test(h)) map.category = index + 1;
   });
   return map;
 }
@@ -11802,6 +11909,20 @@ function unifiedStyleReviewSheet_(sheet) {
   sheet.getRange(6, 10, formatRowCount, 1).setNumberFormat('0');
   sheet.getRange(6, 11, formatRowCount, 1).setNumberFormat('#,##0"원"');
 
+  // 문제집·학습지 의심은 줄 전체를 연한 빨강으로, 만화는 도서명 칸을 연한 보라로 표시합니다.
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($L6&"","문제집·학습지")')
+      .setBackground('#FDECEA')
+      .setRanges([sheet.getRange(6, 1, Math.max(1, sheet.getMaxRows() - 5), 12)])
+      .build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($L6&"","만화")')
+      .setBackground('#EFE6F7')
+      .setRanges([sheet.getRange(6, 4, Math.max(1, sheet.getMaxRows() - 5), 1)])
+      .build()
+  ]);
+
   unifiedDrawActionBars_(sheet);   // 체크박스 대신 클릭 막대
 }
 
@@ -11846,6 +11967,12 @@ function buildUnifiedBookstoreExportSheet() {
         ? '선택한 도서는 모두 우리학교 소장도서입니다. 검토함의 상태를 확인해 주세요.'
         : '구입할 책의 선택 칸을 체크하거나 처리상태를 「구입결정」으로 바꿔 주세요.'
     );
+  }
+
+  // 문제집·학습지로 보이는 책이 있으면 한 번 더 확인합니다.
+  if (!unifiedConfirmWorkbooks_(books)) {
+    ss.toast('서점 전달용 만들기를 멈췄습니다. 구입 검토함에서 해당 책을 확인해 주세요.', '문제집·학습지 확인', 8);
+    return { success: false, cancelled: true };
   }
 
   var target = ss.getSheetByName(UNIFIED_EXPORT_SHEET) || ss.insertSheet(UNIFIED_EXPORT_SHEET);
@@ -12060,11 +12187,17 @@ function unifiedDashboardStats_(ss, onlyPurchase) {
   var decidedKeys = {};
   var decided = 0;
   var decidedAmount = 0;
+  var workbookDecided = 0;
+  var comicDecided = 0;
   if (review && review.getLastRow() >= 6) {
     review.getRange(6, 1, review.getLastRow() - 5, 12).getValues().forEach(function(row) {
       if (!String(row[3] || '').trim()) return;                       // 도서명이 없는 줄은 책이 아닙니다.
       if (!(row[0] === true || String(row[2]) === '구입결정')) return;
       decided++;
+      var decidedFlags = unifiedBookFlags_(row[3], '');
+      var decidedNoted = unifiedFlagsFromNote_(row[11]);
+      if (decidedFlags.workbook || decidedNoted.workbook) workbookDecided++;
+      if (decidedFlags.comic || decidedNoted.comic) comicDecided++;
       var price = Number(row[8] || 0);
       var quantity = Math.max(1, Number(row[9] || 1));
       decidedAmount += Number(row[10] || 0) || price * quantity;
@@ -12073,6 +12206,8 @@ function unifiedDashboardStats_(ss, onlyPurchase) {
     });
   }
   stats.decided = decided;
+  stats.workbookDecided = workbookDecided;
+  stats.comicDecided = comicDecided;
   stats.decidedAmount = decidedAmount;
   stats.budget = unifiedGetBudget_();
   var purchaseLog = unifiedPurchaseLogStats_(ss);
@@ -12136,11 +12271,13 @@ function unifiedFillDashboardNumbers_(sheet, stats, onlyPurchase) {
 
   // 구입 진행 현황
   sheet.getRange('A12').setValue(stats.decided + '권');
-  sheet.getRange('A13').setValue(
-    stats.decided
-      ? '검토함에서 체크한 책 · ' + unifiedMoney_(stats.decidedAmount)
-      : '아직 체크한 책이 없습니다'
-  ).setFontColor(MUTED).setFontWeight('normal');
+  var decidedNote = stats.decided
+    ? '검토함에서 체크한 책 · ' + unifiedMoney_(stats.decidedAmount)
+    : '아직 체크한 책이 없습니다';
+  if (stats.workbookDecided) decidedNote += '\n⚠ 문제집·학습지로 보이는 책 ' + stats.workbookDecided + '권 포함';
+  else if (stats.comicDecided) decidedNote += ' · 📙 만화 ' + stats.comicDecided + '권';
+  sheet.getRange('A13').setValue(decidedNote)
+    .setFontColor(stats.workbookDecided ? RED : MUTED).setFontWeight(stats.workbookDecided ? 'bold' : 'normal');
 
   sheet.getRange('E12').setValue(stats.exportCount + '권');
   var note;
@@ -12283,7 +12420,7 @@ function unifiedRefreshDashboard_() {
   });
   sheet.setRowHeight(11, 28);
   sheet.setRowHeight(12, 44);
-  sheet.setRowHeight(13, 30);
+  sheet.setRowHeight(13, 38);
 
   // 3-2) 예산 현황: 제목(15) / 이름(16) / 값(17) / 설명(18) / 막대(19) / 요약(20)
   var logSheet = unifiedEnsurePurchaseLogSheet_();
@@ -12586,9 +12723,10 @@ function unifiedRefreshPurchaseReview_(newSeriesItems) {
       price || '',
       quantity,
       price ? price * quantity : '',
-      manual.note || item.note || ''
+      unifiedComposeNote_(manual.note || item.note || '', unifiedBookFlags_(item.title, item.category))
     ];
   });
+  var workbookCount = output.filter(function(row) { return unifiedFlagsFromNote_(row[11]).workbook; }).length;
 
   if (review.getFilter()) review.getFilter().remove();
   review.getRange(6, 1, Math.max(1, review.getMaxRows() - 5), 12).clearContent().clearDataValidations();
@@ -12616,7 +12754,8 @@ function unifiedRefreshPurchaseReview_(newSeriesItems) {
 
   return {
     count: output.length,
-    ownedSkipped: ownedSkipped
+    ownedSkipped: ownedSkipped,
+    workbookCount: workbookCount
   };
 }
 
@@ -12627,7 +12766,8 @@ function sendHopeRequestsToReview() {
   if (review) ss.setActiveSheet(review);
 
   ss.toast(
-    '희망도서를 구입 검토함에 모았습니다. 현재 ' + result.count + '권입니다.',
+    '희망도서를 구입 검토함에 모았습니다. 현재 ' + result.count + '권입니다.' +
+      (result.workbookCount ? ' ⚠ 문제집·학습지로 보이는 책이 ' + result.workbookCount + '권 있습니다. 비고를 확인해 주세요.' : ''),
     '전송 완료',
     7
   );
@@ -12821,7 +12961,7 @@ function unifiedReplaceUploadRows_(books, fileName) {
         book.quantity,
         book.price ? book.price * book.quantity : '',
         book.series,
-        book.note
+        unifiedComposeNote_(book.note, unifiedBookFlags_(book.title, ''))
       ];
     });
 
@@ -14336,6 +14476,12 @@ function verifyYes24Connection() {
     "HR_prepareAudienceColumns_": HR_prepareAudienceColumns_,
     "HR_getParentQuota": HR_getParentQuota,
     "HR_getMaxClasses_": HR_getMaxClasses_,
+    "unifiedBookFlags_": unifiedBookFlags_,
+    "unifiedFlagsFromNote_": unifiedFlagsFromNote_,
+    "unifiedFlagTagText_": unifiedFlagTagText_,
+    "unifiedComposeNote_": unifiedComposeNote_,
+    "unifiedApplyBookFlagsToReview_": unifiedApplyBookFlagsToReview_,
+    "unifiedConfirmWorkbooks_": unifiedConfirmWorkbooks_,
     "getConfiguredYes24Key_": getConfiguredYes24Key_,
     "getConfiguredNlkKey": getConfiguredNlkKey,
     "onOpen": onOpen,
