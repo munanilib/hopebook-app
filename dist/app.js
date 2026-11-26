@@ -3808,7 +3808,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v2c7361e';
+var HR_BUILD_ID = 'v437d029';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9967,7 +9967,8 @@ function refreshMissingSeriesBooks() {
 
     var searchResult = seriesSearchYes24_(groups, holdings, key, resumeOffset, runStartedAt);
     var candidates = seriesMergeCandidates_(existingCandidates, searchResult.candidates);
-    var incomplete = groupLimitReached || searchResult.truncated;
+    // 3000개를 넘는 시리즈는 이번 점검 대상이 아닙니다. (예전에는 이것 때문에 다 끝나도 「미완료」로 남아 1분마다 영원히 반복됐습니다.)
+    var incomplete = searchResult.truncated;
 
     if (incomplete) {
       seriesSaveResumeState_({
@@ -10004,6 +10005,18 @@ function refreshMissingSeriesBooks() {
       incomplete ? '시리즈 점검 저장 완료' : '시리즈 점검 전체 완료',
       10
     );
+    if (searchResult.errorCount) {
+      spreadsheet.toast(
+        '일부 검색 ' + searchResult.errorCount + '건은 YES24 오류로 건너뛰었습니다. (예: ' + (searchResult.skippedQueries[0] || '') + ') 다음 점검 때 다시 시도됩니다.',
+        '시리즈 점검 참고', 12
+      );
+    }
+    if (groupLimitReached) {
+      spreadsheet.toast(
+        '소장도서의 시리즈가 ' + allGroups.length + '개로 한 번에 점검하는 ' + SERIES_MAX_GROUPS + '개를 넘어, 우선순위가 낮은 ' + (allGroups.length - groups.length) + '개는 점검하지 않았습니다.',
+        '시리즈 점검 참고', 12
+      );
+    }
   } catch (error) {
     seriesSpreadsheet_().toast(
       String(error && error.message ? error.message : error),
@@ -10231,13 +10244,16 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
       cacheWrites[chunk[index].cacheKey] = JSON.stringify(info);
     });
 
-    if (Object.keys(cacheWrites).length) properties.setProperties(cacheWrites, false);
-    
+    // 판본 기억 저장 공간이 가득 차도 점검은 계속합니다. (기억은 속도를 위한 보조 기능입니다.)
+    if (Object.keys(cacheWrites).length) {
+      try { properties.setProperties(cacheWrites, false); } catch (ignore) { cacheWrites = {}; }
+    }
+
     Utilities.sleep(100);
   }
 
   if (Object.keys(cacheWrites).length) {
-    properties.setProperties(cacheWrites, false);
+    try { properties.setProperties(cacheWrites, false); } catch (ignore) {}
   }
   return {requestCount: requestCount};
 }
@@ -10560,13 +10576,17 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
   }
 
   var bySeriesVolume = {};
-  var apiErrors = [];
+  var apiErrors = [];     // 키·한도 문제처럼 전체를 멈춰야 하는 오류
+  var skippedQueries = [];  // 그 검색 한 건만 건너뛰어도 되는 오류
 
   responses.forEach(function(entry) {
     var response = entry.response;
     var spec = entry.spec;
-    if (response.getResponseCode() !== 200) {
-      apiErrors.push(spec.query + ': HTTP ' + response.getResponseCode());
+    var status = response.getResponseCode();
+    if (status !== 200) {
+      // 인증·한도 오류(401·403·429)는 전부 멈추고, 그 밖의 오류(400·404·5xx)는 그 검색만 건너뜁니다.
+      // (예전에는 한 건만 실패해도 점검 전체가 같은 자리에서 영원히 멈췄습니다.)
+      (/^(401|403|429)$/.test(String(status)) ? apiErrors : skippedQueries).push(spec.query + ': HTTP ' + status);
       return;
     }
 
@@ -10574,7 +10594,7 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
     try {
       data = JSON.parse(response.getContentText('UTF-8'));
     } catch (ignore) {
-      apiErrors.push(spec.query + ': 응답 해석 실패');
+      skippedQueries.push(spec.query + ': 응답 해석 실패');
       return;
     }
     if (data.errorCode) {
@@ -10596,8 +10616,9 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
     });
   });
 
-  if (apiErrors.length > 0) {
-    throw new Error('YES24 조회 중 오류가 발생해 결과와 진행 위치를 보존했습니다. API 키와 호출 한도를 확인해 주세요.\n' + apiErrors.slice(0, 3).join('\n'));
+  // 절반 이상(3건 이상)이 실패했다면 키·서버 문제이므로 멈추고, 몇 건만 실패했으면 건너뛰고 계속합니다.
+  if (apiErrors.length > 0 || (skippedQueries.length >= 3 && skippedQueries.length * 2 >= responses.length) || (responses.length > 0 && skippedQueries.length === responses.length)) {
+    throw new Error('YES24 조회 중 오류가 발생해 결과와 진행 위치를 보존했습니다. API 키와 호출 한도를 확인해 주세요.\n' + apiErrors.concat(skippedQueries).slice(0, 3).join('\n'));
   }
 
   var candidates = Object.keys(bySeriesVolume)
@@ -10615,7 +10636,8 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
     requestCount: responses.length,
     searchedGroupCount: Object.keys(searchedGroups).length,
     truncated: nextOffset < totalSpecCount,
-    errorCount: apiErrors.length,
+    errorCount: skippedQueries.length,
+    skippedQueries: skippedQueries.slice(0, 5),
     startOffset: startOffset,
     nextOffset: nextOffset,
     totalSpecCount: totalSpecCount
