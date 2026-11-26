@@ -1,3 +1,12 @@
+/** 시트를 열 때마다: 공개 신청 링크가 등록돼 있으면 바로가기 창을 띄웁니다(링크가 없으면 조용히 건너뜀). */
+function HR_showShortcutOnOpen_() {
+  var url = String(
+    PropertiesService.getScriptProperties().getProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY) || ''
+  ).trim();
+  if (!url) return;
+  HR_showHopeRequestDialog();
+}
+
 /** 시트에 등록된 공개 희망도서 신청 웹앱 바로가기 */
 function HR_showHopeRequestDialog() {
   const requestUrl = String(

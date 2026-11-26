@@ -111,6 +111,11 @@ function onOpen() {
     console.warn('시트 탭 정리 실패: ' + error);
   }
   try {
+    HR_showShortcutOnOpen_();
+  } catch (error) {
+    console.warn('신청 바로가기 창 표시 실패: ' + error);
+  }
+  try {
     HR_showUpdateNoticeOnOpen_();
   } catch (error) {
     console.warn('업데이트 소식 표시 실패: ' + error);

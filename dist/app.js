@@ -793,6 +793,11 @@ function onOpen() {
     console.warn('시트 탭 정리 실패: ' + error);
   }
   try {
+    HR_showShortcutOnOpen_();
+  } catch (error) {
+    console.warn('신청 바로가기 창 표시 실패: ' + error);
+  }
+  try {
     HR_showUpdateNoticeOnOpen_();
   } catch (error) {
     console.warn('업데이트 소식 표시 실패: ' + error);
@@ -4066,7 +4071,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v4b53417';
+var HR_BUILD_ID = 'v5f46576';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9730,6 +9735,15 @@ function HR_unverifiedNote_(book) {
 
 
 /* ===== ReservationShortcut.js ===== */
+/** 시트를 열 때마다: 공개 신청 링크가 등록돼 있으면 바로가기 창을 띄웁니다(링크가 없으면 조용히 건너뜀). */
+function HR_showShortcutOnOpen_() {
+  var url = String(
+    PropertiesService.getScriptProperties().getProperty(HR_PUBLIC_WEB_APP_URL_PROPERTY) || ''
+  ).trim();
+  if (!url) return;
+  HR_showHopeRequestDialog();
+}
+
 /** 시트에 등록된 공개 희망도서 신청 웹앱 바로가기 */
 function HR_showHopeRequestDialog() {
   const requestUrl = String(
@@ -14915,6 +14929,7 @@ function verifyYes24Connection() {
     "HR_safeCoverUrl_": HR_safeCoverUrl_,
     "HR_prepareSelectedBook_": HR_prepareSelectedBook_,
     "HR_unverifiedNote_": HR_unverifiedNote_,
+    "HR_showShortcutOnOpen_": HR_showShortcutOnOpen_,
     "HR_showHopeRequestDialog": HR_showHopeRequestDialog,
     "HR_getStaffCode_": HR_getStaffCode_,
     "HR_isStaffCodeEnabled_": HR_isStaffCodeEnabled_,
