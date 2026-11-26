@@ -3180,7 +3180,9 @@ function HR_genreCategoryItems_(genre, genreKey, age, key) {
         var id = String(row.categoryId || '');
         var name = String(row.categoryName || '');
         var path = String(row.categoryFullPath || '');
-        if (id.indexOf('001') !== 0) return false;
+        // YES24에는 어린이 책의 장르별 진열대가 없어서 만화·성인 소설 진열대(공포/추리·로맨스 등)가 잘못 걸렸습니다.
+        // 어린이·유아·청소년 진열대만 인정합니다.
+        if (id.indexOf('001001016') !== 0 && id.indexOf('001001027') !== 0 && id.indexOf('001001005') !== 0) return false;
         if (ageWord && path.indexOf(ageWord) < 0) return false;
         return genre.cats.some(function(word) { return name.indexOf(word) >= 0 || path.indexOf(word) >= 0; });
       }).sort(function(a, b) {
@@ -4108,7 +4110,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v58bc695';
+var HR_BUILD_ID = 'v020faa0';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
