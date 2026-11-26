@@ -1779,6 +1779,7 @@ function unifiedAddMenu_() {
     .addItem('🔎 시리즈 누락·후속권 이어서 점검', 'refreshMissingSeriesBooks')
     .addItem('🛒 체크한 시리즈를 구입 검토함으로 보내기', 'sendSelectedSeriesToReview')
     .addItem('📥 업로드 목록을 열기', 'openUnifiedUploadSheet')
+    .addItem('💵 예산 설정', 'unifiedSetBudget')
     .addSeparator()
     .addItem('📦 중복 확인 후 서점 전달용으로 보내기', 'buildUnifiedBookstoreExportSheet')
     .addSeparator()
@@ -2204,9 +2205,51 @@ function unifiedEnsureSettingsSheet_() {
 }
 
 // 대시보드 모양을 바꾸면 이 번호를 올립니다. 번호가 다르면 숫자만 고치는 대신 전체를 다시 그립니다.
-var UNIFIED_DASHBOARD_LAYOUT = '2';
+var UNIFIED_DASHBOARD_LAYOUT = '3';
+var UNIFIED_BUDGET_PROPERTY = 'UNIFIED_BUDGET';
 var UNIFIED_DASHBOARD_LAYOUT_PROPERTY = 'UNIFIED_DASHBOARD_LAYOUT';
 var UNIFIED_EXPORT_BUILT_AT_PROPERTY = 'UNIFIED_EXPORT_BUILT_AT';
+
+// 학교 예산(원). 설정하지 않았으면 0
+function unifiedGetBudget_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(UNIFIED_BUDGET_PROPERTY);
+  var value = Number(raw);
+  return isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+
+// 메뉴: 「💵 예산 설정」
+function unifiedSetBudget() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var current = unifiedGetBudget_();
+  var response = ui.prompt(
+    '💵 예산 설정',
+    '이번 도서 구입 총 예산(원)을 숫자로 입력해 주세요. 예: 3000000 또는 300만원\n' +
+      (current ? '지금 설정: ' + unifiedMoney_(current) + '\n' : '') +
+      '비워 두고 확인을 누르면 예산 표시를 끕니다.',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  var text = String(response.getResponseText() || '').replace(/[,\s원]/g, '');
+  var value = 0;
+  if (text) {
+    var man = text.match(/^(\d+(?:\.\d+)?)만$/);
+    value = man ? Math.round(Number(man[1]) * 10000) : Number(text);
+    if (!isFinite(value) || value <= 0) {
+      ui.alert('예산을 숫자로 입력해 주세요. (예: 3000000, 300만원)');
+      return;
+    }
+  }
+  if (value) props.setProperty(UNIFIED_BUDGET_PROPERTY, String(Math.round(value)));
+  else props.deleteProperty(UNIFIED_BUDGET_PROPERTY);
+
+  unifiedUpdateDashboardNumbers_();
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    value ? '예산을 ' + unifiedMoney_(value) + '으로 설정했습니다.' : '예산 표시를 껐습니다.',
+    '💵 예산', 6
+  );
+}
 
 // 책 한 권을 가리키는 열쇠: ISBN이 있으면 ISBN, 없으면 도서명
 function unifiedBookKey_(isbn, title) {
@@ -2253,6 +2296,7 @@ function unifiedDashboardStats_(ss, onlyPurchase) {
   }
   stats.decided = decided;
   stats.decidedAmount = decidedAmount;
+  stats.budget = unifiedGetBudget_();
 
   // 서점 전달용에 만들어 둔 책
   var exportSheet = ss.getSheetByName(UNIFIED_EXPORT_SHEET);
@@ -2332,6 +2376,27 @@ function unifiedFillDashboardNumbers_(sheet, stats, onlyPurchase) {
   }
   sheet.getRange('E13').setValue(note).setFontColor(noteColor).setFontWeight(noteWeight);
 
+  // 예산 현황 (구입 결정 금액 기준)
+  var budget = Number(stats.budget || 0);
+  var used = Number(stats.decidedAmount || 0);
+  var remain = budget - used;
+  sheet.getRange('A17').setValue(budget ? unifiedMoney_(budget) : '미설정');
+  sheet.getRange('E17').setValue(unifiedMoney_(used));
+  sheet.getRange('I17').setValue(budget ? (remain < 0 ? '-' + unifiedMoney_(-remain) : unifiedMoney_(remain)) : '-')
+    .setFontColor(budget && remain < 0 ? RED : '#1F5C4A');
+  var bar = sheet.getRange('A18');
+  if (budget) {
+    bar.setFormula('=SPARKLINE(' + Math.min(used, budget) + ',{"charttype","bar";"max",' + budget + ';"color1","' + (remain < 0 ? '#B3261E' : '#2E5B4F') + '";"color2","#E3EFE9"})');
+  } else {
+    bar.setValue('');
+  }
+  var percent = budget ? Math.round(used / budget * 100) : 0;
+  sheet.getRange('A19').setValue(
+    !budget ? '예산을 아직 정하지 않았습니다. 위쪽 「🧰 통합 도서업무 → 💵 예산 설정」에서 입력하세요.'
+      : remain < 0 ? '⚠ 예산을 ' + unifiedMoney_(-remain) + ' 넘었습니다 · 사용률 ' + percent + '%'
+      : '사용률 ' + percent + '% · 아직 ' + unifiedMoney_(remain) + ' 쓸 수 있습니다 (구입 결정 금액 기준)'
+  ).setFontColor(budget && remain < 0 ? RED : MUTED).setFontWeight(budget && remain < 0 ? 'bold' : 'normal');
+
   sheet.getRange('I12').setValue(unifiedMoney_(stats.exportAmount));
   sheet.getRange('I13').setValue(stats.exportCount ? '서점 전달용 정가 × 수량 합계' : '서점 전달용을 만들면 표시됩니다')
     .setFontColor(MUTED).setFontWeight('normal');
@@ -2366,9 +2431,9 @@ function unifiedRefreshDashboard_() {
   var INK = '#26352F', MUTED = '#6C7F77', LINE = '#CFE0D8';
 
   // 모든 줄 높이를 먼저 기본으로 돌려 둡니다. (이전 모양이 남지 않게)
-  sheet.setRowHeights(1, 22, 24);
+  sheet.setRowHeights(1, 27, 24);
   for (var column = 1; column <= 12; column++) sheet.setColumnWidth(column, 96);
-  sheet.getRange('A1:L22').setVerticalAlignment('middle').setFontColor(INK);
+  sheet.getRange('A1:L27').setVerticalAlignment('middle').setFontColor(INK);
 
   // 1) 제목 띠
   sheet.getRange('A1:L1').merge().setValue('🏠 학교도서관 통합 구입 업무')
@@ -2432,11 +2497,33 @@ function unifiedRefreshDashboard_() {
   sheet.setRowHeight(12, 44);
   sheet.setRowHeight(13, 30);
 
-  // 4) 업무 순서 (바로가기 포함)
-  sheet.getRange('A15:L15').merge().setValue('🧭  업무 순서')
+  // 3-2) 예산 현황: 제목(16) / 이름(17→값) / 막대(18) / 설명(19)
+  sheet.getRange('A15:L15').merge().setValue('🧾  예산 현황')
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
   sheet.setRowHeight(14, 12);
   sheet.setRowHeight(15, 38);
+  [['A', 'D', '💰 총 예산'], ['E', 'H', '🛒 구입 결정 금액'], ['I', 'L', '🟢 남은 예산']].forEach(function(item) {
+    sheet.getRange(item[0] + '16:' + item[1] + '16').merge().setValue(item[2])
+      .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center').setBackground(GREEN_SOFT);
+    sheet.getRange(item[0] + '17:' + item[1] + '17').merge().setValue('-')
+      .setFontSize(20).setFontWeight('bold').setFontColor('#1F5C4A').setHorizontalAlignment('center').setBackground('#FFFFFF');
+    sheet.getRange(item[0] + '16:' + item[1] + '17')
+      .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  });
+  sheet.getRange('A18:L18').merge().setBackground('#FFFFFF').setVerticalAlignment('middle');
+  sheet.getRange('A19:L19').merge().setValue('')
+    .setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setBackground('#FFFFFF');
+  sheet.getRange('A16:L19').setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.setRowHeight(16, 28);
+  sheet.setRowHeight(17, 42);
+  sheet.setRowHeight(18, 24);
+  sheet.setRowHeight(19, 28);
+
+  // 4) 업무 순서 (바로가기 포함)
+  sheet.getRange('A21:L21').merge().setValue('🧭  업무 순서')
+    .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
+  sheet.setRowHeight(20, 12);
+  sheet.setRowHeight(21, 38);
   var steps = [
     ['A', 'C', '1', '자료 모으기', '희망도서·시리즈·엑셀 목록', UNIFIED_REQUEST_SHEET, '📚 희망도서 목록'],
     ['D', 'F', '2', '구입 검토', '구입할 책 체크·수량 확인', UNIFIED_REVIEW_SHEET, '🛒 구입 검토함'],
@@ -2445,11 +2532,11 @@ function unifiedRefreshDashboard_() {
   ];
   steps.forEach(function(step) {
     var c1 = step[0], c2 = step[1];
-    sheet.getRange(c1 + '16:' + c2 + '16').merge().setValue(step[2] + '  ' + step[3])
+    sheet.getRange(c1 + '22:' + c2 + '22').merge().setValue(step[2] + '  ' + step[3])
       .setBackground(GREEN_MID).setFontColor('#FFFFFF').setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
-    sheet.getRange(c1 + '17:' + c2 + '17').merge().setValue(step[4])
+    sheet.getRange(c1 + '23:' + c2 + '23').merge().setValue(step[4])
       .setBackground('#FFFFFF').setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setWrap(true);
-    var link = sheet.getRange(c1 + '18:' + c2 + '18').merge().setBackground('#FFFFFF')
+    var link = sheet.getRange(c1 + '24:' + c2 + '24').merge().setBackground('#FFFFFF')
       .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center');
     var target = step[5] ? ss.getSheetByName(step[5]) : (ss.getSheetByName('🏫 우리학교 소장도서') || null);
     if (target) {
@@ -2457,19 +2544,19 @@ function unifiedRefreshDashboard_() {
     } else {
       link.setValue(step[6]);
     }
-    sheet.getRange(c1 + '16:' + c2 + '18')
+    sheet.getRange(c1 + '22:' + c2 + '24')
       .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   });
-  sheet.setRowHeight(16, 34);
-  sheet.setRowHeight(17, 30);
-  sheet.setRowHeight(18, 32);
+  sheet.setRowHeight(22, 34);
+  sheet.setRowHeight(23, 30);
+  sheet.setRowHeight(24, 32);
 
   // 5) 안내
-  sheet.getRange('A20:L20').merge()
+  sheet.getRange('A26:L26').merge()
     .setValue('💡 필요한 기능은 위쪽 「🧰 통합 도서업무」 메뉴에서 실행하고, 위 업무 순서의 시트 이름을 누르면 해당 시트로 바로 이동합니다.')
     .setBackground(GOLD_SOFT).setFontSize(10).setFontColor('#7A5A12').setHorizontalAlignment('left').setWrap(true);
-  sheet.setRowHeight(19, 12);
-  sheet.setRowHeight(20, 34);
+  sheet.setRowHeight(25, 12);
+  sheet.setRowHeight(26, 34);
   sheet.setFrozenRows(3);
 
   // 숫자 채우기와 모양 번호 기록
