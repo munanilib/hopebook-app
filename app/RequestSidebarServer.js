@@ -455,10 +455,16 @@ function HR_submitBookRequest(formData) {
         '',
         ''
       );
+      var requesterInfo = HR_recordExtraRequester_(spreadsheet, sheet, requestedBook.row, selectedBook, applicant);
+      var requesterTotal = requesterInfo && requesterInfo.total ? requesterInfo.total : 1;
+      var duplicateMessage = requesterInfo && requesterInfo.sameApplicant
+        ? '이미 신청하신 도서입니다.'
+        : '이미 신청된 도서입니다. 함께 원하는 분으로 기록했어요. (현재 ' + requesterTotal + '명)';
       return {
         success: false,
         duplicateRequest: true,
-        message: '이미 신청된 도서입니다.',
+        requesters: requesterTotal,
+        message: duplicateMessage,
         title: requestedBook.title || selectedBook.title || query,
         isbn: requestedBook.isbn || selectedBook.isbn || normalizedIsbn,
         status: '이미 신청된 도서입니다.'
@@ -884,7 +890,7 @@ function HR_searchRequestBooks(query) {
       });
     }
   }
-  return items.map(yes24RequestBook_);
+  return HR_annotateBooksStatus_(items.map(yes24RequestBook_));
 }
 
 /**

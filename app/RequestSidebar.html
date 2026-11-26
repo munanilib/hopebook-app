@@ -2101,7 +2101,9 @@
         animation: hrTickerMove var(--ticker-duration, 26s) linear infinite;
       }
     }
-  </style>
+        .book-status-badge{margin:8px 0 0;padding:7px 11px;border-radius:10px;background:#fff4dc;color:#7a5410;font-size:13px;font-weight:800;line-height:1.45}
+      .book-status-badge.owned{background:#e8eef8;color:#35527a}
+</style>
 
   <style id="visualRefreshV20">
     :root {
@@ -4442,6 +4444,14 @@
 
         info.appendChild(title);
         info.appendChild(meta);
+        if (book.alreadyOwned || book.alreadyRequested) {
+          const badge = document.createElement('p');
+          badge.className = 'book-status-badge' + (book.alreadyOwned ? ' owned' : '');
+          badge.textContent = book.alreadyOwned
+            ? '📚 우리 학교에 이미 있는 책이에요'
+            : '⏳ 이미 ' + (book.alreadyRequested > 1 ? book.alreadyRequested + '명이 ' : '') + '신청한 책이에요. 담으면 함께 원하는 분으로 기록돼요';
+          info.appendChild(badge);
+        }
         info.appendChild(button);
         card.appendChild(cover);
         card.appendChild(info);

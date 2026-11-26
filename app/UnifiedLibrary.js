@@ -1895,6 +1895,7 @@ function unifiedReadRequestItems_(sheet) {
   var rowCount = sheet.getLastRow() - FIRST_DATA_ROW + 1;
   var display = sheet.getRange(FIRST_DATA_ROW, 1, rowCount, sheet.getLastColumn()).getDisplayValues();
   var raw = sheet.getRange(FIRST_DATA_ROW, 1, rowCount, sheet.getLastColumn()).getValues();
+  var requestersColumn = headers.map(function(h) { return String(h || '').replace(/\s+/g, ''); }).indexOf('신청인원') + 1;
 
   return display.map(function(row, index) {
     var status = map.status ? String(row[map.status - 1] || '') : '';
@@ -1918,7 +1919,8 @@ function unifiedReadRequestItems_(sheet) {
       isbn: isbn,
       category: map.category ? String(row[map.category - 1] || '') : '',
       price: price || 0,
-      quantity: 1
+      quantity: 1,
+      requesters: requestersColumn ? Math.max(1, Number(row[requestersColumn - 1]) || 1) : 1
     };
   }).filter(function(item) { return item; });
 }
@@ -2893,10 +2895,16 @@ function unifiedRefreshPurchaseReview_(newSeriesItems) {
       if (!grouped[key].publisher && item.publisher) grouped[key].publisher = item.publisher;
       if (!grouped[key].year && item.year) grouped[key].year = item.year;
       if (!grouped[key].price && item.price) grouped[key].price = item.price;
+      grouped[key].requesters = Math.max(Number(grouped[key].requesters) || 1, Number(item.requesters) || 1);
     }
 
     grouped[key].sources[item.source] = true;
   });
+
+  // 많이 신청한 책이 위로 오도록 정렬합니다(같은 인원이면 들어온 순서 그대로).
+  order = order.map(function(key, index) { return { key: key, index: index }; }).sort(function(a, b) {
+    return (Number(grouped[b.key].requesters) || 1) - (Number(grouped[a.key].requesters) || 1) || a.index - b.index;
+  }).map(function(entry) { return entry.key; });
 
   var output = order.map(function(key) {
     var item = grouped[key];
@@ -2916,7 +2924,7 @@ function unifiedRefreshPurchaseReview_(newSeriesItems) {
       price || '',
       quantity,
       price ? price * quantity : '',
-      unifiedComposeNote_(manual.note || item.note || '', unifiedBookFlags_(item.title, item.category))
+      HR_composeRequesterNote_(unifiedComposeNote_(manual.note || item.note || '', unifiedBookFlags_(item.title, item.category)), item.requesters)
     ];
   });
   var workbookCount = output.filter(function(row) { return unifiedFlagsFromNote_(row[11]).workbook; }).length;
