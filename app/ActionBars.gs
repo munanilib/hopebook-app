@@ -13,39 +13,52 @@ var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
 var UNIFIED_BARS_VERSION_PROPERTY = 'UNIFIED_BARS_VERSION';
 
-// 시트 이름 → 막대 모양. (kind: select=전체 선택 / send=보내기 / check=점검 시작 / rebuild=다시 만들기)
+// 시트 이름 → 막대 모양. 막대의 열 범위는 화면 폭에 맞춰 그릴 때 정해 저장해 두고, 누름 판정도 그 저장값을 씁니다. (kind: select=전체 선택 / send=보내기 / check=점검 시작 / rebuild=다시 만들기)
 function unifiedBarSpec_(sheet) {
+  var spec = unifiedBarSpecBase_(sheet);
+  if (!spec) return null;
+  var stored = unifiedStoredBarLayout_(sheet);
+  if (stored) {
+    spec.bars.forEach(function(bar) {
+      var range = stored[bar.id];
+      if (range) { bar.c1 = range[0]; bar.c2 = range[1]; }
+    });
+  }
+  return spec;
+}
+
+function unifiedBarSpecBase_(sheet) {
   var name = sheet.getName();
   var SEND = '📤  선택한 책 구입 검토함으로 보내기  ›';
   var SELECT = BAR_SELECT_ON;
 
   if (name === TARGET_SHEET_NAME) {
     var last = Math.max(sheet.getLastColumn(), 12);
-    return { last: last, bars: [
+    return { last: last, fractions: [1], bars: [
       { id: 'hope-send', kind: 'send', c1: 1, c2: last, label: '📥  신청 목록을 구입 검토함으로 보내기  ›', confirm: '접수된 희망도서를 구입 검토함으로 보낼까요?' }
     ] };
   }
   if (name === SERIES_FINDER_SHEET) {
-    return { last: 14, bars: [
+    return { last: 14, fractions: [0.26, 0.34, 0.40], bars: [
       { id: 'series-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
       { id: 'series-check', kind: 'check', c1: 4, c2: 8, label: '🔎  시리즈 누락 점검 시작  ›' },
       { id: 'series-send', kind: 'send', c1: 9, c2: 14, label: SEND, confirm: '체크한 시리즈 도서를 구입 검토함으로 보낼까요?' }
     ] };
   }
   if (name === UNIFIED_UPLOAD_SHEET) {
-    return { last: 11, bars: [
+    return { last: 11, fractions: [0.30, 0.70], bars: [
       { id: 'upload-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
       { id: 'upload-send', kind: 'send', c1: 4, c2: 11, label: SEND, confirm: '체크한 책을 구입 검토함으로 보낼까요?' }
     ] };
   }
   if (name === UNIFIED_REVIEW_SHEET) {
-    return { last: 12, bars: [
+    return { last: 12, fractions: [0.30, 0.70], bars: [
       { id: 'review-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
       { id: 'review-export', kind: 'send', c1: 4, c2: 12, label: '📦  서점 전달용으로 보내기 (중복 확인)  ›', confirm: '체크한 책의 소장 중복을 확인하고 서점 전달용 목록을 만들까요?' }
     ] };
   }
   if (name === UNIFIED_EXPORT_SHEET) {
-    return { last: 10, bars: [
+    return { last: 10, fractions: [0.42, 0.58], bars: [
       { id: 'export-rebuild', kind: 'send', c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
       { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
@@ -60,6 +73,52 @@ var UNIFIED_BAR_STYLE = {
   check:   { bg: '#1F5C4A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 }
 };
 
+var UNIFIED_BARS_VIEW_WIDTH = 1400;   // 한 화면에 보이는 폭(픽셀)으로 보고 막대를 나눕니다.
+
+function unifiedBarsPropertyKey_(sheet) { return 'UNIFIED_BARS_' + sheet.getSheetId(); }
+
+function unifiedStoredBarLayout_(sheet) {
+  try {
+    var raw = PropertiesService.getDocumentProperties().getProperty(unifiedBarsPropertyKey_(sheet));
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// 열 폭(픽셀)을 보고, 막대들이 화면에서 비율대로 보이게 각 막대의 시작·끝 열을 정합니다.
+// 마지막 막대가 한 화면(약 1400픽셀)을 넘지 않게 하고, 남는 열은 막대를 그리지 않고 비워 둡니다.
+function unifiedComputeBarColumns_(sheet, spec) {
+  var widths = [], total = 0, column;
+  for (column = 1; column <= spec.last; column++) {
+    var width = Number(sheet.getColumnWidth(column)) || 100;
+    widths.push(width);
+    total += width;
+  }
+  var view = Math.min(total, UNIFIED_BARS_VIEW_WIDTH);
+  var layout = {};
+  var start = 1;
+  var done = 0;      // 이미 쓴 폭
+  var shared = 0;    // 지금까지의 비율 합
+  spec.bars.forEach(function(bar, index) {
+    shared += spec.fractions[index] || 0;
+    var target = view * shared;
+    var left = spec.bars.length - index - 1;   // 뒤에 남은 막대 수만큼 열을 남겨 둡니다.
+    var end = start, best = start, bestGap = Infinity, accumulated = done;
+    for (column = start; column <= spec.last - left; column++) {
+      accumulated += widths[column - 1];
+      var gap = Math.abs(accumulated - target);
+      if (gap < bestGap) { bestGap = gap; best = column; }
+      if (accumulated > target) break;
+    }
+    end = best;
+    layout[bar.id] = [start, end];
+    for (column = start; column <= end; column++) done += widths[column - 1];
+    start = end + 1;
+  });
+  return layout;
+}
+
 // 4행에 막대를 그립니다. (이미 있던 체크박스·병합은 지우고 새로 만듭니다. 여러 번 불러도 같은 결과입니다.)
 function unifiedDrawActionBars_(sheet) {
   try {
@@ -71,6 +130,13 @@ function unifiedDrawActionBars_(sheet) {
     row.breakApart();
     row.clearContent();
     row.clearDataValidations();
+    row.setBackground('#F4F8F5').setBorder(false, false, false, false, false, false);
+
+    // 막대마다 차지할 열을 화면 폭 기준으로 정하고 저장합니다.
+    var base = unifiedBarSpecBase_(sheet);
+    var layout = unifiedComputeBarColumns_(sheet, base);
+    PropertiesService.getDocumentProperties().setProperty(unifiedBarsPropertyKey_(sheet), JSON.stringify(layout));
+    spec.bars.forEach(function(bar) { bar.c1 = layout[bar.id][0]; bar.c2 = layout[bar.id][1]; });
 
     spec.bars.forEach(function(bar) {
       var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
