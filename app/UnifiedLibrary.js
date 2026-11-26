@@ -217,6 +217,7 @@ function refreshMissingSeriesBooks() {
 
     spreadsheet.toast('보유목록에서 시리즈와 빈 권차를 찾고 있습니다.', '시리즈 점검', 5);
     var holdings = seriesReadHoldings_();
+    holdings.excludeRules = seriesReadExcludeRules_();
     var allGroups = seriesGroupHoldings_(holdings.rows).sort(seriesGroupPriority_);
     var groups = allGroups.slice(0, SERIES_MAX_GROUPS);
     var groupLimitReached = allGroups.length > groups.length;
@@ -261,7 +262,9 @@ function refreshMissingSeriesBooks() {
     );
 
     var searchResult = seriesSearchYes24_(groups, holdings, key, resumeOffset, runStartedAt);
-    var candidates = seriesMergeCandidates_(existingCandidates, searchResult.candidates);
+    var candidates = seriesMergeCandidates_(existingCandidates, searchResult.candidates).filter(function(book) {
+      return !holdings.excludeRules[seriesExclusionKey_(book.series, book.title, book.publisher)];   // 이미 제외한 것은 이어서 점검할 때도 되살아나지 않게
+    });
     // 3000개를 넘는 시리즈는 이번 점검 대상이 아닙니다. (예전에는 이것 때문에 다 끝나도 「미완료」로 남아 1분마다 영원히 반복됐습니다.)
     var incomplete = searchResult.truncated;
 
@@ -476,6 +479,72 @@ function seriesGroupHoldings_(rows) {
     });
 }
 
+/* ---------- 🚫 제외 목록 (엉뚱하게 걸린 후보를 다시 안 나오게) ---------- */
+var SERIES_EXCLUDE_PROPERTY = 'SERIES_EXCLUDE_RULES';
+
+// 「소장 시리즈 · 후보 시리즈 · 후보 출판사」 한 묶음을 가리키는 열쇠
+function seriesExclusionKey_(seriesName, title, publisher) {
+  var parsed = seriesParseTitle_(title);
+  return seriesNormalizeKey_(seriesName) + '|' + (parsed ? parsed.key : seriesNormalizeKey_(title)) + '|' + seriesNormalizePublisher_(publisher);
+}
+
+function seriesReadExcludeRulesList_() {
+  try {
+    var list = JSON.parse(PropertiesService.getScriptProperties().getProperty(SERIES_EXCLUDE_PROPERTY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function seriesReadExcludeRules_() {
+  var set = {};
+  seriesReadExcludeRulesList_().forEach(function(key) { set[key] = true; });
+  return set;
+}
+
+// 체크한 후보를 목록에서 지우고, 앞으로 같은 시리즈의 같은 책이 후보로 나오지 않게 기억합니다.
+function seriesExcludeCheckedCandidates() {
+  var ss = seriesSpreadsheet_();
+  var sheet = ss.getSheetByName(SERIES_FINDER_SHEET);
+  if (!sheet || sheet.getLastRow() < 6) {
+    ss.toast('제외할 후보가 없습니다.', '🚫 제외', 5);
+    return { removed: 0 };
+  }
+  var count = sheet.getLastRow() - 5;
+  var rows = sheet.getRange(6, 1, count, 14).getValues();
+  var rules = seriesReadExcludeRulesList_();
+  var known = {};
+  rules.forEach(function(key) { known[key] = true; });
+  var targets = [];
+  rows.forEach(function(row, index) {
+    if (row[0] !== true) return;
+    var key = seriesExclusionKey_(row[2], row[6], row[8]);
+    if (!known[key]) { known[key] = true; rules.push(key); }
+    targets.push(index + 6);
+  });
+  if (!targets.length) {
+    ss.toast('제외할 후보를 먼저 체크해 주세요.', '🚫 제외', 6);
+    return { removed: 0 };
+  }
+
+  PropertiesService.getScriptProperties().setProperty(SERIES_EXCLUDE_PROPERTY, JSON.stringify(rules.slice(-400)));
+  targets.reverse().forEach(function(rowNumber) { sheet.deleteRow(rowNumber); });
+
+  // 위쪽 요약의 후보 수도 맞춥니다.
+  var remaining = Math.max(0, sheet.getLastRow() - 5);
+  var summary = sheet.getRange('A3');
+  var text = String(summary.getDisplayValue() || '');
+  if (/구매 검토 후보 \d+권/.test(text)) summary.setValue(text.replace(/구매 검토 후보 \d+권/, '구매 검토 후보 ' + remaining + '권'));
+  ss.toast(targets.length + '건을 목록에서 지웠고, 앞으로 같은 시리즈의 같은 책은 후보로 나오지 않습니다.', '🚫 제외', 8);
+  return { removed: targets.length };
+}
+
+function seriesClearExcludeRules() {
+  PropertiesService.getScriptProperties().deleteProperty(SERIES_EXCLUDE_PROPERTY);
+  seriesSpreadsheet_().toast('제외 목록을 비웠습니다. 다음 점검부터 다시 후보로 나올 수 있습니다.', '🚫 제외 목록', 7);
+}
+
 function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
   
   var properties = PropertiesService.getScriptProperties();
@@ -553,9 +622,35 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
   return {requestCount: requestCount};
 }
 
+// 두 시리즈 이름(정규화한 글)이 사실상 같은 시리즈인지: 글자 두 개씩 겹치는 비율(Dice)이 0.6 이상이거나,
+// 한쪽이 다른 쪽을 품고 길이 비율이 0.6 이상이면 같은 것으로 봅니다.
+function seriesNameKeysSimilar_(left, right) {
+  var a = String(left || ''), b = String(right || '');
+  if (!a || !b) return false;
+  if (a === b) return true;
+  var shorter = a.length <= b.length ? a : b;
+  var longer = a.length > b.length ? a : b;
+  if (longer.indexOf(shorter) >= 0 && shorter.length / longer.length >= 0.6) return true;
+  function bigrams(text) {
+    var list = [];
+    for (var i = 0; i < text.length - 1; i++) list.push(text.substr(i, 2));
+    return list;
+  }
+  var x = bigrams(a), y = bigrams(b);
+  if (!x.length || !y.length) return false;
+  var pool = {};
+  y.forEach(function(gram) { pool[gram] = (pool[gram] || 0) + 1; });
+  var common = 0;
+  x.forEach(function(gram) { if (pool[gram] > 0) { pool[gram]--; common++; } });
+  return (2 * common) / (x.length + y.length) >= 0.6;
+}
+
 function seriesApplyEditionInfo_(group, info) {
   var apiTitle = seriesCleanText_(info && info.title);
   var parsed = seriesParseTitle_(apiTitle);
+  // YES24가 그 ISBN을 학교 소장도서와 전혀 다른 이름으로 돌려주면(예: 소장 「처음 읽는 삼국지」 ↔ YES24 「삼국지 1」)
+  // 그 정보를 믿지 않고 무시합니다. 믿으면 짧고 흔한 이름(「삼국지」)이 별칭이 되어 이름이 다른 책이 후보로 걸립니다.
+  if (parsed && !seriesNameKeysSimilar_(parsed.key, group.seriesKey)) return;
   if (parsed) {
     group.aliasKeys[parsed.key] = true;
     group.searchBase = group.preferredSearchBase || parsed.base || group.searchBase;
@@ -947,6 +1042,9 @@ function seriesCandidateFromItem_(group, item, holdings) {
 
   var parsed = seriesParseTitle_(title);
   if (!parsed) return null;
+
+  // 선생님이 「제외」한 시리즈·책은 후보에서 뺍니다.
+  if (holdings && holdings.excludeRules && holdings.excludeRules[seriesExclusionKey_(group.base, title, item.publisher)]) return null;
 
   var publisherKeys = Object.keys(group.publishers || {});
   var publisherMatched = publisherKeys.length === 0 ||
@@ -1814,6 +1912,8 @@ function unifiedAddMenu_() {
         .addItem('현재 결과 절판 여부 확인', 'refreshSeriesSaleStatuses')
         .addItem('결과 시트 만들기·복구', 'setupSeriesFinder')
         .addItem('저장된 점검 위치 초기화', 'resetSeriesFinderProgress')
+        .addItem('🚫 체크한 후보 제외', 'seriesExcludeCheckedCandidates')
+        .addItem('🚫 제외 목록 비우기', 'seriesClearExcludeRules')
         .addSeparator()
         .addItem('YES24 API 키 설정', 'setSeriesYes24Key')
     )
