@@ -903,6 +903,13 @@ function buildBookstoreExportSheet() {
   );
 }
 
+// 고친 칸이 6행 이하이고 지정한 열(번호) 중 하나에 걸치는지
+function unifiedEditTouches_(range, columns) {
+  if (range.getLastRow() < 6) return false;
+  var first = range.getColumn(), last = range.getLastColumn();
+  return columns.some(function(column) { return column >= first && column <= last; });
+}
+
 function onEdit(e) {
   if (!e || !e.range) return;
 
@@ -914,6 +921,17 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 대시보드 숫자 바로 갱신: 검토함 체크·금액·수량을 바꿨을 때, 서점 전달용 정가·수량·금액을 고쳤을 때
+  // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
+  if (cell !== 'A4' || !checkboxChanged) {
+    try {
+      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11])) unifiedUpdateDashboardNumbers_();
+      else if (sheetName === UNIFIED_EXPORT_SHEET && unifiedEditTouches_(range, [7, 8, 9])) unifiedUpdateDashboardNumbers_();
+    } catch (error) {
+      console.warn('대시보드 숫자 갱신 실패: ' + error);
+    }
+  }
+
   // 시리즈 누락 점검: 목록 전체 선택/전체 해제
   if (sheetName === SERIES_FINDER_SHEET && cell === 'A4' && checkboxChanged) {
     toggleSelectionColumn_(sheet, 6, 1, checked);
@@ -923,6 +941,11 @@ function onEdit(e) {
   // 구입 검토함: 목록 전체 선택/전체 해제
   if (sheetName === UNIFIED_REVIEW_SHEET && cell === 'A4' && checkboxChanged) {
     toggleSelectionColumn_(sheet, 6, 1, checked);
+    try {
+      unifiedUpdateDashboardNumbers_();
+    } catch (error) {
+      console.warn('대시보드 숫자 갱신 실패: ' + error);
+    }
     return;
   }
 
@@ -2956,7 +2979,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-23-12';
+var HR_GUIDE_VERSION = '2026-11-26-1';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3253,7 +3276,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v7263992';
+var HR_BUILD_ID = 'vb93b9d8';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -11274,6 +11297,7 @@ function buildUnifiedBookstoreExportSheet() {
   unifiedStyleExportSheet_(target, output.length);
 
   ss.setActiveSheet(target);
+  PropertiesService.getDocumentProperties().setProperty(UNIFIED_EXPORT_BUILT_AT_PROPERTY, String(Date.now()));   // 만든 시각 (대시보드에 표시)
   unifiedRefreshDashboard_();
   ss.toast(
     '서점 전달용 ' + output.length + '권을 만들었습니다.' +
@@ -11331,6 +11355,155 @@ function unifiedEnsureSettingsSheet_() {
   return sheet;
 }
 
+// 대시보드 모양을 바꾸면 이 번호를 올립니다. 번호가 다르면 숫자만 고치는 대신 전체를 다시 그립니다.
+var UNIFIED_DASHBOARD_LAYOUT = '2';
+var UNIFIED_DASHBOARD_LAYOUT_PROPERTY = 'UNIFIED_DASHBOARD_LAYOUT';
+var UNIFIED_EXPORT_BUILT_AT_PROPERTY = 'UNIFIED_EXPORT_BUILT_AT';
+
+// 책 한 권을 가리키는 열쇠: ISBN이 있으면 ISBN, 없으면 도서명
+function unifiedBookKey_(isbn, title) {
+  var cleanIsbn = seriesCleanIsbn_(isbn);
+  if (cleanIsbn) return 'i:' + cleanIsbn;
+  var titleKey = seriesNormalizeKey_(title);
+  return titleKey ? 't:' + titleKey : '';
+}
+
+function unifiedMoney_(amount) {
+  return String(Math.round(Number(amount) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
+}
+
+// 대시보드에 쓸 숫자를 한 번에 셉니다.
+// onlyPurchase 이면 구입 진행 현황(결정·서점 전달)만 셉니다. (체크를 바꿀 때마다 빠르게 고치기 위해)
+function unifiedDashboardStats_(ss, onlyPurchase) {
+  var stats = {};
+
+  if (!onlyPurchase) {
+    var requestSource = ss.getSheetByName(UNIFIED_REQUEST_SHEET);
+    stats.request = requestSource ? unifiedReadRequestItems_(requestSource).length : 0;
+    stats.series = unifiedCountData_(ss.getSheetByName(SERIES_FINDER_SHEET), 6);
+    stats.upload = unifiedCountData_(ss.getSheetByName(UNIFIED_UPLOAD_SHEET), 6);
+    stats.review = unifiedCountData_(ss.getSheetByName(UNIFIED_REVIEW_SHEET), 6);
+    stats.audience = unifiedAudienceCounts_(ss);
+  }
+
+  // 구입 검토함에서 체크한(또는 구입결정인) 책
+  var review = ss.getSheetByName(UNIFIED_REVIEW_SHEET);
+  var decidedKeys = {};
+  var decided = 0;
+  var decidedAmount = 0;
+  if (review && review.getLastRow() >= 6) {
+    review.getRange(6, 1, review.getLastRow() - 5, 12).getValues().forEach(function(row) {
+      if (!String(row[3] || '').trim()) return;                       // 도서명이 없는 줄은 책이 아닙니다.
+      if (!(row[0] === true || String(row[2]) === '구입결정')) return;
+      decided++;
+      var price = Number(row[8] || 0);
+      var quantity = Math.max(1, Number(row[9] || 1));
+      decidedAmount += Number(row[10] || 0) || price * quantity;
+      var key = unifiedBookKey_(row[7], row[3]);
+      if (key) decidedKeys[key] = true;
+    });
+  }
+  stats.decided = decided;
+  stats.decidedAmount = decidedAmount;
+
+  // 서점 전달용에 만들어 둔 책
+  var exportSheet = ss.getSheetByName(UNIFIED_EXPORT_SHEET);
+  var exportKeys = {};
+  var exportCount = 0;
+  var exportAmount = 0;
+  if (exportSheet && exportSheet.getLastRow() >= 6) {
+    exportSheet.getRange(6, 1, exportSheet.getLastRow() - 5, 10).getValues().forEach(function(row) {
+      if (!String(row[1] || '').trim()) return;
+      exportCount++;
+      var price = Number(row[6] || 0);
+      var quantity = Math.max(1, Number(row[7] || 1));
+      exportAmount += Number(row[8] || 0) || price * quantity;
+      var key = unifiedBookKey_(row[5], row[1]);
+      if (key) exportKeys[key] = true;
+    });
+  }
+  stats.exportCount = exportCount;
+  stats.exportAmount = exportAmount;
+
+  // 서점 전달용 상태: none(아직 안 만듦) · same(검토함 선택과 같음) · differ(다름) · stale(체크가 0권인데 목록이 있음)
+  var builtAt = Number(PropertiesService.getDocumentProperties().getProperty(UNIFIED_EXPORT_BUILT_AT_PROPERTY) || 0);
+  stats.builtAtText = builtAt
+    ? Utilities.formatDate(new Date(builtAt), 'Asia/Seoul', 'M월 d일 H:mm')
+    : '';
+  if (!exportCount) {
+    stats.exportState = 'none';
+  } else if (!decided) {
+    stats.exportState = 'stale';
+  } else {
+    var a = Object.keys(decidedKeys), b = Object.keys(exportKeys);
+    var same = a.length === b.length && a.every(function(key) { return exportKeys[key]; });
+    stats.exportState = same ? 'same' : 'differ';
+  }
+  return stats;
+}
+
+// 숫자와 설명 글만 다시 채웁니다. (모양은 그대로)
+function unifiedFillDashboardNumbers_(sheet, stats, onlyPurchase) {
+  var GREEN_MID = '#2E5B4F', MUTED = '#6C7F77', RED = '#B3261E';
+
+  if (!onlyPurchase) {
+    sheet.getRange('A2').setValue(
+      '희망도서·시리즈 후보·업로드 목록을 모아 중복을 확인하고 서점 전달용 목록으로 정리합니다.   ·   갱신 ' +
+      Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy년 M월 d일 H:mm')
+    );
+    sheet.getRange('A6').setValue(stats.request + '권');
+    sheet.getRange('D6').setValue(stats.series + '권');
+    sheet.getRange('G6').setValue(stats.upload + '권');
+    sheet.getRange('J6').setValue(stats.review + '권');
+    sheet.getRange('A8').setValue(
+      stats.audience ? '교직원 ' + stats.audience.staff + '권 · 학부모 ' + stats.audience.parent + '권' : '교직원·학부모 신청'
+    );
+  }
+
+  // 구입 진행 현황
+  sheet.getRange('A12').setValue(stats.decided + '권');
+  sheet.getRange('A13').setValue(
+    stats.decided
+      ? '검토함에서 체크한 책 · ' + unifiedMoney_(stats.decidedAmount)
+      : '아직 체크한 책이 없습니다'
+  ).setFontColor(MUTED).setFontWeight('normal');
+
+  sheet.getRange('E12').setValue(stats.exportCount + '권');
+  var note;
+  var noteColor = MUTED, noteWeight = 'normal';
+  if (stats.exportState === 'none') {
+    note = '아직 만들지 않았습니다';
+  } else if (stats.exportState === 'same') {
+    note = '✔ 검토함 선택과 같습니다' + (stats.builtAtText ? ' · ' + stats.builtAtText + ' 만듦' : '');
+    noteColor = GREEN_MID;
+  } else if (stats.exportState === 'differ') {
+    note = '⚠ 검토함 선택과 다릅니다 · 다시 만들어 주세요';
+    noteColor = RED; noteWeight = 'bold';
+  } else {
+    note = '이전에 만든 목록입니다' + (stats.builtAtText ? ' · ' + stats.builtAtText : '');
+  }
+  sheet.getRange('E13').setValue(note).setFontColor(noteColor).setFontWeight(noteWeight);
+
+  sheet.getRange('I12').setValue(unifiedMoney_(stats.exportAmount));
+  sheet.getRange('I13').setValue(stats.exportCount ? '서점 전달용 정가 × 수량 합계' : '서점 전달용을 만들면 표시됩니다')
+    .setFontColor(MUTED).setFontWeight('normal');
+}
+
+// 체크를 바꾸거나 서점 전달용 금액·수량을 고칠 때 숫자만 바로 고칩니다.
+// 모양이 예전 것이면(처음 한 번) 전체를 다시 그립니다.
+function unifiedUpdateDashboardNumbers_() {
+  var ss = seriesSpreadsheet_();
+  var sheet = ss.getSheetByName(UNIFIED_DASHBOARD_SHEET);
+  if (!sheet) return;
+  var layout = PropertiesService.getDocumentProperties().getProperty(UNIFIED_DASHBOARD_LAYOUT_PROPERTY);
+  if (layout !== UNIFIED_DASHBOARD_LAYOUT) {
+    unifiedRefreshDashboard_();
+    return;
+  }
+  unifiedFillDashboardNumbers_(sheet, unifiedDashboardStats_(ss, true), true);
+}
+
+// 대시보드 모양을 그립니다. 숫자는 unifiedFillDashboardNumbers_ 가 채웁니다.
 function unifiedRefreshDashboard_() {
   var ss = seriesSpreadsheet_();
   var sheet = ss.getSheetByName(UNIFIED_DASHBOARD_SHEET) || ss.insertSheet(UNIFIED_DASHBOARD_SHEET, 0);
@@ -11341,44 +11514,20 @@ function unifiedRefreshDashboard_() {
   sheet.clear();
   sheet.setHiddenGridlines(true);
 
-  var requestSource = ss.getSheetByName(UNIFIED_REQUEST_SHEET);
-  var requestCount = requestSource ? unifiedReadRequestItems_(requestSource).length : 0;
-  var seriesCount = unifiedCountData_(ss.getSheetByName(SERIES_FINDER_SHEET), 6);
-  var uploadCount = unifiedCountData_(ss.getSheetByName(UNIFIED_UPLOAD_SHEET), 6);
-  var review = ss.getSheetByName(UNIFIED_REVIEW_SHEET);
-  var reviewCount = unifiedCountData_(review, 6);
-  var exportCount = unifiedCountData_(ss.getSheetByName(UNIFIED_EXPORT_SHEET), 6);
-  var decided = 0;
-  var amount = 0;
-
-  if (review && review.getLastRow() >= 6) {
-    var rows = review.getRange(6, 1, review.getLastRow() - 5, 12).getValues();
-    rows.forEach(function(row) {
-      if (row[0] === true || String(row[2]) === '구입결정') {
-        decided++;
-        amount += Number(row[10] || 0);
-      }
-    });
-  }
-
   var GREEN = '#183D35', GREEN_MID = '#2E5B4F', GREEN_SOFT = '#E3EFE9', GOLD = '#D9A441', GOLD_SOFT = '#FBF1D4';
   var INK = '#26352F', MUTED = '#6C7F77', LINE = '#CFE0D8';
-  var audience = unifiedAudienceCounts_(ss);
-  var today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy년 M월 d일 H:mm');
-  var money = String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
 
   // 모든 줄 높이를 먼저 기본으로 돌려 둡니다. (이전 모양이 남지 않게)
-  sheet.setRowHeights(1, 20, 24);
+  sheet.setRowHeights(1, 22, 24);
   for (var column = 1; column <= 12; column++) sheet.setColumnWidth(column, 96);
-  sheet.getRange('A1:L20').setVerticalAlignment('middle').setFontColor(INK);
+  sheet.getRange('A1:L22').setVerticalAlignment('middle').setFontColor(INK);
 
   // 1) 제목 띠
   sheet.getRange('A1:L1').merge().setValue('🏠 학교도서관 통합 구입 업무')
     .setBackground(GREEN).setFontColor('#FFFFFF').setFontSize(26).setFontWeight('bold')
     .setHorizontalAlignment('left').setBorder(false, false, false, false, false, false);
-  sheet.getRange('A2:L2').merge().setValue(
-    '희망도서·시리즈 후보·업로드 목록을 모아 중복을 확인하고 서점 전달용 목록으로 정리합니다.   ·   갱신 ' + today
-  ).setBackground(GREEN).setFontColor('#BFD6CC').setFontSize(11).setHorizontalAlignment('left');
+  sheet.getRange('A2:L2').merge().setValue('')
+    .setBackground(GREEN).setFontColor('#BFD6CC').setFontSize(11).setHorizontalAlignment('left');
   sheet.getRange('A3:L3').setBackground(GOLD);
   sheet.setRowHeight(1, 64);
   sheet.setRowHeight(2, 32);
@@ -11388,21 +11537,18 @@ function unifiedRefreshDashboard_() {
   sheet.getRange('A4:L4').merge().setValue('📊  모인 책 현황')
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
   sheet.setRowHeight(4, 38);
-  var requestNote = audience
-    ? '교직원 ' + audience.staff + '권 · 학부모 ' + audience.parent + '권'
-    : '교직원·학부모 신청';
   var cards = [
-    ['A', 'C', '📚 희망도서 신청', requestCount, requestNote],
-    ['D', 'F', '🔎 시리즈 후보', seriesCount, '누락·후속권 점검 결과'],
-    ['G', 'I', '📥 파일 업로드', uploadCount, '엑셀·CSV로 올린 목록'],
-    ['J', 'L', '🛒 통합 검토', reviewCount, '구입 검토함에 모인 책']
+    ['A', 'C', '📚 희망도서 신청', '교직원·학부모 신청'],
+    ['D', 'F', '🔎 시리즈 후보', '누락·후속권 점검 결과'],
+    ['G', 'I', '📥 파일 업로드', '엑셀·CSV로 올린 목록'],
+    ['J', 'L', '🛒 통합 검토', '구입 검토함에 모인 책']
   ];
   cards.forEach(function(card) {
     sheet.getRange(card[0] + '5:' + card[1] + '5').merge().setValue(card[2])
       .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setBackground(GREEN_SOFT).setHorizontalAlignment('center');
-    sheet.getRange(card[0] + '6:' + card[1] + '7').merge().setValue(card[3] + '권')
+    sheet.getRange(card[0] + '6:' + card[1] + '7').merge().setValue('0권')
       .setFontSize(30).setFontWeight('bold').setFontColor(GREEN).setBackground('#FFFFFF').setHorizontalAlignment('center');
-    sheet.getRange(card[0] + '8:' + card[1] + '8').merge().setValue(card[4])
+    sheet.getRange(card[0] + '8:' + card[1] + '8').merge().setValue(card[3])
       .setFontSize(10).setFontColor(MUTED).setBackground('#FFFFFF').setHorizontalAlignment('center');
     sheet.getRange(card[0] + '5:' + card[1] + '8')
       .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
@@ -11414,32 +11560,35 @@ function unifiedRefreshDashboard_() {
   sheet.setRowHeight(7, 30);
   sheet.setRowHeight(8, 28);
 
-  // 3) 구입 진행 현황 (금색)
+  // 3) 구입 진행 현황 (금색): 제목(11) / 숫자(12) / 설명(13)
   sheet.getRange('A10:L10').merge().setValue('💰  구입 진행 현황')
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
   sheet.setRowHeight(9, 12);
   sheet.setRowHeight(10, 38);
   var kpis = [
-    ['A', 'D', '✅ 구입 결정', decided + '권'],
-    ['E', 'H', '📦 서점 전달용', exportCount + '권'],
-    ['I', 'L', '💵 예상 금액', money]
+    ['A', 'D', '✅ 구입 결정'],
+    ['E', 'H', '📦 서점 전달용'],
+    ['I', 'L', '💵 서점 전달 금액']
   ];
   kpis.forEach(function(kpi) {
     sheet.getRange(kpi[0] + '11:' + kpi[1] + '11').merge().setValue(kpi[2])
       .setFontSize(11).setFontWeight('bold').setFontColor('#7A5A12').setHorizontalAlignment('center');
-    sheet.getRange(kpi[0] + '12:' + kpi[1] + '12').merge().setValue(kpi[3])
+    sheet.getRange(kpi[0] + '12:' + kpi[1] + '12').merge().setValue('0')
       .setFontSize(22).setFontWeight('bold').setFontColor('#5B410A').setHorizontalAlignment('center');
-    sheet.getRange(kpi[0] + '11:' + kpi[1] + '12').setBackground(GOLD_SOFT)
+    sheet.getRange(kpi[0] + '13:' + kpi[1] + '13').merge().setValue('')
+      .setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setWrap(true);
+    sheet.getRange(kpi[0] + '11:' + kpi[1] + '13').setBackground(GOLD_SOFT)
       .setBorder(true, true, true, true, false, false, GOLD, SpreadsheetApp.BorderStyle.SOLID);
   });
   sheet.setRowHeight(11, 28);
   sheet.setRowHeight(12, 44);
+  sheet.setRowHeight(13, 30);
 
   // 4) 업무 순서 (바로가기 포함)
-  sheet.getRange('A14:L14').merge().setValue('🧭  업무 순서')
+  sheet.getRange('A15:L15').merge().setValue('🧭  업무 순서')
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
-  sheet.setRowHeight(13, 12);
-  sheet.setRowHeight(14, 38);
+  sheet.setRowHeight(14, 12);
+  sheet.setRowHeight(15, 38);
   var steps = [
     ['A', 'C', '1', '자료 모으기', '희망도서·시리즈·엑셀 목록', UNIFIED_REQUEST_SHEET, '📚 희망도서 목록'],
     ['D', 'F', '2', '구입 검토', '구입할 책 체크·수량 확인', UNIFIED_REVIEW_SHEET, '🛒 구입 검토함'],
@@ -11448,11 +11597,11 @@ function unifiedRefreshDashboard_() {
   ];
   steps.forEach(function(step) {
     var c1 = step[0], c2 = step[1];
-    sheet.getRange(c1 + '15:' + c2 + '15').merge().setValue(step[2] + '  ' + step[3])
+    sheet.getRange(c1 + '16:' + c2 + '16').merge().setValue(step[2] + '  ' + step[3])
       .setBackground(GREEN_MID).setFontColor('#FFFFFF').setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
-    sheet.getRange(c1 + '16:' + c2 + '16').merge().setValue(step[4])
+    sheet.getRange(c1 + '17:' + c2 + '17').merge().setValue(step[4])
       .setBackground('#FFFFFF').setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setWrap(true);
-    var link = sheet.getRange(c1 + '17:' + c2 + '17').merge().setBackground('#FFFFFF')
+    var link = sheet.getRange(c1 + '18:' + c2 + '18').merge().setBackground('#FFFFFF')
       .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center');
     var target = step[5] ? ss.getSheetByName(step[5]) : (ss.getSheetByName('🏫 우리학교 소장도서') || null);
     if (target) {
@@ -11460,20 +11609,24 @@ function unifiedRefreshDashboard_() {
     } else {
       link.setValue(step[6]);
     }
-    sheet.getRange(c1 + '15:' + c2 + '17')
+    sheet.getRange(c1 + '16:' + c2 + '18')
       .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   });
-  sheet.setRowHeight(15, 34);
-  sheet.setRowHeight(16, 30);
-  sheet.setRowHeight(17, 32);
+  sheet.setRowHeight(16, 34);
+  sheet.setRowHeight(17, 30);
+  sheet.setRowHeight(18, 32);
 
   // 5) 안내
-  sheet.getRange('A19:L19').merge()
+  sheet.getRange('A20:L20').merge()
     .setValue('💡 필요한 기능은 위쪽 「🧰 통합 도서업무」 메뉴에서 실행하고, 위 업무 순서의 시트 이름을 누르면 해당 시트로 바로 이동합니다.')
     .setBackground(GOLD_SOFT).setFontSize(10).setFontColor('#7A5A12').setHorizontalAlignment('left').setWrap(true);
-  sheet.setRowHeight(18, 12);
-  sheet.setRowHeight(19, 34);
+  sheet.setRowHeight(19, 12);
+  sheet.setRowHeight(20, 34);
   sheet.setFrozenRows(3);
+
+  // 숫자 채우기와 모양 번호 기록
+  unifiedFillDashboardNumbers_(sheet, unifiedDashboardStats_(ss, false), false);
+  PropertiesService.getDocumentProperties().setProperty(UNIFIED_DASHBOARD_LAYOUT_PROPERTY, UNIFIED_DASHBOARD_LAYOUT);
 }
 
 // 희망도서 목록에서 교직원/학부모 신청 권수를 셉니다. (열이 없거나 문제가 있으면 null)
@@ -11503,7 +11656,11 @@ function unifiedCountData_(sheet, startRow) {
   if (!sheet || sheet.getLastRow() < startRow) return 0;
   return sheet.getRange(startRow, 1, sheet.getLastRow() - startRow + 1, Math.max(1, sheet.getLastColumn()))
     .getDisplayValues().filter(function(row) {
-      return row.some(function(value) { return String(value || '').trim(); });
+      // 빈 체크박스(FALSE)만 들어 있는 줄은 책이 아니므로 세지 않습니다.
+      return row.some(function(value) {
+        var text = String(value || '').trim();
+        return text && text.toUpperCase() !== 'FALSE';
+      });
     }).length;
 }
 
@@ -13413,6 +13570,7 @@ function verifyYes24Connection() {
     "buildRequestArchiveSheetName_": buildRequestArchiveSheetName_,
     "styleRequestListSheet": styleRequestListSheet,
     "buildBookstoreExportSheet": buildBookstoreExportSheet,
+    "unifiedEditTouches_": unifiedEditTouches_,
     "onEdit": onEdit,
     "bookstoreStyleExportSheet_": bookstoreStyleExportSheet_,
     "bookstoreFindColumn_": bookstoreFindColumn_,
@@ -13646,6 +13804,11 @@ function verifyYes24Connection() {
     "buildUnifiedBookstoreExportSheet": buildUnifiedBookstoreExportSheet,
     "unifiedStyleExportSheet_": unifiedStyleExportSheet_,
     "unifiedEnsureSettingsSheet_": unifiedEnsureSettingsSheet_,
+    "unifiedBookKey_": unifiedBookKey_,
+    "unifiedMoney_": unifiedMoney_,
+    "unifiedDashboardStats_": unifiedDashboardStats_,
+    "unifiedFillDashboardNumbers_": unifiedFillDashboardNumbers_,
+    "unifiedUpdateDashboardNumbers_": unifiedUpdateDashboardNumbers_,
     "unifiedRefreshDashboard_": unifiedRefreshDashboard_,
     "unifiedAudienceCounts_": unifiedAudienceCounts_,
     "unifiedCountData_": unifiedCountData_,

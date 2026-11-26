@@ -602,6 +602,13 @@ function buildBookstoreExportSheet() {
   );
 }
 
+// 고친 칸이 6행 이하이고 지정한 열(번호) 중 하나에 걸치는지
+function unifiedEditTouches_(range, columns) {
+  if (range.getLastRow() < 6) return false;
+  var first = range.getColumn(), last = range.getLastColumn();
+  return columns.some(function(column) { return column >= first && column <= last; });
+}
+
 function onEdit(e) {
   if (!e || !e.range) return;
 
@@ -613,6 +620,17 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 대시보드 숫자 바로 갱신: 검토함 체크·금액·수량을 바꿨을 때, 서점 전달용 정가·수량·금액을 고쳤을 때
+  // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
+  if (cell !== 'A4' || !checkboxChanged) {
+    try {
+      if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11])) unifiedUpdateDashboardNumbers_();
+      else if (sheetName === UNIFIED_EXPORT_SHEET && unifiedEditTouches_(range, [7, 8, 9])) unifiedUpdateDashboardNumbers_();
+    } catch (error) {
+      console.warn('대시보드 숫자 갱신 실패: ' + error);
+    }
+  }
+
   // 시리즈 누락 점검: 목록 전체 선택/전체 해제
   if (sheetName === SERIES_FINDER_SHEET && cell === 'A4' && checkboxChanged) {
     toggleSelectionColumn_(sheet, 6, 1, checked);
@@ -622,6 +640,11 @@ function onEdit(e) {
   // 구입 검토함: 목록 전체 선택/전체 해제
   if (sheetName === UNIFIED_REVIEW_SHEET && cell === 'A4' && checkboxChanged) {
     toggleSelectionColumn_(sheet, 6, 1, checked);
+    try {
+      unifiedUpdateDashboardNumbers_();
+    } catch (error) {
+      console.warn('대시보드 숫자 갱신 실패: ' + error);
+    }
     return;
   }
 
