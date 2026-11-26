@@ -46,7 +46,8 @@ function unifiedBarSpec_(sheet) {
   }
   if (name === UNIFIED_EXPORT_SHEET) {
     return { last: 10, bars: [
-      { id: 'export-rebuild', kind: 'send', c1: 1, c2: 10, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' }
+      { id: 'export-rebuild', kind: 'send', c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
+      { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
   return null;
@@ -147,6 +148,8 @@ function unifiedHandleBarClick_(sheet, range) {
       toggleSelectionColumn_(sheet, 6, 1, checked);
       cell.setValue(checked ? BAR_SELECT_OFF : BAR_SELECT_ON);
       if (sheet.getName() === UNIFIED_REVIEW_SHEET) unifiedUpdateDashboardNumbers_();
+    } else if (bar.id === 'export-confirm') {
+      unifiedConfirmPurchaseRound_();   // 안에서 직접 확인을 묻고 기록합니다.
     } else if (bar.id === 'series-check') {
       HR_openSeriesCheckDialog_(true);   // 누르면 창이 열리면서 바로 점검을 시작합니다.
     } else {

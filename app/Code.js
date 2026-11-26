@@ -125,6 +125,16 @@ function onOpen() {
   } catch (error) {
     console.warn('선택 버튼 표시 실패: ' + error);
   }
+  try {
+    HR_ensureChangeTrigger_();
+  } catch (error) {
+    console.warn('변경 트리거 준비 실패: ' + error);
+  }
+  try {
+    unifiedUpdateDashboardNumbers_(true);   // 열 때마다 대시보드 숫자를 최신으로
+  } catch (error) {
+    console.warn('대시보드 숫자 갱신 실패: ' + error);
+  }
 }
 
 
@@ -638,6 +648,11 @@ function onEdit(e) {
     try {
       if (sheetName === UNIFIED_REVIEW_SHEET && unifiedEditTouches_(range, [1, 3, 9, 10, 11])) unifiedUpdateDashboardNumbers_();
       else if (sheetName === UNIFIED_EXPORT_SHEET && unifiedEditTouches_(range, [7, 8, 9])) unifiedUpdateDashboardNumbers_();
+      else if (
+        (sheetName === TARGET_SHEET_NAME || sheetName === UNIFIED_UPLOAD_SHEET || sheetName === UNIFIED_REVIEW_SHEET) &&
+        range.getLastRow() >= 6 && unifiedEditTouches_(range, sheetName === UNIFIED_REVIEW_SHEET ? [4] : [2])
+      ) unifiedUpdateDashboardNumbers_(true);   // 도서명을 쓰거나 지웠을 때 모인 책 권수도 다시 셉니다.
+      else if (sheetName === UNIFIED_PURCHASE_LOG_SHEET && range.getLastRow() >= 5 && range.getColumn() <= 4 && range.getLastColumn() >= 3) unifiedUpdateDashboardNumbers_();
     } catch (error) {
       console.warn('대시보드 숫자 갱신 실패: ' + error);
     }
@@ -814,7 +829,38 @@ function installEditTrigger() {
  * 3. 실시간 편집 감지
  * ============================================================
  */
+// 시트 구조가 바뀌었을 때(줄 삭제·추가 등) 대시보드의 책 권수를 다시 셉니다.
+// 줄을 지우는 것은 「편집」이 아니라서 onEdit 에는 오지 않으므로, 같은 입구(onEditTriggerAction)에 「변경」 트리거를 따로 겁니다.
+function unifiedHandleStructureChange_(e) {
+  var type = String(e && e.changeType || '');
+  if (!/REMOVE_ROW|INSERT_ROW|REMOVE_COLUMN|INSERT_COLUMN|OTHER/.test(type)) return;
+  try {
+    unifiedUpdateDashboardNumbers_(true);
+  } catch (error) {
+    console.warn('대시보드 갱신 실패(구조 변경): ' + error);
+  }
+}
+
+// 「변경」 트리거가 없으면 만듭니다. (시트를 열 때 한 번 확인)
+function HR_ensureChangeTrigger_() {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var exists = ScriptApp.getProjectTriggers().some(function(trigger) {
+    return trigger.getHandlerFunction() === 'onEditTriggerAction' &&
+      String(trigger.getEventType()) === String(ScriptApp.EventType.ON_CHANGE);
+  });
+  if (exists) return false;
+  ScriptApp.newTrigger('onEditTriggerAction')
+    .forSpreadsheet(spreadsheet)
+    .onChange()
+    .create();
+  return true;
+}
+
 function onEditTriggerAction(e) {
+  if (e && e.changeType) {
+    unifiedHandleStructureChange_(e);
+    return;
+  }
   if (!e || !e.range) return;
 
   const range = e.range;
