@@ -2354,6 +2354,7 @@ function onSelectionChange(e) {
     }
   } catch (error) {
     console.warn('클릭 막대 처리 실패: ' + error);
+    try { SpreadsheetApp.getActiveSpreadsheet().toast(String(error && error.message || error).slice(0, 150), '버튼 처리 오류', 8); } catch (e2) {}
   }
 
   if (sheet.getName() !== HR_COPY_SETUP_SHEET_NAME) {

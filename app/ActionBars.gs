@@ -138,6 +138,8 @@ function unifiedHandleBarClick_(sheet, range) {
   if (cache) cache.put(busyKey, '1', 6);
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 눌렀다는 것을 바로 알려 줍니다. (확인 창이 뜨기 전에도 반응이 보이도록)
+  try { ss.toast('누르신 버튼을 처리하고 있습니다…', bar.label.replace(/\s*›\s*$/, ''), 3); } catch (error) {}
   try {
     if (bar.kind === 'select') {
       var cell = sheet.getRange(4, bar.c1);

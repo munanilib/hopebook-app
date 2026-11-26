@@ -144,6 +144,8 @@ function unifiedHandleBarClick_(sheet, range) {
   if (cache) cache.put(busyKey, '1', 6);
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 눌렀다는 것을 바로 알려 줍니다. (확인 창이 뜨기 전에도 반응이 보이도록)
+  try { ss.toast('누르신 버튼을 처리하고 있습니다…', bar.label.replace(/\s*›\s*$/, ''), 3); } catch (error) {}
   try {
     if (bar.kind === 'select') {
       var cell = sheet.getRange(4, bar.c1);
@@ -3504,7 +3506,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v5c43f6f';
+var HR_BUILD_ID = 've6a12f1';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -5786,6 +5788,7 @@ function onSelectionChange(e) {
     }
   } catch (error) {
     console.warn('클릭 막대 처리 실패: ' + error);
+    try { SpreadsheetApp.getActiveSpreadsheet().toast(String(error && error.message || error).slice(0, 150), '버튼 처리 오류', 8); } catch (e2) {}
   }
 
   if (sheet.getName() !== HR_COPY_SETUP_SHEET_NAME) {
