@@ -1990,7 +1990,6 @@ function HR_addCopySetupMenu() {
     .addItem('📏 신청 한도 설정', 'HR_showRequestLimitDialog')
     .addItem('🔑 교직원 인증번호 설정', 'HR_showStaffCodeDialog')
     .addItem('💬 개발자에게 문의하기', 'HR_showInquiryDialog')
-    .addItem('📚 YES24 분류 목록 보기 (개발자용)', 'HR_showGenreCategoryList')
     .addItem('📬 내 문의·답변 보기', 'HR_showMyInquiriesDialog')
     .addSeparator()
     .addItem(

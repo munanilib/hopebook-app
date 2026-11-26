@@ -3210,45 +3210,6 @@
       </button>
     </form>
 
-    <style>
-      .genre-box{margin:18px 0 4px;padding:16px 16px 14px;border:1px solid #d7e5dc;border-radius:18px;background:#f4faf6}
-      .genre-title{margin:0 0 4px;color:#244d42;font-size:17px;font-weight:900}
-      .genre-help{margin:0 0 12px;color:#66766d;font-size:13px;line-height:1.5}
-      .genre-ages{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-      .genre-age{min-height:38px;padding:0 16px;border:1px solid #c5d8cc;border-radius:999px;background:#fff;color:#35594b;font-size:14px;font-weight:800;cursor:pointer}
-      .genre-age.active{background:#244d42;border-color:#244d42;color:#fff}
-      .genre-chips{display:flex;flex-wrap:wrap;gap:8px}
-      .genre-chip{min-height:42px;padding:0 15px;border:1px solid #cfe0d6;border-radius:999px;background:#fff;color:#244d42;font-size:15px;font-weight:850;cursor:pointer;transition:background .15s,transform .15s}
-      .genre-chip:hover{background:#e6f2ea}
-      .genre-chip.active{background:#d9a441;border-color:#b9770e;color:#fff}
-      .genre-chip:active{transform:scale(.97)}
-      .genre-chip:disabled{opacity:.6;cursor:default}
-    </style>
-    <section class="genre-box" aria-labelledby="genreTitle">
-      <h3 id="genreTitle" class="genre-title">🎭 장르로 찾기</h3>
-      <p class="genre-help">읽고 싶은 장르를 누르면 책을 보여 드립니다. 연령을 고르면 더 알맞은 책이 나옵니다.</p>
-      <div class="genre-ages" role="group" aria-label="연령">
-        <button type="button" class="genre-age active" data-genre-age="all">전체</button>
-        <button type="button" class="genre-age" data-genre-age="children">어린이</button>
-        <button type="button" class="genre-age" data-genre-age="youth">청소년</button>
-      </div>
-      <div class="genre-chips" role="group" aria-label="장르">
-        <button type="button" class="genre-chip" data-genre="horror">👻 공포</button>
-        <button type="button" class="genre-chip" data-genre="romance">💕 로맨스</button>
-        <button type="button" class="genre-chip" data-genre="mystery">🕵️ 추리·미스터리</button>
-        <button type="button" class="genre-chip" data-genre="fantasy">🧙 판타지</button>
-        <button type="button" class="genre-chip" data-genre="sf">🚀 SF</button>
-        <button type="button" class="genre-chip" data-genre="adventure">🧭 모험</button>
-        <button type="button" class="genre-chip" data-genre="humor">😂 유머</button>
-        <button type="button" class="genre-chip" data-genre="friendship">🤝 우정·학교</button>
-        <button type="button" class="genre-chip" data-genre="growth">🌱 성장</button>
-        <button type="button" class="genre-chip" data-genre="history">🏛️ 역사</button>
-        <button type="button" class="genre-chip" data-genre="science">🔬 과학</button>
-        <button type="button" class="genre-chip" data-genre="animal">🐾 동물</button>
-        <button type="button" class="genre-chip" data-genre="sports">⚽ 스포츠</button>
-        <button type="button" class="genre-chip" data-genre="poem">📖 시·동시</button>
-      </div>
-    </section>
 
     <div id="message" class="message"></div>
 
@@ -4378,63 +4339,6 @@
         })
         .HR_searchRequestBooks(queryValue);
     });
-
-    // ----- 장르로 찾기 -----
-    let genreAge = 'all';
-    const genreChips = Array.from(document.querySelectorAll('.genre-chip'));
-
-    document.querySelectorAll('.genre-age').forEach(function(button) {
-      button.addEventListener('click', function() {
-        genreAge = button.dataset.genreAge || 'all';
-        document.querySelectorAll('.genre-age').forEach(function(other) {
-          other.classList.toggle('active', other === button);
-        });
-        // 이미 장르를 골라 둔 상태라면 새 연령으로 바로 다시 찾습니다.
-        const active = genreChips.find(function(chip) { return chip.classList.contains('active'); });
-        if (active) { runGenreSearch(active); }
-      });
-    });
-
-    genreChips.forEach(function(chip) {
-      chip.addEventListener('click', function() { runGenreSearch(chip); });
-    });
-
-    function runGenreSearch(chip) {
-      const genre = chip.dataset.genre;
-      const genreLabel = chip.textContent.replace(/^[^\s]+\s*/, '').trim();
-
-      genreChips.forEach(function(other) {
-        other.classList.toggle('active', other === chip);
-      });
-      searchResults.classList.remove('show');
-      bookList.innerHTML = '';
-      books = [];
-      updateCartBar();
-      setSearchLoading(true);
-      genreChips.forEach(function(other) { other.disabled = true; });
-      showMessage('「' + genreLabel + '」 책을 찾고 있습니다…', 'info');
-
-      google.script.run
-        .withSuccessHandler(function(responseBooks) {
-          setSearchLoading(false);
-          genreChips.forEach(function(other) { other.disabled = false; });
-          books = Array.isArray(responseBooks) ? responseBooks : [];
-          if (!books.length) {
-            showMessage('「' + genreLabel + '」에 알맞은 책을 찾지 못했습니다. 연령을 바꾸거나 다른 장르를 눌러 보십시오.', 'error');
-            return;
-          }
-          renderBooks();
-          searchResults.classList.add('show');
-          showMessage('「' + genreLabel + '」 책 ' + books.length + '권을 찾았습니다. 신청할 책을 골라 주십시오.', 'info');
-          searchResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        })
-        .withFailureHandler(function(error) {
-          setSearchLoading(false);
-          genreChips.forEach(function(other) { other.disabled = false; });
-          showMessage(getErrorMessage(error), 'error');
-        })
-        .HR_searchGenre(genre, genreAge);
-    }
 
     function getBookKey(book) {
       const isbn = String(book && book.isbn || '')
