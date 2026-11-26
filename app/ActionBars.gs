@@ -39,11 +39,10 @@ function unifiedBarSpecBase_(sheet) {
     ] };
   }
   if (name === SERIES_FINDER_SHEET) {
-    return { last: 14, fractions: [0.20, 0.27, 0.33, 0.20], bars: [
+    return { last: 14, fractions: [0.26, 0.34, 0.40], bars: [
       { id: 'series-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
       { id: 'series-check', kind: 'check', c1: 4, c2: 8, label: '🔎  시리즈 누락 점검 시작  ›' },
-      { id: 'series-send', kind: 'send', c1: 9, c2: 12, label: SEND, confirm: '체크한 시리즈 도서를 구입 검토함으로 보낼까요?' },
-      { id: 'series-exclude', kind: 'danger', c1: 13, c2: 14, label: '🚫  선택한 후보 제외  ›', confirm: '체크한 후보를 목록에서 지우고, 앞으로 같은 시리즈의 같은 책이 후보로 나오지 않게 할까요?\n(되돌리려면 메뉴 「시리즈 점검 도구 → 제외 목록 비우기」)' }
+      { id: 'series-send', kind: 'send', c1: 9, c2: 14, label: SEND, confirm: '체크한 시리즈 도서를 구입 검토함으로 보낼까요?' }
     ] };
   }
   if (name === UNIFIED_UPLOAD_SHEET) {
@@ -71,8 +70,7 @@ function unifiedBarSpecBase_(sheet) {
 var UNIFIED_BAR_STYLE = {
   select:  { bg: '#CFE6DA', fg: '#14493A', border: '#2E7D5B', size: 16 },
   send:    { bg: '#B9770E', fg: '#FFFFFF', border: '#7A4A06', size: 16 },
-  check:   { bg: '#1F5C4A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 },
-  danger:  { bg: '#F6D9D4', fg: '#8A2A1F', border: '#B3261E', size: 16 }
+  check:   { bg: '#1F5C4A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 }
 };
 
 var UNIFIED_BARS_VIEW_WIDTH = 1400;   // 한 화면에 보이는 폭(픽셀)으로 보고 막대를 나눕니다.
@@ -226,7 +224,6 @@ function unifiedHandleBarClick_(sheet, range) {
       if (answer === ui.Button.YES) {
         if (bar.id === 'hope-send') sendHopeRequestsToReview();
         else if (bar.id === 'series-send') sendSelectedSeriesToReview();
-        else if (bar.id === 'series-exclude') seriesExcludeCheckedCandidates();
         else if (bar.id === 'upload-send') sendSelectedUploadItemsToReview();
         else buildUnifiedBookstoreExportSheet();   // review-export · export-rebuild
       }
