@@ -30,7 +30,9 @@ for (const f of scripts) code += `\n/* ===== ${f} ===== */\n` + fs.readFileSync(
 
 // 빌드 번호: 소스 내용으로 만든 짧은 번호입니다. (시간이 아니라 내용 기준이라, 같은 소스면 언제 빌드해도 같습니다.
 // 그래서 배포 검사에서 「dist 가 최신인가」를 정확히 비교할 수 있고, 화면 맨 아래에서 버전이 같은지 확인할 수 있습니다.)
-const buildId = 'v' + require('crypto').createHash('sha1').update(code).digest('hex').slice(0, 7);
+// 웹 화면(HTML)이 바뀌어도 번호가 바뀌어야 합니다. (사본의 껍데기는 이 번호가 같으면 새 코드를 받지 않습니다.)
+const htmlForHash = htmls.map(f => fs.readFileSync(path.join(APP, f), 'utf8')).join('\n');
+const buildId = 'v' + require('crypto').createHash('sha1').update(code + '\n/*HTML*/\n' + htmlForHash).digest('hex').slice(0, 7);
 code = code.split('__BUILD_ID__').join(buildId);
 
 // 최상위 함수 이름
