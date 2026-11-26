@@ -5,7 +5,7 @@
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-26-8';
+var HR_GUIDE_VERSION = '2026-11-26-9';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -211,6 +211,11 @@ function HR_refreshGuidesOnce_() {
       HR_styleWebNoticeSheet_(spreadsheet.getSheetByName(HR_WEB_NOTICE_SHEET_NAME));   // 웹 공지 시트도 새 모양으로 한 번 다시 꾸밉니다.
     } catch (error) {
       console.warn('웹 공지 시트 꾸미기 실패: ' + error);
+    }
+    try {
+      HR_writeUpdateLogSheet_();   // 「업데이트 내용」 탭을 최신 내용으로 다시 씁니다.
+    } catch (error) {
+      console.warn('업데이트 내용 탭 쓰기 실패: ' + error);
     }
     try {
       unifiedApplyActionBarsAll_();   // 체크박스였던 맨 위 버튼을 클릭 막대로 한 번 바꿉니다.

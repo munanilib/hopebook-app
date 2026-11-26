@@ -1,0 +1,92 @@
+/**
+ * 📜 업데이트 내용 (사본 안의 「업데이트 내용」 탭)
+ *
+ * 이제까지 새로 생기거나 고쳐진 기능을 한 곳에 모아 보여 줍니다.
+ * - 내용은 아래 HR_UPDATE_LOG 에 적고(최신 것을 맨 위에), 안내 시트 버전(HR_GUIDE_VERSION)을 올리면
+ *   모든 사본이 다음에 열릴 때 이 탭을 새 내용으로 다시 씁니다.
+ * - 선생님이 이 탭에 직접 적은 글은 덮어써질 수 있습니다. (안내용 탭입니다.)
+ */
+var HR_UPDATE_LOG_SHEET = '업데이트 내용';
+
+// [날짜, 분류, 제목, 내용]  — 최신 것이 위
+var HR_UPDATE_LOG = [
+  ['2026-11-26', '웹 신청', '장르로 찾기', '책 검색창 아래에 공포·로맨스·추리·판타지·SF·모험·유머·우정·성장·역사·과학·동물·스포츠·동시 장르 버튼이 생겼습니다. 장르를 누르면 책이 나오고 바로 신청바구니에 담을 수 있습니다. 어린이·청소년 연령도 고를 수 있고, 세트·전집과 문제집·학습지로 보이는 책은 빠집니다.'],
+  ['2026-11-26', '구입 검토', '만화·문제집 표시와 경고', '구입 검토함·시리즈 후보·엑셀 업로드 목록의 비고에 「📙 만화」가 붙고, 문제집·학습지로 보이는 책은 「⚠ 문제집·학습지 의심」과 함께 줄이 연한 빨강으로 보입니다. 서점 전달용을 만들기 전에 해당 책을 보여 주고 한 번 더 묻습니다. 대시보드에도 경고가 나옵니다. (제목·분야로 추정하므로 틀리면 비고에서 지우면 됩니다.)'],
+  ['2026-11-26', '대시보드', '예산 현황과 회차별 구입 기록', '대시보드의 노란 「총 예산」 칸에 금액을 쓰면 남은 예산과 사용률이 나옵니다. 서점에 주문한 뒤 「서점 전달용」의 「✅ 이번 회차 구입 확정」을 누르면 회차·날짜·권수·금액이 기록되고, 남은 예산은 확정한 모든 회차를 합쳐서 계산합니다. 기록은 숨겨진 「🧾 구입 기록」 시트에 쌓이며 대시보드의 「지금까지 확정」 칸으로 열 수 있습니다.'],
+  ['2026-11-26', '대시보드', '서점 전달용 일치 표시와 금액', '서점 전달용 목록이 구입 검토함에서 고른 책과 같은지(같음/다름/아직 안 만듦)를 알려 주고, 서점 전달 금액을 표시합니다. 체크를 바꾸거나 목록 줄을 지우거나 시트를 열 때 숫자가 바로 바뀌며, 빈 체크박스만 있는 줄이 권수를 부풀리던 오류도 고쳤습니다.'],
+  ['2026-11-26', '시트 화면', '체크박스 대신 클릭 막대', '희망도서 목록·시리즈 점검·업로드 목록·구입 검토함·서점 전달용 맨 위의 버튼을 체크박스가 아니라 막대 전체를 누르면 동작하는 큰 버튼으로 바꾸었습니다. 보내기·만들기는 누르면 한 번 더 확인을 묻고, 막대 비율은 화면 폭에 맞춰집니다.'],
+  ['2026-11-26', '시리즈 점검', '쉬운 점검 창과 정확도 개선', '시리즈 점검 시트의 「🔎 시리즈 누락 점검 시작」 막대를 누르면 창이 열리면서 바로 점검을 시작하고, 중간에 멈추면 이어서 합니다. 이름이 전혀 다른 책(예: 「처음 읽는 삼국지」와 「삼국지」)이 후보로 걸리던 원인을 고쳤고, 검색 한 건의 오류로 점검 전체가 멈추거나 반복되던 문제도 고쳤습니다. 소장도서에 출판사를 적어 두면 더 정확해집니다.'],
+  ['2026-11-26', '시트 구성', '엑셀 업로드 목록을 미리 만들어 둠', '파일을 올려야 그제서야 생기던 「📥 엑셀 업로드 목록」 시트를 처음부터 희망도서 목록 오른쪽에 만들어 둡니다.'],
+  ['2026-11-23', '학부모·교직원 신청', '본인 신청만 보기·취소, 표지 표시', '웹 「신청 목록」에는 지금 입력한 신청자(학부모는 학년·반·번호, 교직원은 이름)의 신청만 표지와 함께 보이고, 취소와 되돌리기도 신청한 본인만 할 수 있습니다.'],
+  ['2026-11-23', '학부모·교직원 신청', '안내 화면 다듬기', '학부모 화면에서 도서관 담당자·내선번호를 숨기고, 교사/학부모 선택 화면 맨 위에 「○○초등학교 희망도서 신청」처럼 학교 이름을 보여 줍니다. 검색창과 「책 검색하기」 버튼 높이도 맞췄습니다.'],
+  ['2026-11-23', '개발자 문의', '개발자에게 문의하기 · 답변 알림', '메뉴 「⚙️ 사본 설정 → 💬 개발자에게 문의하기」로 질문이나 오류를 보낼 수 있고, 「📬 내 문의·답변 보기」에서 답을 봅니다. 답이 달리면 시트를 열 때 알림이 한 번 뜹니다. (학생 이름·번호 같은 개인정보는 적지 마십시오.)'],
+  ['2026-11-23', '안내', '업데이트 소식 창', '새 소식이 있으면 시트를 열 때마다 안내 창이 뜨고, 「이 소식 다시 보지 않기」를 누르면 그 소식은 더 뜨지 않습니다. 메뉴 「📢 업데이트 소식 보기」로 언제든 다시 볼 수 있습니다.'],
+  ['2026-11-23', '웹 공지', '웹 공지 시트 디자인과 대상 나누기', '「📢 웹 공지」 시트를 칸마다 색을 넣어 보기 좋게 바꾸고, 공지를 전체·교직원·학부모 중 누구에게 보일지 「대상」 칸에서 고르게 했습니다.'],
+  ['2026-11-23', '학부모 신청', '남은 신청 권수 실시간 표시', '학부모가 학년·반·번호를 고르면 「한 학생당 최대 N권 중 M권 더 신청할 수 있습니다」가 나오고, 신청하는 즉시 바뀝니다.'],
+  ['2026-11-23', '안정성', '사본이 많아져도 안정적으로 자동 업데이트', '사본이 5분마다 아주 작은 버전 번호만 확인하고, 바뀌었을 때만 새 코드를 받도록 개선했습니다.'],
+  ['2026-11-22', '학부모·교직원 신청', '교직원/학부모 구분 신청과 신청 한도', '신청 링크를 교직원용·학부모용으로 나눠 따로 관리하고, 한 사람(학생)당 신청 권수 한도를 정할 수 있습니다. 한 학년 최대 반 수도 학교 설정에서 정합니다. 학부모에게는 입력한 학년·반·번호가 구입 처리에만 쓰인다는 안내를 보여 줍니다.'],
+  ['2026-11-22', '보안', '교직원 인증번호', '메뉴 「🔑 교직원 인증번호 설정」으로 번호를 켜 두면, 번호를 아는 교직원만 교직원 신청 화면에 들어갈 수 있습니다. 언제든 끌 수 있습니다.'],
+  ['2026-11-22', '대시보드', '업무 대시보드 새 디자인', '희망도서·시리즈·업로드·검토 권수, 구입 진행 현황, 업무 순서 바로가기를 한 장에 모은 대시보드를 새로 꾸몄습니다.'],
+  ['2026-11-22', '신청 링크', '신청 링크 받기 · QR 그림', '메뉴 「🔗 신청 링크 받기」에서 학부모용·교직원용 링크를 복사하고, 인쇄할 수 있는 QR 그림을 저장할 수 있습니다.'],
+  ['2026-11-22', '안내', '전체 사용방법 새로 작성', '「📘 전체 사용방법」과 「📗 희망도서 신청안내」를 새로 썼습니다. 안내 시트는 업데이트될 때 자동으로 새 내용으로 바뀝니다.'],
+  ['2026-11-22', '시트 구성', '시트 탭 정리·이전 사본 데이터 가져오기', '탭을 업무 순서로 정리하고 색으로 묶었으며, 이전 사본의 신청 데이터를 새 사본으로 옮기는 메뉴를 추가했습니다.'],
+  ['2026-11-22', '자동 업데이트', '모든 사본 자동 업데이트', '이제 새 기능은 사본을 다시 만들지 않아도 시트를 열면 알아서 최신 버전으로 반영됩니다.']
+];
+
+var HR_UPDATE_LOG_COLORS = {
+  '웹 신청': '#E3EFE9', '학부모·교직원 신청': '#E3EFE9', '학부모 신청': '#E3EFE9', '신청 링크': '#E3EFE9',
+  '구입 검토': '#FBF1D4', '대시보드': '#FBF1D4', '시리즈 점검': '#E8F0FA',
+  '시트 화면': '#F1EBF8', '시트 구성': '#F1EBF8', '웹 공지': '#F1EBF8',
+  '개발자 문의': '#FDECEA', '안내': '#EEF2F0', '보안': '#FDECEA', '안정성': '#EEF2F0', '자동 업데이트': '#EEF2F0'
+};
+
+// 「업데이트 내용」 탭을 HR_UPDATE_LOG 로 다시 씁니다. (없으면 「웹 공지」 오른쪽에 만듭니다.)
+function HR_writeUpdateLogSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(HR_UPDATE_LOG_SHEET);
+  if (!sheet) {
+    var anchor = ss.getSheetByName('📢 웹 공지');
+    sheet = anchor ? ss.insertSheet(HR_UPDATE_LOG_SHEET, anchor.getIndex()) : ss.insertSheet(HR_UPDATE_LOG_SHEET);
+  }
+  sheet.getDataRange().getMergedRanges().forEach(function(range) { range.breakApart(); });
+  sheet.clear();
+  sheet.clearConditionalFormatRules();
+  if (sheet.getMaxColumns() < 4) sheet.insertColumnsAfter(sheet.getMaxColumns(), 4 - sheet.getMaxColumns());
+  sheet.setHiddenGridlines(true);
+  sheet.setTabColor('#9AA6A0');
+  [110, 130, 260, 640].forEach(function(width, i) { sheet.setColumnWidth(i + 1, width); });
+
+  sheet.getRange('A1:D1').merge().setValue('📜 업데이트 내용')
+    .setBackground('#183D35').setFontColor('#FFFFFF').setFontSize(22).setFontWeight('bold')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle');
+  sheet.getRange('A2:D2').merge().setValue('지금까지 새로 생기거나 고쳐진 기능입니다. 최신 내용이 맨 위에 있고, 사본은 시트를 열 때 자동으로 최신 버전으로 바뀝니다.')
+    .setBackground('#EAF3ED').setFontColor('#34564D').setFontSize(11).setWrap(true).setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 56);
+  sheet.setRowHeight(2, 36);
+
+  sheet.getRange(3, 1, 1, 4).setValues([['날짜', '분류', '제목', '내용']])
+    .setBackground('#D9A441').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(3, 34);
+  sheet.setFrozenRows(3);
+
+  var rows = HR_UPDATE_LOG.map(function(entry) { return [entry[0], entry[1], entry[2], entry[3]]; });
+  var body = sheet.getRange(4, 1, rows.length, 4);
+  body.setNumberFormat('@');   // 날짜가 달력 날짜로 바뀌지 않게 글자로 둡니다.
+  body.setValues(rows);
+  body.setVerticalAlignment('top').setWrap(true).setFontSize(11).setFontColor('#2E3A33');
+  sheet.getRange(4, 1, rows.length, 2).setHorizontalAlignment('center');
+  sheet.getRange(4, 3, rows.length, 1).setFontWeight('bold').setFontColor('#244D42');
+  sheet.getRange(4, 1, rows.length, 4).setBorder(true, true, true, true, true, true, '#D3DDD7', SpreadsheetApp.BorderStyle.SOLID);
+
+  // 분류 칸은 종류별로 색을 다르게 합니다.
+  var colors = rows.map(function(row) { return [HR_UPDATE_LOG_COLORS[row[1]] || '#EEF2F0']; });
+  sheet.getRange(4, 2, rows.length, 1).setBackgrounds(colors).setFontWeight('bold');
+  // 같은 날짜가 이어질 때 첫 줄에만 굵은 구분선을 둡니다.
+  rows.forEach(function(row, index) {
+    if (index === 0 || rows[index - 1][0] !== row[0]) {
+      sheet.getRange(4 + index, 1, 1, 4).setBorder(true, null, null, null, null, null, '#B9770E', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    }
+  });
+  return rows.length;
+}
