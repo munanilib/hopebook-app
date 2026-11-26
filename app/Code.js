@@ -622,6 +622,16 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 대시보드의 「총 예산」 칸에 직접 입력
+  if (sheetName === UNIFIED_DASHBOARD_SHEET && cell === 'A17') {
+    try {
+      unifiedBudgetFromDashboard_(range);
+    } catch (error) {
+      console.warn('예산 입력 처리 실패: ' + error);
+    }
+    return;
+  }
+
   // 대시보드 숫자 바로 갱신: 검토함 체크·금액·수량을 바꿨을 때, 서점 전달용 정가·수량·금액을 고쳤을 때
   // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
   if (cell !== 'A4' || !checkboxChanged) {

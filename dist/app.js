@@ -1138,6 +1138,16 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 대시보드의 「총 예산」 칸에 직접 입력
+  if (sheetName === UNIFIED_DASHBOARD_SHEET && cell === 'A17') {
+    try {
+      unifiedBudgetFromDashboard_(range);
+    } catch (error) {
+      console.warn('예산 입력 처리 실패: ' + error);
+    }
+    return;
+  }
+
   // 대시보드 숫자 바로 갱신: 검토함 체크·금액·수량을 바꿨을 때, 서점 전달용 정가·수량·금액을 고쳤을 때
   // (A4 전체선택은 아래에서 처리한 직후에 갱신합니다.)
   if (cell !== 'A4' || !checkboxChanged) {
@@ -3204,7 +3214,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-26-3';
+var HR_GUIDE_VERSION = '2026-11-26-4';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3270,7 +3280,7 @@ var HR_MANUAL_SECTIONS = [
         '구입 업무 전체를 이끄는 메뉴입니다.\n' +
         '• 🏠 전체 화면 정리·새로고침 · 🎨 전체 디자인 다시 적용 · 🧭 시트 탭 정리\n' +
         '• 📚 희망도서를 구입 검토함으로 보내기 · 🛒 체크한 시리즈를 구입 검토함으로 보내기\n' +
-        '• 🔎 시리즈 누락 점검(쉬운 창) · 🔎 시리즈 누락·후속권 이어서 점검 · 📥 업로드 목록을 열기 · 💵 예산 설정\n' +
+        '• 🔎 시리즈 누락 점검(쉬운 창) · 🔎 시리즈 누락·후속권 이어서 점검 · 📥 업로드 목록을 열기 · 💵 예산 설정(대시보드의 노란 「총 예산」 칸에 직접 써도 됩니다)\n' +
         '• 📦 중복 확인 후 서점 전달용으로 보내기\n' +
         '• 🔎 시리즈 점검 도구(하위 메뉴) — 현재 결과 절판 여부 확인 · 결과 시트 만들기·복구 · 저장된 점검 위치 초기화 · YES24 API 키 설정']
     ]
@@ -3506,7 +3516,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v699c657';
+var HR_BUILD_ID = 'vb504ac8';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -11605,7 +11615,7 @@ function unifiedEnsureSettingsSheet_() {
 }
 
 // 대시보드 모양을 바꾸면 이 번호를 올립니다. 번호가 다르면 숫자만 고치는 대신 전체를 다시 그립니다.
-var UNIFIED_DASHBOARD_LAYOUT = '3';
+var UNIFIED_DASHBOARD_LAYOUT = '4';
 var UNIFIED_BUDGET_PROPERTY = 'UNIFIED_BUDGET';
 var UNIFIED_DASHBOARD_LAYOUT_PROPERTY = 'UNIFIED_DASHBOARD_LAYOUT';
 var UNIFIED_EXPORT_BUILT_AT_PROPERTY = 'UNIFIED_EXPORT_BUILT_AT';
@@ -11617,33 +11627,55 @@ function unifiedGetBudget_() {
   return isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
-// 메뉴: 「💵 예산 설정」
+// 입력한 글을 예산(원)으로 바꿉니다. 비어 있으면 0(예산 끔), 숫자로 읽을 수 없으면 null.
+// 예: 3000000 · 3,000,000원 · 300만원 · 2.5만
+function unifiedParseBudget_(input) {
+  var text = String(input == null ? '' : input).replace(/[,\s원₩]/g, '');
+  if (!text || /여기에입력/.test(text)) return 0;
+  var man = text.match(/^(\d+(?:\.\d+)?)만$/);
+  var value = man ? Math.round(Number(man[1]) * 10000) : Number(text);
+  return isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+function unifiedSaveBudget_(value) {
+  var props = PropertiesService.getScriptProperties();
+  if (value) props.setProperty(UNIFIED_BUDGET_PROPERTY, String(Math.round(value)));
+  else props.deleteProperty(UNIFIED_BUDGET_PROPERTY);
+}
+
+// 대시보드의 「총 예산」 칸(A17)에 직접 입력했을 때: 저장하고 대시보드를 다시 계산합니다.
+function unifiedBudgetFromDashboard_(range) {
+  var value = unifiedParseBudget_(range.getValue());
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (value === null) {
+    ss.toast('예산은 숫자로 입력해 주세요. 예: 3000000 또는 300만원', '💵 예산', 7);
+  } else {
+    unifiedSaveBudget_(value);
+    ss.toast(value ? '총 예산을 ' + unifiedMoney_(value) + '으로 정했습니다.' : '예산 표시를 껐습니다.', '💵 예산', 5);
+  }
+  unifiedUpdateDashboardNumbers_();   // 잘못 입력했으면 원래 값으로 되돌려 보여 줍니다.
+}
+
+// 메뉴: 「💵 예산 설정」 (대시보드 칸에 직접 입력하는 것이 더 쉽지만, 메뉴로도 입력할 수 있습니다)
 function unifiedSetBudget() {
   var ui = SpreadsheetApp.getUi();
-  var props = PropertiesService.getScriptProperties();
   var current = unifiedGetBudget_();
   var response = ui.prompt(
     '💵 예산 설정',
     '이번 도서 구입 총 예산(원)을 숫자로 입력해 주세요. 예: 3000000 또는 300만원\n' +
       (current ? '지금 설정: ' + unifiedMoney_(current) + '\n' : '') +
-      '비워 두고 확인을 누르면 예산 표시를 끕니다.',
+      '비워 두고 확인을 누르면 예산 표시를 끕니다.\n' +
+      '(대시보드의 「총 예산」 칸에 바로 입력해도 됩니다.)',
     ui.ButtonSet.OK_CANCEL
   );
   if (response.getSelectedButton() !== ui.Button.OK) return;
 
-  var text = String(response.getResponseText() || '').replace(/[,\s원]/g, '');
-  var value = 0;
-  if (text) {
-    var man = text.match(/^(\d+(?:\.\d+)?)만$/);
-    value = man ? Math.round(Number(man[1]) * 10000) : Number(text);
-    if (!isFinite(value) || value <= 0) {
-      ui.alert('예산을 숫자로 입력해 주세요. (예: 3000000, 300만원)');
-      return;
-    }
+  var value = unifiedParseBudget_(response.getResponseText());
+  if (value === null) {
+    ui.alert('예산을 숫자로 입력해 주세요. (예: 3000000, 300만원)');
+    return;
   }
-  if (value) props.setProperty(UNIFIED_BUDGET_PROPERTY, String(Math.round(value)));
-  else props.deleteProperty(UNIFIED_BUDGET_PROPERTY);
-
+  unifiedSaveBudget_(value);
   unifiedUpdateDashboardNumbers_();
   SpreadsheetApp.getActiveSpreadsheet().toast(
     value ? '예산을 ' + unifiedMoney_(value) + '으로 설정했습니다.' : '예산 표시를 껐습니다.',
@@ -11780,7 +11812,7 @@ function unifiedFillDashboardNumbers_(sheet, stats, onlyPurchase) {
   var budget = Number(stats.budget || 0);
   var used = Number(stats.decidedAmount || 0);
   var remain = budget - used;
-  sheet.getRange('A17').setValue(budget ? unifiedMoney_(budget) : '미설정');
+  sheet.getRange('A17').setValue(budget ? unifiedMoney_(budget) : '✏️  여기에 입력');
   sheet.getRange('E17').setValue(unifiedMoney_(used));
   sheet.getRange('I17').setValue(budget ? (remain < 0 ? '-' + unifiedMoney_(-remain) : unifiedMoney_(remain)) : '-')
     .setFontColor(budget && remain < 0 ? RED : '#1F5C4A');
@@ -11792,7 +11824,7 @@ function unifiedFillDashboardNumbers_(sheet, stats, onlyPurchase) {
   }
   var percent = budget ? Math.round(used / budget * 100) : 0;
   sheet.getRange('A19').setValue(
-    !budget ? '예산을 아직 정하지 않았습니다. 위쪽 「🧰 통합 도서업무 → 💵 예산 설정」에서 입력하세요.'
+    !budget ? '총 예산을 아직 정하지 않았습니다. 위의 노란 「총 예산」 칸에 금액을 쓰고 Enter를 누르세요.'
       : remain < 0 ? '⚠ 예산을 ' + unifiedMoney_(-remain) + ' 넘었습니다 · 사용률 ' + percent + '%'
       : '사용률 ' + percent + '% · 아직 ' + unifiedMoney_(remain) + ' 쓸 수 있습니다 (구입 결정 금액 기준)'
   ).setFontColor(budget && remain < 0 ? RED : MUTED).setFontWeight(budget && remain < 0 ? 'bold' : 'normal');
@@ -11902,7 +11934,7 @@ function unifiedRefreshDashboard_() {
     .setFontSize(13).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('left');
   sheet.setRowHeight(14, 12);
   sheet.setRowHeight(15, 38);
-  [['A', 'D', '💰 총 예산'], ['E', 'H', '🛒 구입 결정 금액'], ['I', 'L', '🟢 남은 예산']].forEach(function(item) {
+  [['A', 'D', '💰 총 예산 (눌러서 입력)'], ['E', 'H', '🛒 구입 결정 금액'], ['I', 'L', '🟢 남은 예산']].forEach(function(item) {
     sheet.getRange(item[0] + '16:' + item[1] + '16').merge().setValue(item[2])
       .setFontSize(11).setFontWeight('bold').setFontColor(GREEN_MID).setHorizontalAlignment('center').setBackground(GREEN_SOFT);
     sheet.getRange(item[0] + '17:' + item[1] + '17').merge().setValue('-')
@@ -11914,6 +11946,10 @@ function unifiedRefreshDashboard_() {
   sheet.getRange('A19:L19').merge().setValue('')
     .setFontSize(10).setFontColor(MUTED).setHorizontalAlignment('center').setBackground('#FFFFFF');
   sheet.getRange('A16:L19').setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  // 총 예산 칸은 직접 쓰는 입력칸입니다. (눈에 띄게 노란 바탕·굵은 금색 테두리)
+  sheet.getRange('A17:D17').setBackground(GOLD_SOFT).setFontColor('#7A5A12')
+    .setBorder(true, true, true, true, false, false, GOLD, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sheet.getRange('A17').setNote('여기에 총 예산을 쓰고 Enter를 누르세요.\n예: 3000000 · 3,000,000원 · 300만원\n지우면 예산 표시가 꺼집니다.');
   sheet.setRowHeight(16, 28);
   sheet.setRowHeight(17, 42);
   sheet.setRowHeight(18, 24);
@@ -14171,6 +14207,9 @@ function verifyYes24Connection() {
     "unifiedStyleExportSheet_": unifiedStyleExportSheet_,
     "unifiedEnsureSettingsSheet_": unifiedEnsureSettingsSheet_,
     "unifiedGetBudget_": unifiedGetBudget_,
+    "unifiedParseBudget_": unifiedParseBudget_,
+    "unifiedSaveBudget_": unifiedSaveBudget_,
+    "unifiedBudgetFromDashboard_": unifiedBudgetFromDashboard_,
     "unifiedSetBudget": unifiedSetBudget,
     "unifiedBookKey_": unifiedBookKey_,
     "unifiedMoney_": unifiedMoney_,
