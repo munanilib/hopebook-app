@@ -16,6 +16,9 @@ var SERIES_FOLLOWUP_RESULTS = 50;
 var SERIES_GAP_RESULTS = 50;
 var SERIES_MAX_GAP_PAGES = 3;
 var SERIES_RESUME_STATE_KEY = 'YES24_SERIES_RESUME_STATE_V1';
+// 소장도서 탭에 적어 둔 「출판사」 칸은 묶음 나누기에 쓰지 않습니다. (일부 줄만 적거나 표기가 서로 달라 같은 시리즈가 갈라져 있는 책이 누락으로 나오는 일이 있었습니다)
+// 출판사는 YES24 에서 ISBN 으로 자동으로 확인한 값(seriesEnrichGroupsFromIsbn_)만 씁니다.
+var SERIES_USE_REGISTERED_PUBLISHER = false;
 var SERIES_AUTO_CONTINUE_HANDLER = 'seriesAutoContinueMissingBooks_';
 var SERIES_AUTO_CONTINUE_DELAY_MS = 60000;
 
@@ -386,7 +389,7 @@ function seriesReadHoldings_() {
     var title = String(row[titleColumn - 1] || '').trim();
     if (!title) return;
     var isbn = seriesCleanIsbn_(row[isbnColumn - 1]);
-    var publisher = publisherColumn ? String(row[publisherColumn - 1] || '').trim() : '';
+    var publisher = publisherColumn && SERIES_USE_REGISTERED_PUBLISHER ? String(row[publisherColumn - 1] || '').trim() : '';
     if (isbn) isbnSet[isbn] = true;
     var titleKey = seriesNormalizeKey_(title);
     if (titleKey) titleKeySet[titleKey] = true;
