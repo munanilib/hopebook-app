@@ -186,10 +186,10 @@ function unifiedDrawActionBars_(sheet) {
         .setBorder(true, true, true, true, false, false, style.border, EDGE);
 
       if (unifiedBarNeedsCheckbox_(bar)) {
-        // 맨 앞 칸: 한 톤 진한 바탕, 큰 ☐ 를 왼쪽 끝에 (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
+        // 맨 앞 칸: 한 톤 진한 바탕, 큰 ☐ 를 가운데에 (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
         var box = sheet.getRange(4, bar.c1);
         box.insertCheckboxes().setValue(false);
-        box.setBackground(style.tab).setFontColor(style.fg).setFontSize(22).setHorizontalAlignment('left');
+        box.setBackground(style.tab).setFontColor(style.fg).setFontSize(22).setHorizontalAlignment('center');
         box.setNote(null);
         if (bar.c2 === bar.c1) { box.setNote(bar.label.replace(/\s*›\s*$/, '').trim() + '\n(☐ 를 체크하면 실행됩니다)'); return; }
       }
@@ -201,7 +201,7 @@ function unifiedDrawActionBars_(sheet) {
         .setFontFamily('Arial')
         .setFontSize(fontSize)
         .setFontWeight('bold')
-        .setHorizontalAlignment(unifiedBarNeedsCheckbox_(bar) ? 'left' : 'center')
+        .setHorizontalAlignment('center')
         .setWrap(false);
     });
     sheet.setRowHeight(4, 56);

@@ -192,10 +192,10 @@ function unifiedDrawActionBars_(sheet) {
         .setBorder(true, true, true, true, false, false, style.border, EDGE);
 
       if (unifiedBarNeedsCheckbox_(bar)) {
-        // 맨 앞 칸: 한 톤 진한 바탕, 큰 ☐ 를 왼쪽 끝에 (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
+        // 맨 앞 칸: 한 톤 진한 바탕, 큰 ☐ 를 가운데에 (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
         var box = sheet.getRange(4, bar.c1);
         box.insertCheckboxes().setValue(false);
-        box.setBackground(style.tab).setFontColor(style.fg).setFontSize(22).setHorizontalAlignment('left');
+        box.setBackground(style.tab).setFontColor(style.fg).setFontSize(22).setHorizontalAlignment('center');
         box.setNote(null);
         if (bar.c2 === bar.c1) { box.setNote(bar.label.replace(/\s*›\s*$/, '').trim() + '\n(☐ 를 체크하면 실행됩니다)'); return; }
       }
@@ -207,7 +207,7 @@ function unifiedDrawActionBars_(sheet) {
         .setFontFamily('Arial')
         .setFontSize(fontSize)
         .setFontWeight('bold')
-        .setHorizontalAlignment(unifiedBarNeedsCheckbox_(bar) ? 'left' : 'center')
+        .setHorizontalAlignment('center')
         .setWrap(false);
     });
     sheet.setRowHeight(4, 56);
@@ -3649,7 +3649,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-27-5';
+var HR_GUIDE_VERSION = '2026-11-27-6';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -4140,7 +4140,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 've24516a';
+var HR_BUILD_ID = 'v2884221';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
