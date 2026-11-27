@@ -363,7 +363,7 @@ function unifiedRunBarAction_(sheet, bar) {
     } else if (bar.id === 'export-confirm') {
       unifiedConfirmPurchaseRound_();   // 안에서 직접 확인을 묻고 기록합니다.
     } else if (bar.id === 'series-check') {
-      unifiedStartSeriesCheckFromBar_();   // 창 없이 바로 점검합니다. (진행 상황은 시트 오른쪽 아래 알림으로)
+      HR_openSeriesCheckDialog_(false);   // ☐ 체크로 부르므로 창을 띄울 수 있습니다. 창에서 「점검 시작/이어서 점검」을 누릅니다.
     } else {
       var answer = true;
       if (!UNIFIED_BAR_NO_DIALOG) {   // 메뉴·☐ 체크로 부른 경우에만 확인 창을 띄웁니다.
