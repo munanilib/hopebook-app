@@ -289,6 +289,7 @@ function refreshMissingSeriesBooks() {
     }
 
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
     seriesBuildResultSheet_(candidates, {
       seriesCount: groups.length,
       searchedCount: searchResult.searchedGroupCount,
@@ -348,10 +349,11 @@ function refreshMissingSeriesBooks() {
 
 // 오늘 조회 한도에 닿아서 멈춘 오류인지 (키 오류·일반 서버 오류와 구분합니다)
 function seriesIsQuotaError_(message) {
-  return /오늘 안전하게 사용할 수 있는|HTTP 429|RATE_002|일일 호출 한도/.test(String(message || ''));
+  return /오늘 안전하게 사용할 수 있는|HTTP 429|RATE_002|일일 호출 한도|한도.{0,8}(초과|도달)|(초과|도달).{0,8}한도/.test(String(message || ''));
 }
 
 var SERIES_QUOTA_RETRY_PROPERTY = 'YES24_SERIES_QUOTA_RETRY';
+var SERIES_QUOTA_NEXT_PROPERTY = 'YES24_SERIES_QUOTA_NEXT';   // 한도 때문에 예약한 다음 점검 시각
 var SERIES_QUOTA_MAX_RETRIES = 6;
 
 // 한도가 풀릴 때 다시 시작할 시각. 우리 쪽 안전 한도(날짜가 바뀌면 초기화)에 닿았으면 다음 날 00:10,
@@ -380,7 +382,9 @@ function seriesScheduleQuotaResume_(message) {
   seriesCancelAutoContinue_();
   ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
   var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
-  return { when: when, whenText: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵' };
+  var whenText = Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵';
+  properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({ at: when.getTime(), text: whenText }));
+  return { when: when, whenText: whenText };
 }
 
 function seriesGetYes24Key_() { return getConfiguredYes24Key_() || String(PropertiesService.getScriptProperties().getProperty('SERIES_YES24_KEY') || '').trim(); }
@@ -1016,7 +1020,7 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
       return;
     }
     if (data.errorCode) {
-      apiErrors.push(spec.query + ': ' + (data.errorMessage || data.errorCode));
+      apiErrors.push(spec.query + ': ' + data.errorCode + ' ' + (data.errorMessage || ''));
       return;
     }
 

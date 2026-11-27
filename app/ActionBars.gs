@@ -411,8 +411,14 @@ function HR_seriesCheckState() {
   var ss = seriesSpreadsheet_();
   var result = ss.getSheetByName(SERIES_FINDER_SHEET);
   var holdings = ss.getSheetByName(SERIES_HOLDINGS_SHEET);
+  var quotaNext = null;
+  try {
+    var parsedNext = JSON.parse(props.getProperty('YES24_SERIES_QUOTA_NEXT') || 'null');
+    if (parsedNext && parsedNext.at) quotaNext = { at: Number(parsedNext.at), text: String(parsedNext.text || '') };
+  } catch (error) {}
   return {
     hasKey: Boolean(seriesGetYes24Key_()),
+    quotaNext: quotaNext,
     resume: resume,
     candidates: result ? unifiedCountData_(result, 6) : 0,
     holdings: holdings ? Math.max(0, holdings.getLastRow() - 1) : 0

@@ -70,6 +70,7 @@
       var pct = Math.min(100, Math.round(s.resume.offset / s.resume.total * 100));
       status.className = 'status wait';
       status.textContent = '이전 점검이 중간에서 멈췄습니다. (' + s.resume.offset + ' / ' + s.resume.total + '건, ' + pct + '%) 이어서 점검할 수 있습니다.';
+      if (s.quotaNext && s.quotaNext.at > Date.now()) status.textContent += ' · YES24 하루 한도 때문에 ' + s.quotaNext.text + '에 저절로 이어서 점검하도록 예약되어 있습니다.';
       $('progress').hidden = false; $('fill').style.width = pct + '%';
       go.textContent = '▶ 이어서 점검';
       again.hidden = false;
