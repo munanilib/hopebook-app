@@ -30,7 +30,7 @@ function setupSeriesFinder() {
     checkedAt: new Date()
   });
   seriesSpreadsheet_().toast(
-    '시리즈 시트 위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 눌러 주세요.',
+    '시리즈 시트 위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대 맨 앞 ☐ 칸을 체크해 주세요.',
     '설정 완료',
     8
   );

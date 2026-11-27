@@ -637,6 +637,9 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 맨 위 막대의 ☐ 칸은 설치형 트리거(onEditTriggerAction)가 처리합니다. (예전 A4·D4 체크박스 동작과 겹치지 않게)
+  if (range.getRow() === 4 && unifiedBarNeedsCheckbox_(unifiedBarAt_(sheet, range))) return;
+
   // 대시보드의 「총 예산」 칸에 직접 입력
   if (sheetName === UNIFIED_DASHBOARD_SHEET && cell === 'A17') {
     try {
@@ -867,6 +870,9 @@ function onEditTriggerAction(e) {
     return;
   }
   if (!e || !e.range) return;
+
+  // 맨 위 막대의 ☐ 칸 (확인창·점검창은 여기서만 띄울 수 있습니다)
+  if (unifiedHandleBarEdit_(e)) return;
 
   const range = e.range;
   const sheet = range.getSheet();

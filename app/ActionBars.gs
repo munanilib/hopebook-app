@@ -3,11 +3,13 @@
  *
  * 각 시트 맨 위(4행)의 「전체 선택」「구입 검토함으로 보내기」 같은 버튼을 체크박스가 아니라
  * 막대 전체를 누르면 동작하는 큰 버튼으로 만듭니다.
- * - 칸을 선택하는 순간 동작합니다. (onSelectionChange)
+ * - 「전체 선택」은 칸을 선택하는 순간 동작합니다. (onSelectionChange)
+ * - 확인창·점검창이 필요한 막대는 맨 앞 ☐ 칸을 체크하면 동작합니다. (설치형 트리거 onEditTriggerAction)
+ *   단순 트리거(onSelectionChange)는 권한이 없어 showModalDialog·alert 를 띄울 수 없기 때문입니다.
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '2';
+var UNIFIED_BARS_VERSION = '3';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -141,9 +143,25 @@ function unifiedDrawActionBars_(sheet) {
     spec.bars.forEach(function(bar) {
       var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
       var range = sheet.getRange(4, bar.c1, 1, bar.c2 - bar.c1 + 1);
-      if (bar.c2 > bar.c1) range.merge();
+      var label = bar.label;
+      // 확인창·점검창이 필요한 막대는 맨 앞 칸에 ☐ 체크칸을 둡니다. (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
+      if (unifiedBarNeedsCheckbox_(bar)) {
+        var box = sheet.getRange(4, bar.c1);
+        box.insertCheckboxes().setValue(false);
+        range
+          .setBackground(style.bg)
+          .setFontColor(style.fg)
+          .setFontSize(20)
+          .setHorizontalAlignment('center')
+          .setVerticalAlignment('middle')
+          .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
+        if (bar.c2 === bar.c1) { box.setNote(bar.label + '\n(☐ 를 체크하면 실행됩니다)'); return; }
+        range = sheet.getRange(4, bar.c1 + 1, 1, bar.c2 - bar.c1);
+        label = '◀ ' + bar.label.replace(/\s*›\s*$/, '');
+      }
+      if (range.getNumColumns() > 1) range.merge();
       range
-        .setValue(bar.label)
+        .setValue(label)
         .setBackground(style.bg)
         .setFontColor(style.fg)
         .setFontFamily('Arial')
@@ -197,7 +215,13 @@ function unifiedBarAt_(sheet, range) {
 function unifiedHandleBarClick_(sheet, range) {
   var bar = unifiedBarAt_(sheet, range);
   if (!bar) return false;
+  // 확인창·점검창이 필요한 막대는 칸 선택(단순 트리거)으로는 창을 띄울 수 없어서, 맨 앞 ☐ 체크칸으로 안내만 합니다.
+  if (unifiedBarNeedsCheckbox_(bar)) return unifiedGuideBarCheckbox_(sheet, range, bar);
+  return unifiedRunBarAction_(sheet, bar);
+}
 
+// 막대의 실제 동작. (전체 선택은 칸 선택에서, 나머지는 체크칸을 체크했을 때 설치형 트리거에서 부릅니다)
+function unifiedRunBarAction_(sheet, bar) {
   // 같은 클릭이 두 번 처리되지 않게 잠깐 표시를 남깁니다.
   var cache = CacheService.getDocumentCache();
   var busyKey = 'BAR_BUSY_' + bar.id;
@@ -278,4 +302,47 @@ function HR_seriesCheckStart(fresh) {
   }
   refreshMissingSeriesBooks();
   return HR_seriesCheckState();
+}
+
+/* ---------- ☐ 체크칸으로 실행하는 막대 ---------- */
+
+// 확인창·점검창을 띄우는 막대인지 (전체 선택만 칸 선택으로 바로 동작합니다)
+function unifiedBarNeedsCheckbox_(bar) {
+  return !!bar && bar.kind !== 'select';
+}
+
+function unifiedBarHasCheckbox_(sheet, bar) {
+  try {
+    var rule = sheet.getRange(4, bar.c1).getDataValidation();
+    return !!rule && rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX;
+  } catch (error) {
+    return false;
+  }
+}
+
+// 막대 글자 부분을 눌렀을 때(단순 트리거): 맨 앞 ☐ 칸으로 안내합니다.
+function unifiedGuideBarCheckbox_(sheet, range, bar) {
+  if (range.getColumn() === bar.c1 && range.getLastColumn() === bar.c1) return true;   // 체크칸 자체를 고른 것
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var title = bar.label.replace(/\s*›\s*$/, '');
+  if (!unifiedBarHasCheckbox_(sheet, bar)) {
+    try { ss.toast('버튼 모양이 바뀌었습니다. 시트를 닫았다가 다시 열면 막대 앞에 ☐ 칸이 생깁니다. 그동안은 위쪽 메뉴를 이용해 주세요.', title, 8); } catch (error) {}
+    return true;
+  }
+  try { ss.toast('막대 맨 앞의 ☐ 칸을 체크하면 실행됩니다.', title, 5); } catch (error) {}
+  try { sheet.getRange(4, bar.c1).activate(); } catch (error) {}
+  return true;
+}
+
+// 막대 맨 앞 ☐ 칸을 체크했을 때. 설치형 트리거(onEditTriggerAction)에서 부르므로 확인창·점검창을 띄울 수 있습니다. 처리했으면 true.
+function unifiedHandleBarEdit_(e) {
+  var range = e && e.range;
+  if (!range || range.getRow() !== 4 || range.getNumRows() !== 1 || range.getNumColumns() !== 1) return false;
+  var sheet = range.getSheet();
+  var bar = unifiedBarAt_(sheet, range);
+  if (!bar || !unifiedBarNeedsCheckbox_(bar) || range.getColumn() !== bar.c1) return false;
+  if (String(e.value || '').toUpperCase() !== 'TRUE') return true;
+  range.setValue(false);
+  unifiedRunBarAction_(sheet, bar);
+  return true;
 }
