@@ -201,7 +201,7 @@ function unifiedDrawActionBars_(sheet) {
         .setFontFamily('Arial')
         .setFontSize(fontSize)
         .setFontWeight('bold')
-        .setHorizontalAlignment('center')
+        .setHorizontalAlignment(unifiedBarNeedsCheckbox_(bar) ? 'left' : 'center')   // ☐ 가 있는 막대는 ☐ 만 가운데, 글자는 왼쪽
         .setWrap(false);
     });
     sheet.setRowHeight(4, 56);
