@@ -15,7 +15,7 @@ var APP_FACTORY = function (__host) {
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '3';
+var UNIFIED_BARS_VERSION = '4';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -74,14 +74,40 @@ function unifiedBarSpecBase_(sheet) {
   return null;
 }
 
-// 모든 막대는 같은 높이·같은 글자 크기·같은 모양(그림 + 글 + ›)이고, 역할에 따라 색만 다릅니다.
+// 모든 막대는 같은 높이·같은 모양이고, 역할에 따라 색만 다릅니다.
+// tab: ☐ 체크칸 바탕(막대보다 한 톤 진하게 — 「여기를 체크」가 한눈에 보이도록)
 var UNIFIED_BAR_STYLE = {
-  select:  { bg: '#CFE6DA', fg: '#14493A', border: '#2E7D5B', size: 16 },
-  send:    { bg: '#B9770E', fg: '#FFFFFF', border: '#7A4A06', size: 16 },
-  check:   { bg: '#1F5C4A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 }
+  select:  { bg: '#CFE6DA', tab: '#B7D9C7', fg: '#14493A', border: '#2E7D5B', size: 16 },
+  send:    { bg: '#B9770E', tab: '#955F0A', fg: '#FFFFFF', border: '#7A4A06', size: 16 },
+  check:   { bg: '#1F5C4A', tab: '#16463A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 }
 };
+var UNIFIED_BAR_MIN_FONT = 11;
 
-var UNIFIED_BARS_VIEW_WIDTH = 1400;   // 한 화면에 보이는 폭(픽셀)으로 보고 막대를 나눕니다.
+// 글자 폭 어림(px). 한글 1em, 영문·숫자 0.6em, 띄어쓰기 0.3em, 그림 문자 1.25em (굵은 글꼴 기준)
+function unifiedBarTextWidth_(text, size) {
+  var em = 0;
+  String(text || '').replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\s\S]/g, function(ch) {
+    if (ch.length === 2 || /[☀-➿⬀-⯿]/.test(ch)) em += 1.25;
+    else if (/\s/.test(ch)) em += 0.3;
+    else if (/[ᄀ-ᇿ　-鿿가-힯＀-￯]/.test(ch)) em += 1;
+    else em += 0.6;
+    return ch;
+  });
+  return em * size * 4 / 3;
+}
+
+// 막대 글자 칸 폭에 맞는 가장 큰 글자 크기 (max 에서 시작해 줄여 갑니다)
+function unifiedBarFitFontSize_(sheet, c1, c2, label, max) {
+  var width = 0;
+  for (var c = c1; c <= c2; c++) width += Number(sheet.getColumnWidth(c)) || 100;
+  width -= 28;   // 양쪽 여백
+  for (var size = max; size > UNIFIED_BAR_MIN_FONT; size--) {
+    if (unifiedBarTextWidth_(label, size) <= width) return size;
+  }
+  return UNIFIED_BAR_MIN_FONT;
+}
+
+var UNIFIED_BARS_VIEW_WIDTH = 1480;   // 한 화면에 보이는 폭(픽셀)으로 보고 막대를 나눕니다. (마지막 막대 글자가 잘리지 않을 만큼)
 
 function unifiedBarsPropertyKey_(sheet) { return 'UNIFIED_BARS_' + sheet.getSheetId(); }
 
@@ -146,41 +172,42 @@ function unifiedDrawActionBars_(sheet) {
     PropertiesService.getDocumentProperties().setProperty(unifiedBarsPropertyKey_(sheet), JSON.stringify(layout));
     spec.bars.forEach(function(bar) { bar.c1 = layout[bar.id][0]; bar.c2 = layout[bar.id][1]; });
 
+    // 글자 칸 범위를 먼저 정하고, 한 시트 안의 막대는 모두 같은 글자 크기(가장 좁은 막대에 맞춤)로 씁니다.
+    var fontSize = 16;
     spec.bars.forEach(function(bar) {
       var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
-      var range = sheet.getRange(4, bar.c1, 1, bar.c2 - bar.c1 + 1);
-      var label = bar.label;
-      // 확인창·점검창이 필요한 막대는 맨 앞 칸에 ☐ 체크칸을 둡니다. (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
-      if (unifiedBarNeedsCheckbox_(bar)) {
-        var box = sheet.getRange(4, bar.c1);
-        box.insertCheckboxes().setValue(false);
-        range
-          .setBackground(style.bg)
-          .setFontColor(style.fg)
-          .setFontSize(20)
-          .setHorizontalAlignment('center')
-          .setVerticalAlignment('middle')
-          .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
-        if (bar.c2 === bar.c1) { box.setNote(bar.label + '\n(☐ 를 체크하면 실행됩니다)'); return; }
-        range = sheet.getRange(4, bar.c1 + 1, 1, bar.c2 - bar.c1);
-        label = '  ' + bar.label;
-      }
-      if (range.getNumColumns() > 1) range.merge();
-      range
-        .setValue(label)
+      bar.t1 = unifiedBarNeedsCheckbox_(bar) && bar.c2 > bar.c1 ? bar.c1 + 1 : bar.c1;
+      fontSize = Math.min(fontSize, unifiedBarFitFontSize_(sheet, bar.t1, bar.c2, '  ' + bar.label, style.size));
+    });
+
+    var EDGE = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
+    spec.bars.forEach(function(bar) {
+      var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
+      var whole = sheet.getRange(4, bar.c1, 1, bar.c2 - bar.c1 + 1);
+      whole
         .setBackground(style.bg)
         .setFontColor(style.fg)
-        .setFontFamily('Arial')
-        .setFontSize(style.size)
-        .setFontWeight('bold')
-        .setHorizontalAlignment('center')
         .setVerticalAlignment('middle')
-        .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
-      if (unifiedBarNeedsCheckbox_(bar) && bar.c2 > bar.c1) {
-        // ☐ 칸과 글자가 한 버튼으로 보이도록: 사이 테두리를 없애고, ☐ 는 오른쪽·글자는 왼쪽으로 붙입니다.
-        sheet.getRange(4, bar.c1).setHorizontalAlignment('right').setBorder(null, null, null, false, null, null);
-        range.setHorizontalAlignment('left').setBorder(null, false, null, null, null, null);
+        .setBorder(true, true, true, true, false, false, style.border, EDGE);
+
+      if (unifiedBarNeedsCheckbox_(bar)) {
+        // 맨 앞 칸: 한 톤 진한 바탕, 큰 ☐ 를 왼쪽 끝에 (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
+        var box = sheet.getRange(4, bar.c1);
+        box.insertCheckboxes().setValue(false);
+        box.setBackground(style.tab).setFontColor(style.fg).setFontSize(22).setHorizontalAlignment('left');
+        box.setNote(null);
+        if (bar.c2 === bar.c1) { box.setNote(bar.label.replace(/\s*›\s*$/, '').trim() + '\n(☐ 를 체크하면 실행됩니다)'); return; }
       }
+
+      var text = sheet.getRange(4, bar.t1, 1, bar.c2 - bar.t1 + 1);
+      if (text.getNumColumns() > 1) text.merge();
+      text
+        .setValue('  ' + bar.label)   // 왼쪽 정렬 + 앞 여백
+        .setFontFamily('Arial')
+        .setFontSize(fontSize)
+        .setFontWeight('bold')
+        .setHorizontalAlignment('left')
+        .setWrap(false);
     });
     sheet.setRowHeight(4, 56);
   } catch (error) {
@@ -194,7 +221,7 @@ function unifiedResetBarState_(sheet) {
     var spec = unifiedBarSpec_(sheet);
     if (!spec) return;
     spec.bars.forEach(function(bar) {
-      if (bar.kind === 'select') sheet.getRange(4, bar.c1).setValue(BAR_SELECT_ON);
+      if (bar.kind === 'select') sheet.getRange(4, bar.c1).setValue('  ' + BAR_SELECT_ON);
     });
   } catch (error) {
     console.warn('막대 상태 되돌리기 실패: ' + error);
@@ -245,9 +272,9 @@ function unifiedRunBarAction_(sheet, bar) {
   try {
     if (bar.kind === 'select') {
       var cell = sheet.getRange(4, bar.c1);
-      var checked = String(cell.getValue() || '').indexOf('⬜') !== 0;   // 지금 「전체 선택」 상태가 아니면 모두 선택
+      var checked = String(cell.getValue() || '').trim().indexOf('⬜') !== 0;   // 지금 「전체 선택」 상태가 아니면 모두 선택
       toggleSelectionColumn_(sheet, 6, 1, checked);
-      cell.setValue(checked ? BAR_SELECT_OFF : BAR_SELECT_ON);
+      cell.setValue('  ' + (checked ? BAR_SELECT_OFF : BAR_SELECT_ON));
       if (sheet.getName() === UNIFIED_REVIEW_SHEET) unifiedUpdateDashboardNumbers_();
     } else if (bar.id === 'export-confirm') {
       unifiedConfirmPurchaseRound_();   // 안에서 직접 확인을 묻고 기록합니다.
@@ -3527,7 +3554,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-27-3';
+var HR_GUIDE_VERSION = '2026-11-27-4';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -4016,7 +4043,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v32a3007';
+var HR_BUILD_ID = 'v2a3b6e4';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -14057,6 +14084,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시트 화면', '막대 버튼 디자인 정리', '☐ 체크칸과 막대 글자를 왼쪽으로 붙이고, ☐ 칸은 막대보다 한 톤 진한 바탕에 크게 두어 「여기를 체크」가 한눈에 보이게 하고, 막대 글자가 칸 폭에 맞춰 잘리지 않도록 크기를 맞췄습니다. 한 시트 안의 막대는 모두 같은 글자 크기로 보입니다.'],
   ['2026-11-27', '시리즈 점검', '점검 막대는 창 없이 바로 점검', '시리즈 점검 시트의 「🔎 시리즈 누락 점검 시작」 ☐ 를 체크하면 창 없이 바로 점검을 시작하고, 진행 상황과 결과는 시트 오른쪽 아래 알림으로 알려 줍니다. 메뉴의 「쉬운 창」으로 점검할 때도 시작한 뒤에는 창을 닫아도 됩니다.'],
   ['2026-11-27', '시리즈 점검', '소장도서 탭에 「출판사」 칸', '「🏫 우리학교 소장도서」 탭에 「출판사」 칸이 생겼습니다. DLS 소장 목록의 출판사를 이 칸에 붙여 넣으면(도서명·ISBN과 같은 줄 순서로) 시리즈 누락 점검이 같은 이름의 다른 출판사 시리즈를 섞지 않아 엉뚱한 후보가 줄어듭니다. 비워 두어도 예전처럼 동작합니다.'],
   ['2026-11-27', '시트 화면', '막대 버튼 앞에 ☐ 체크칸', '「시리즈 누락 점검 시작」「구입 검토함으로 보내기」처럼 창이 뜨는 막대를 눌렀을 때 「권한이 없어 창을 띄울 수 없다」는 오류가 나던 문제를 고쳤습니다. 이제 막대 맨 앞의 ☐ 칸을 체크하면 확인창·점검창이 뜹니다. 「전체 선택」은 예전처럼 막대를 누르면 됩니다.'],
@@ -14877,6 +14905,8 @@ function verifyYes24Connection() {
   var __fns = {
     "unifiedBarSpec_": unifiedBarSpec_,
     "unifiedBarSpecBase_": unifiedBarSpecBase_,
+    "unifiedBarTextWidth_": unifiedBarTextWidth_,
+    "unifiedBarFitFontSize_": unifiedBarFitFontSize_,
     "unifiedBarsPropertyKey_": unifiedBarsPropertyKey_,
     "unifiedStoredBarLayout_": unifiedStoredBarLayout_,
     "unifiedComputeBarColumns_": unifiedComputeBarColumns_,
