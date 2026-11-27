@@ -288,6 +288,7 @@ function refreshMissingSeriesBooks() {
       seriesCancelAutoContinue_();
     }
 
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     seriesBuildResultSheet_(candidates, {
       seriesCount: groups.length,
       searchedCount: searchResult.searchedGroupCount,
@@ -323,15 +324,63 @@ function refreshMissingSeriesBooks() {
       );
     }
   } catch (error) {
-    seriesSpreadsheet_().toast(
-      String(error && error.message ? error.message : error),
-      '시리즈 점검 오류',
-      12
-    );
+    var errorText = String(error && error.message ? error.message : error);
+    // 하루 조회 한도에 닿아 멈춘 경우: 오류로 끝내지 않고, 한도가 풀리는 시각에 저절로 이어서 점검하도록 예약합니다.
+    if (seriesIsQuotaError_(errorText)) {
+      try {
+        var resumeInfo = seriesScheduleQuotaResume_(errorText);
+        seriesSpreadsheet_().toast(
+          'YES24 하루 조회 한도에 닿아 잠시 멈췄습니다. ' + resumeInfo.whenText + '에 저절로 이어서 점검합니다. (진행 위치는 보존되어 있습니다. 시트를 열어 두지 않아도 됩니다)',
+          '시리즈 점검 일시 정지',
+          15
+        );
+        return;
+      } catch (scheduleError) {
+        console.warn('한도 뒤 이어가기 예약 실패: ' + scheduleError);
+      }
+    }
+    seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
   } finally {
     lock.releaseLock();
   }
+}
+
+// 오늘 조회 한도에 닿아서 멈춘 오류인지 (키 오류·일반 서버 오류와 구분합니다)
+function seriesIsQuotaError_(message) {
+  return /오늘 안전하게 사용할 수 있는|HTTP 429|RATE_002|일일 호출 한도/.test(String(message || ''));
+}
+
+var SERIES_QUOTA_RETRY_PROPERTY = 'YES24_SERIES_QUOTA_RETRY';
+var SERIES_QUOTA_MAX_RETRIES = 6;
+
+// 한도가 풀릴 때 다시 시작할 시각. 우리 쪽 안전 한도(날짜가 바뀌면 초기화)에 닿았으면 다음 날 00:10,
+// YES24 가 직접 한도를 알려 왔으면(아직 풀리지 않았을 수 있어) 1시간 뒤에 다시 시도합니다.
+function seriesQuotaResumeTime_(now, yes24Rejected, timeZone) {
+  if (yes24Rejected) return new Date(now.getTime() + 60 * 60 * 1000);
+  var zone = timeZone || 'Asia/Seoul';
+  var y = Number(Utilities.formatDate(now, zone, 'yyyy'));
+  var m = Number(Utilities.formatDate(now, zone, 'MM'));
+  var d = Number(Utilities.formatDate(now, zone, 'dd'));
+  return new Date(y, m - 1, d + 1, 0, 10, 0);
+}
+
+// 한도 뒤 자동 이어가기를 예약합니다. 너무 여러 번 실패하면(6번) 예약을 멈춥니다.
+function seriesScheduleQuotaResume_(message) {
+  var properties = PropertiesService.getScriptProperties();
+  var retries = Number(properties.getProperty(SERIES_QUOTA_RETRY_PROPERTY) || 0);
+  if (retries >= SERIES_QUOTA_MAX_RETRIES) {
+    properties.deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);
+    throw new Error('한도 때문에 여러 번 다시 시도했지만 계속 막혀 있습니다.');
+  }
+  properties.setProperty(SERIES_QUOTA_RETRY_PROPERTY, String(retries + 1));
+
+  var yes24Rejected = !/오늘 안전하게 사용할 수 있는/.test(String(message || ''));
+  var when = seriesQuotaResumeTime_(new Date(), yes24Rejected, Session.getScriptTimeZone());
+  seriesCancelAutoContinue_();
+  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
+  return { when: when, whenText: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵' };
 }
 
 function seriesGetYes24Key_() { return getConfiguredYes24Key_() || String(PropertiesService.getScriptProperties().getProperty('SERIES_YES24_KEY') || '').trim(); }

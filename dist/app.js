@@ -4135,7 +4135,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vf8f9545';
+var HR_BUILD_ID = 'v9ea35a6';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10472,6 +10472,7 @@ function refreshMissingSeriesBooks() {
       seriesCancelAutoContinue_();
     }
 
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     seriesBuildResultSheet_(candidates, {
       seriesCount: groups.length,
       searchedCount: searchResult.searchedGroupCount,
@@ -10507,15 +10508,63 @@ function refreshMissingSeriesBooks() {
       );
     }
   } catch (error) {
-    seriesSpreadsheet_().toast(
-      String(error && error.message ? error.message : error),
-      '시리즈 점검 오류',
-      12
-    );
+    var errorText = String(error && error.message ? error.message : error);
+    // 하루 조회 한도에 닿아 멈춘 경우: 오류로 끝내지 않고, 한도가 풀리는 시각에 저절로 이어서 점검하도록 예약합니다.
+    if (seriesIsQuotaError_(errorText)) {
+      try {
+        var resumeInfo = seriesScheduleQuotaResume_(errorText);
+        seriesSpreadsheet_().toast(
+          'YES24 하루 조회 한도에 닿아 잠시 멈췄습니다. ' + resumeInfo.whenText + '에 저절로 이어서 점검합니다. (진행 위치는 보존되어 있습니다. 시트를 열어 두지 않아도 됩니다)',
+          '시리즈 점검 일시 정지',
+          15
+        );
+        return;
+      } catch (scheduleError) {
+        console.warn('한도 뒤 이어가기 예약 실패: ' + scheduleError);
+      }
+    }
+    seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
   } finally {
     lock.releaseLock();
   }
+}
+
+// 오늘 조회 한도에 닿아서 멈춘 오류인지 (키 오류·일반 서버 오류와 구분합니다)
+function seriesIsQuotaError_(message) {
+  return /오늘 안전하게 사용할 수 있는|HTTP 429|RATE_002|일일 호출 한도/.test(String(message || ''));
+}
+
+var SERIES_QUOTA_RETRY_PROPERTY = 'YES24_SERIES_QUOTA_RETRY';
+var SERIES_QUOTA_MAX_RETRIES = 6;
+
+// 한도가 풀릴 때 다시 시작할 시각. 우리 쪽 안전 한도(날짜가 바뀌면 초기화)에 닿았으면 다음 날 00:10,
+// YES24 가 직접 한도를 알려 왔으면(아직 풀리지 않았을 수 있어) 1시간 뒤에 다시 시도합니다.
+function seriesQuotaResumeTime_(now, yes24Rejected, timeZone) {
+  if (yes24Rejected) return new Date(now.getTime() + 60 * 60 * 1000);
+  var zone = timeZone || 'Asia/Seoul';
+  var y = Number(Utilities.formatDate(now, zone, 'yyyy'));
+  var m = Number(Utilities.formatDate(now, zone, 'MM'));
+  var d = Number(Utilities.formatDate(now, zone, 'dd'));
+  return new Date(y, m - 1, d + 1, 0, 10, 0);
+}
+
+// 한도 뒤 자동 이어가기를 예약합니다. 너무 여러 번 실패하면(6번) 예약을 멈춥니다.
+function seriesScheduleQuotaResume_(message) {
+  var properties = PropertiesService.getScriptProperties();
+  var retries = Number(properties.getProperty(SERIES_QUOTA_RETRY_PROPERTY) || 0);
+  if (retries >= SERIES_QUOTA_MAX_RETRIES) {
+    properties.deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);
+    throw new Error('한도 때문에 여러 번 다시 시도했지만 계속 막혀 있습니다.');
+  }
+  properties.setProperty(SERIES_QUOTA_RETRY_PROPERTY, String(retries + 1));
+
+  var yes24Rejected = !/오늘 안전하게 사용할 수 있는/.test(String(message || ''));
+  var when = seriesQuotaResumeTime_(new Date(), yes24Rejected, Session.getScriptTimeZone());
+  seriesCancelAutoContinue_();
+  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
+  return { when: when, whenText: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵' };
 }
 
 function seriesGetYes24Key_() { return getConfiguredYes24Key_() || String(PropertiesService.getScriptProperties().getProperty('SERIES_YES24_KEY') || '').trim(); }
@@ -14229,6 +14278,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시리즈 점검', 'YES24 하루 한도에 닿으면 풀릴 때 저절로 이어서 점검', '점검 도중 YES24 하루 조회 한도에 닿으면 오류로 끝나지 않고 잠시 멈춥니다. 우리 쪽 안전 한도에 닿았으면 다음 날 00:10 무렵, YES24가 직접 한도를 알려 왔으면 1시간 뒤에 저절로 이어서 점검합니다(시트를 열어 두지 않아도 됩니다). 진행 위치는 그대로 보존됩니다. 계속 막혀 있으면 6번까지만 다시 시도하고 알려 드립니다. 멈추려면 「⏹ 시리즈 점검 멈추기」를 누르세요.'],
   ['2026-11-27', '시리즈 점검', '출판사는 자동으로 확인 (소장도서에 적지 않아도 됩니다)', '소장도서 탭에 직접 적은 「출판사」 칸은 더 이상 쓰지 않습니다. 일부 줄만 적거나 표기가 서로 달라 같은 시리즈가 갈라지면 가진 책이 누락으로 나오는 일이 있어서, 이제 출판사는 소장도서의 ISBN 으로 YES24 에서 자동으로 확인한 값만 씁니다. 이미 적어 둔 칸은 그대로 두셔도 되고 지우셔도 됩니다. 고친 뒤에는 「시리즈 누락 점검」을 처음부터 다시 실행해 주세요.'],
   ['2026-11-27', '시리즈 점검', '출판사 표기가 달라도 이미 있는 권은 누락으로 나오지 않게', '같은 시리즈인데 소장도서의 출판사 표기가 서로 달라(예: 「고릴라박스」와 「비룡소」) 두 묶음으로 갈라지면, 한쪽에 있는 권을 다른 쪽에서 「중간 누락」으로 잡던 문제를 고쳤습니다. 이제 다른 묶음에 이미 있는 권이고 출판사가 맞으면 가진 책으로 봅니다. 서로 다른 출판사의 같은 이름 시리즈는 예전처럼 따로 점검합니다. 고친 뒤에는 「시리즈 누락 점검」을 처음부터 다시 실행해 주세요.'],
   ['2026-11-27', '시리즈 점검', '시리즈 점검 멈추기', '「🧰 통합 도서업무 → ⏹ 시리즈 점검 멈추기」를 누르면 돌고 있는 시리즈 점검이 몇 초 안에 멈추고, 1분 뒤 자동 이어가기도 취소됩니다. 멈춘 점검의 이번 결과는 쓰지 않고 저장된 점검 위치도 지워서 다음 점검은 처음부터 시작합니다. 이전에 만들어진 결과 시트는 그대로 남습니다.'],
@@ -15301,6 +15351,9 @@ function verifyYes24Connection() {
     "seriesAddWorkButton_": seriesAddWorkButton_,
     "setSeriesYes24Key": setSeriesYes24Key,
     "refreshMissingSeriesBooks": refreshMissingSeriesBooks,
+    "seriesIsQuotaError_": seriesIsQuotaError_,
+    "seriesQuotaResumeTime_": seriesQuotaResumeTime_,
+    "seriesScheduleQuotaResume_": seriesScheduleQuotaResume_,
     "seriesGetYes24Key_": seriesGetYes24Key_,
     "seriesSpreadsheet_": seriesSpreadsheet_,
     "seriesReadHoldings_": seriesReadHoldings_,
