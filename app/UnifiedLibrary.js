@@ -261,6 +261,13 @@ function refreshMissingSeriesBooks() {
     );
 
     var searchResult = seriesSearchYes24_(groups, holdings, key, resumeOffset, runStartedAt);
+    // SERIES-STOP(테스트용): 멈추기를 눌렀으면 이번 결과는 쓰지 않고 이어가기도 하지 않습니다.
+    if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) {
+      seriesClearResumeState_();
+      seriesCancelAutoContinue_();
+      spreadsheet.toast('점검을 멈췄습니다. 이번 점검의 결과는 쓰지 않았습니다. 다음 점검은 처음부터 시작합니다.', '⏹ 시리즈 점검 멈춤', 8);
+      return;
+    }
     var candidates = seriesMergeCandidates_(existingCandidates, searchResult.candidates);
     // 3000개를 넘는 시리즈는 이번 점검 대상이 아닙니다. (예전에는 이것 때문에 다 끝나도 「미완료」로 남아 1분마다 영원히 반복됐습니다.)
     var incomplete = searchResult.truncated;
@@ -892,6 +899,7 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
   var searchedGroups = {};
 
   for (var start = 0; start < specs.length; start += SERIES_SEARCH_CHUNK) {
+    if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) break;   // SERIES-STOP(테스트용)
     if (start > 0 && Date.now() - Number(runStartedAt || 0) >= SERIES_EXECUTION_BUDGET_MS) break;
     var chunk = specs.slice(start, start + SERIES_SEARCH_CHUNK);
     var requests = chunk.map(function(spec) {
@@ -1851,6 +1859,7 @@ function unifiedAddMenu_() {
     .addSeparator()
     .addItem('📚 희망도서를 구입 검토함으로 보내기', 'sendHopeRequestsToReview')
     .addItem('🔎 시리즈 누락 점검 (쉬운 창)', 'HR_showSeriesCheckDialog')
+    .addItem('⏹ 시리즈 점검 멈추기', 'HR_seriesStopCheck')   // SERIES-STOP(테스트용)
     .addItem('🔎 시리즈 누락·후속권 이어서 점검', 'refreshMissingSeriesBooks')
     .addItem('🛒 체크한 시리즈를 구입 검토함으로 보내기', 'sendSelectedSeriesToReview')
     .addItem('📥 업로드 목록을 열기', 'openUnifiedUploadSheet')
