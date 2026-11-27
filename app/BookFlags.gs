@@ -81,6 +81,7 @@ function unifiedConfirmWorkbooks_(books) {
   });
   if (!titles.length) return true;
 
+  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) return true;   // 막대 클릭으로 실행 중: 창 없이 계속(첫 번째 누름에서 알려 줬습니다)
   var ui;
   try { ui = SpreadsheetApp.getUi(); } catch (error) { return true; }
   var list = titles.slice(0, 10).map(function(title) { return '· ' + title; }).join('\n') +

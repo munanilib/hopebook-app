@@ -15,7 +15,7 @@ var APP_FACTORY = function (__host) {
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '4';
+var UNIFIED_BARS_VERSION = '5';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -81,6 +81,7 @@ var UNIFIED_BAR_STYLE = {
   send:    { bg: '#B9770E', tab: '#955F0A', fg: '#FFFFFF', border: '#7A4A06', size: 16 },
   check:   { bg: '#1F5C4A', tab: '#16463A', fg: '#FFFFFF', border: '#0F3A2E', size: 16 }
 };
+UNIFIED_BAR_STYLE.pending = { bg: '#B3261E', fg: '#FFFFFF' };   // 「한 번 더 누르면 실행합니다」 상태
 var UNIFIED_BAR_MIN_FONT = 11;
 
 // 글자 폭 어림(px). 한글 1em, 영문·숫자 0.6em, 띄어쓰기 0.3em, 그림 문자 1.25em (굵은 글꼴 기준)
@@ -206,7 +207,7 @@ function unifiedDrawActionBars_(sheet) {
         .setFontFamily('Arial')
         .setFontSize(fontSize)
         .setFontWeight('bold')
-        .setHorizontalAlignment('left')
+        .setHorizontalAlignment(unifiedBarNeedsCheckbox_(bar) ? 'left' : 'center')
         .setWrap(false);
     });
     sheet.setRowHeight(4, 56);
@@ -250,12 +251,101 @@ function unifiedBarAt_(sheet, range) {
 }
 
 // 막대를 눌렀을 때 동작. 막대였으면 true 를 돌려줍니다. (onSelectionChange 에서 부릅니다)
+// 막대는 체크칸 없이 그냥 누르면 됩니다. 되돌리기 번거로운 동작은 막대 글자가 「한 번 더 누르면 실행합니다」로 바뀌고,
+// 한 번 더 누르면 실행됩니다. (칸 선택 이벤트에서는 확인 창을 띄울 수 없어서 창 대신 이렇게 확인합니다)
+// 예외: 「시리즈 누락 점검 시작」은 YES24 에 접속해야 해서 칸 선택 이벤트로는 할 수 없어, 앞의 ☐ 를 체크하는 방식입니다.
 function unifiedHandleBarClick_(sheet, range) {
   var bar = unifiedBarAt_(sheet, range);
+  unifiedRevertPendingBars_(sheet, bar);   // 다른 곳을 누르면 「한 번 더」 상태를 취소합니다.
   if (!bar) return false;
-  // 확인창·점검창이 필요한 막대는 칸 선택(단순 트리거)으로는 창을 띄울 수 없어서, 맨 앞 ☐ 체크칸으로 안내만 합니다.
   if (unifiedBarNeedsCheckbox_(bar)) return unifiedGuideBarCheckbox_(sheet, range, bar);
-  return unifiedRunBarAction_(sheet, bar);
+  if (bar.kind === 'select') return unifiedRunBarAction_(sheet, bar);
+  return unifiedClickWithConfirm_(sheet, bar);
+}
+
+var UNIFIED_BAR_PENDING_SECONDS = 25;   // 「한 번 더」 확인을 기다리는 시간
+var UNIFIED_BAR_NO_DIALOG = false;      // 막대 클릭으로 실행 중에는 확인 창(ui.alert)을 쓰지 않습니다.
+
+function unifiedBarPendingKey_(sheet, bar) { return 'BAR_PENDING_' + sheet.getSheetId() + '_' + bar.id; }
+
+// 첫 번째 누름: 막대를 「한 번 더」 상태로 바꿉니다. 두 번째 누름: 실행합니다.
+function unifiedClickWithConfirm_(sheet, bar) {
+  var cache = CacheService.getDocumentCache();
+  var key = unifiedBarPendingKey_(sheet, bar);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var pendingAt = cache ? Number(cache.get(key) || 0) : 0;
+  var title = bar.label.replace(/\s*›\s*$/, '').trim();
+
+  if (pendingAt && Date.now() - pendingAt < UNIFIED_BAR_PENDING_SECONDS * 1000) {
+    cache.remove(key);
+    unifiedRestoreBarLook_(sheet, bar);
+    UNIFIED_BAR_NO_DIALOG = true;
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+  }
+
+  if (cache) cache.put(key, String(Date.now()), UNIFIED_BAR_PENDING_SECONDS + 5);
+  var style = UNIFIED_BAR_STYLE.pending;
+  var cell = sheet.getRange(4, bar.c1);
+  cell.setValue('⚠  한 번 더 누르면 실행합니다').setBackground(style.bg).setFontColor(style.fg);
+  var detail = unifiedBarConfirmDetail_(bar);
+  try { ss.toast(detail + '\n(그만두려면 다른 칸을 누르세요)', title, 8); } catch (error) {}
+  // 같은 막대를 또 누르면 다시 이벤트가 오도록 선택을 막대 밖으로 옮깁니다.
+  try { sheet.setActiveRange(sheet.getRange(6, 2)); } catch (error) {}
+  return true;
+}
+
+// 첫 번째 누름에서 알려 줄 내용(무엇을 하는지, 주의할 점)
+function unifiedBarConfirmDetail_(bar) {
+  var text = bar.confirm || '이 작업을 실행할까요?';
+  try {
+    if (bar.id === 'review-export' || bar.id === 'export-rebuild') {
+      var review = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(UNIFIED_REVIEW_SHEET);
+      if (review && review.getLastRow() >= 6) {
+        var rows = review.getRange(6, 1, review.getLastRow() - 5, 12).getValues();
+        var workbooks = 0;
+        rows.forEach(function(row) {
+          var selected = row[0] === true || String(row[2]) === '구입결정';
+          if (selected && unifiedFlagsFromNote_(row[11]).workbook) workbooks++;
+        });
+        if (workbooks) text += '\n⚠ 문제집·학습지로 보이는 책이 ' + workbooks + '권 있습니다. (그대로 포함됩니다)';
+      }
+    } else if (bar.id === 'export-confirm') {
+      var round = unifiedPurchaseLogStats_(SpreadsheetApp.getActiveSpreadsheet()).rounds + 1;
+      text = '서점 전달용 목록을 ' + round + '회차 구입으로 기록하고, 구입 검토함의 해당 책을 「주문완료」로 바꿉니다.';
+    }
+  } catch (error) {}
+  return text;
+}
+
+// 막대를 원래 글자·색으로 되돌립니다.
+function unifiedRestoreBarLook_(sheet, bar) {
+  var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
+  sheet.getRange(4, bar.c1)
+    .setValue('  ' + bar.label)
+    .setBackground(style.bg)
+    .setFontColor(style.fg);
+}
+
+// 「한 번 더」 상태로 남은 막대가 있으면 되돌립니다. (방금 누른 막대와, 막 설정한 직후의 이벤트는 건드리지 않습니다)
+function unifiedRevertPendingBars_(sheet, exceptBar) {
+  try {
+    var cache = CacheService.getDocumentCache();
+    if (!cache) return;
+    var spec = unifiedBarSpec_(sheet);
+    if (!spec) return;
+    spec.bars.forEach(function(bar) {
+      if (exceptBar && exceptBar.id === bar.id) return;
+      if (bar.kind === 'select' || unifiedBarNeedsCheckbox_(bar)) return;
+      var key = unifiedBarPendingKey_(sheet, bar);
+      var at = Number(cache.get(key) || 0);
+      if (!at) return;
+      if (Date.now() - at < 2000) return;   // 선택을 막대 밖으로 옮긴 직후에 오는 이벤트
+      cache.remove(key);
+      unifiedRestoreBarLook_(sheet, bar);
+    });
+  } catch (error) {
+    console.warn('막대 되돌리기 실패: ' + error);
+  }
 }
 
 // 막대의 실제 동작. (전체 선택은 칸 선택에서, 나머지는 체크칸을 체크했을 때 설치형 트리거에서 부릅니다)
@@ -281,9 +371,12 @@ function unifiedRunBarAction_(sheet, bar) {
     } else if (bar.id === 'series-check') {
       unifiedStartSeriesCheckFromBar_();   // 창 없이 바로 점검합니다. (진행 상황은 시트 오른쪽 아래 알림으로)
     } else {
-      var ui = SpreadsheetApp.getUi();
-      var answer = ui.alert('확인', bar.confirm, ui.ButtonSet.YES_NO);
-      if (answer === ui.Button.YES) {
+      var answer = true;
+      if (!UNIFIED_BAR_NO_DIALOG) {   // 메뉴·☐ 체크로 부른 경우에만 확인 창을 띄웁니다.
+        var ui = SpreadsheetApp.getUi();
+        answer = ui.alert('확인', bar.confirm, ui.ButtonSet.YES_NO) === ui.Button.YES;
+      }
+      if (answer) {
         if (bar.id === 'hope-send') sendHopeRequestsToReview();
         else if (bar.id === 'series-send') sendSelectedSeriesToReview();
         else if (bar.id === 'upload-send') sendSelectedUploadItemsToReview();
@@ -344,9 +437,10 @@ function HR_seriesCheckStart(fresh) {
 
 /* ---------- ☐ 체크칸으로 실행하는 막대 ---------- */
 
-// 확인창·점검창을 띄우는 막대인지 (전체 선택만 칸 선택으로 바로 동작합니다)
+// ☐ 체크칸이 필요한 막대인지. YES24 에 접속하는 「시리즈 누락 점검 시작」만 그렇습니다.
+// (칸 선택 이벤트에서는 외부 접속·확인 창이 막혀 있어서, 체크 이벤트로만 할 수 있습니다. 나머지 막대는 그냥 누르면 됩니다.)
 function unifiedBarNeedsCheckbox_(bar) {
-  return !!bar && bar.kind !== 'select';
+  return !!bar && bar.id === 'series-check';
 }
 
 function unifiedBarHasCheckbox_(sheet, bar) {
@@ -778,6 +872,7 @@ function unifiedConfirmWorkbooks_(books) {
   });
   if (!titles.length) return true;
 
+  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) return true;   // 막대 클릭으로 실행 중: 창 없이 계속(첫 번째 누름에서 알려 줬습니다)
   var ui;
   try { ui = SpreadsheetApp.getUi(); } catch (error) { return true; }
   var list = titles.slice(0, 10).map(function(title) { return '· ' + title; }).join('\n') +
@@ -3554,7 +3649,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-27-4';
+var HR_GUIDE_VERSION = '2026-11-27-5';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3888,7 +3983,8 @@ function unifiedConfirmPurchaseRound_() {
   var log = unifiedEnsurePurchaseLogSheet_();
   var stats = unifiedPurchaseLogStats_(ss);
   var round = stats.rounds + 1;
-  var answer = ui.alert(
+  var skipDialog = typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG;   // 막대 클릭: 첫 번째 누름에서 확인을 마쳤습니다
+  var answer = skipDialog ? ui.Button.YES : ui.alert(
     '✅ ' + round + '회차 구입 확정',
     '서점 전달용의 ' + quantity + '권 · ' + unifiedMoney_(amount) + '을 ' + round + '회차로 기록할까요?\\n\\n' +
       '· 구입 검토함에서 이 책들은 「주문완료」로 바뀌고 체크가 풀립니다.\\n' +
@@ -3897,8 +3993,9 @@ function unifiedConfirmPurchaseRound_() {
   );
   if (answer !== ui.Button.YES) return { success: false, cancelled: true };
 
-  var lock = LockService.getDocumentLock();
-  lock.waitLock(20000);
+  // 막대 클릭(칸 선택 이벤트)에서는 잠금을 못 쓸 수 있어서, 안 되면 잠금 없이 진행합니다.
+  var lock = null;
+  try { lock = LockService.getDocumentLock(); lock.waitLock(20000); } catch (lockError) { lock = null; }
   try {
     var row = Math.max(log.getLastRow() + 1, PURCHASE_LOG_FIRST_ROW);
     log.getRange(row, 1, 1, 5).setValues([[
@@ -3932,7 +4029,7 @@ function unifiedConfirmPurchaseRound_() {
     );
     return { success: true, round: round, quantity: quantity, amount: amount, marked: marked };
   } finally {
-    lock.releaseLock();
+    if (lock) { try { lock.releaseLock(); } catch (releaseError) {} }
   }
 }
 
@@ -4043,7 +4140,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v9addb7b';
+var HR_BUILD_ID = 've24516a';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -14053,6 +14150,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시트 화면', '막대는 체크칸 없이 그냥 클릭', '☐ 체크칸을 없애고 막대를 그냥 누르면 동작하게 되돌렸습니다. 보내기·서점 전달용 만들기·구입 확정처럼 되돌리기 번거로운 동작은 막대 글자가 「⚠ 한 번 더 누르면 실행합니다」로 바뀌고, 한 번 더 누르면 실행됩니다(다른 칸을 누르면 취소). 확인 창은 뜨지 않습니다. 시리즈 누락 점검 시작만 YES24 접속이 필요해서 앞의 ☐ 를 체크하는 방식을 유지합니다.'],
   ['2026-11-27', '시트 화면', '막대 버튼 디자인 정리', '☐ 체크칸과 막대 글자를 왼쪽으로 붙이고, ☐ 칸은 막대보다 한 톤 진한 바탕에 크게 두어 「여기를 체크」가 한눈에 보이게 하고, 막대 글자가 칸 폭에 맞춰 잘리지 않도록 크기를 맞췄습니다. 한 시트 안의 막대는 모두 같은 글자 크기로 보입니다.'],
   ['2026-11-27', '시리즈 점검', '점검 막대는 창 없이 바로 점검', '시리즈 점검 시트의 「🔎 시리즈 누락 점검 시작」 ☐ 를 체크하면 창 없이 바로 점검을 시작하고, 진행 상황과 결과는 시트 오른쪽 아래 알림으로 알려 줍니다. 메뉴의 「쉬운 창」으로 점검할 때도 시작한 뒤에는 창을 닫아도 됩니다.'],
   ['2026-11-27', '시리즈 점검', '소장도서 탭에 「출판사」 칸', '「🏫 우리학교 소장도서」 탭에 「출판사」 칸이 생겼습니다. DLS 소장 목록의 출판사를 이 칸에 붙여 넣으면(도서명·ISBN과 같은 줄 순서로) 시리즈 누락 점검이 같은 이름의 다른 출판사 시리즈를 섞지 않아 엉뚱한 후보가 줄어듭니다. 비워 두어도 예전처럼 동작합니다.'],
@@ -14884,6 +14982,11 @@ function verifyYes24Connection() {
     "unifiedApplyActionBarsAll_": unifiedApplyActionBarsAll_,
     "unifiedBarAt_": unifiedBarAt_,
     "unifiedHandleBarClick_": unifiedHandleBarClick_,
+    "unifiedBarPendingKey_": unifiedBarPendingKey_,
+    "unifiedClickWithConfirm_": unifiedClickWithConfirm_,
+    "unifiedBarConfirmDetail_": unifiedBarConfirmDetail_,
+    "unifiedRestoreBarLook_": unifiedRestoreBarLook_,
+    "unifiedRevertPendingBars_": unifiedRevertPendingBars_,
     "unifiedRunBarAction_": unifiedRunBarAction_,
     "HR_showSeriesCheckDialog": HR_showSeriesCheckDialog,
     "HR_openSeriesCheckDialog_": HR_openSeriesCheckDialog_,

@@ -94,7 +94,8 @@ function unifiedConfirmPurchaseRound_() {
   var log = unifiedEnsurePurchaseLogSheet_();
   var stats = unifiedPurchaseLogStats_(ss);
   var round = stats.rounds + 1;
-  var answer = ui.alert(
+  var skipDialog = typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG;   // 막대 클릭: 첫 번째 누름에서 확인을 마쳤습니다
+  var answer = skipDialog ? ui.Button.YES : ui.alert(
     '✅ ' + round + '회차 구입 확정',
     '서점 전달용의 ' + quantity + '권 · ' + unifiedMoney_(amount) + '을 ' + round + '회차로 기록할까요?\\n\\n' +
       '· 구입 검토함에서 이 책들은 「주문완료」로 바뀌고 체크가 풀립니다.\\n' +
@@ -103,8 +104,9 @@ function unifiedConfirmPurchaseRound_() {
   );
   if (answer !== ui.Button.YES) return { success: false, cancelled: true };
 
-  var lock = LockService.getDocumentLock();
-  lock.waitLock(20000);
+  // 막대 클릭(칸 선택 이벤트)에서는 잠금을 못 쓸 수 있어서, 안 되면 잠금 없이 진행합니다.
+  var lock = null;
+  try { lock = LockService.getDocumentLock(); lock.waitLock(20000); } catch (lockError) { lock = null; }
   try {
     var row = Math.max(log.getLastRow() + 1, PURCHASE_LOG_FIRST_ROW);
     log.getRange(row, 1, 1, 5).setValues([[
@@ -138,7 +140,7 @@ function unifiedConfirmPurchaseRound_() {
     );
     return { success: true, round: round, quantity: quantity, amount: amount, marked: marked };
   } finally {
-    lock.releaseLock();
+    if (lock) { try { lock.releaseLock(); } catch (releaseError) {} }
   }
 }
 
