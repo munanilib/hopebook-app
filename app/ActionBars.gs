@@ -241,7 +241,7 @@ function unifiedRunBarAction_(sheet, bar) {
     } else if (bar.id === 'export-confirm') {
       unifiedConfirmPurchaseRound_();   // 안에서 직접 확인을 묻고 기록합니다.
     } else if (bar.id === 'series-check') {
-      HR_openSeriesCheckDialog_(true);   // 누르면 창이 열리면서 바로 점검을 시작합니다.
+      unifiedStartSeriesCheckFromBar_();   // 창 없이 바로 점검합니다. (진행 상황은 시트 오른쪽 아래 알림으로)
     } else {
       var ui = SpreadsheetApp.getUi();
       var answer = ui.alert('확인', bar.confirm, ui.ButtonSet.YES_NO);
@@ -345,4 +345,17 @@ function unifiedHandleBarEdit_(e) {
   range.setValue(false);
   unifiedRunBarAction_(sheet, bar);
   return true;
+}
+
+// 「🔎 시리즈 누락 점검 시작」 ☐ 를 체크했을 때: 창 없이 바로 점검합니다.
+// 진행 상황·결과는 refreshMissingSeriesBooks 가 시트 오른쪽 아래 알림으로 보여 주고,
+// 오래 걸리면 중간에 멈췄다가 약 1분 뒤 저절로 이어서 합니다. (창으로 보고 싶으면 메뉴의 「시리즈 누락 점검 (쉬운 창)」)
+function unifiedStartSeriesCheckFromBar_() {
+  var ss = seriesSpreadsheet_();
+  if (!seriesGetYes24Key_()) {
+    ss.toast('YES24 API 키가 아직 없습니다. 「⚙️ 사본 설정 → 🔑 API 키 설정」에서 먼저 입력해 주세요.', '🔎 시리즈 누락 점검', 10);
+    return;
+  }
+  ss.toast('점검을 시작했습니다. 다른 작업을 하셔도 되고, 끝나면 여기에 알림이 뜹니다.', '🔎 시리즈 누락 점검', 8);
+  refreshMissingSeriesBooks();
 }
