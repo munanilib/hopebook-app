@@ -3923,3 +3923,57 @@ function seriesFormatKey_(value) {
 
   return tags.length ? tags.join('+') : '일반';
 }
+
+/* ---------- 🏫 소장도서 「출판사」 칸 ---------- */
+
+// 소장도서 탭 머리줄에 「출판사」 칸이 없으면 바로 오른쪽 빈 칸에 만듭니다. (이미 있으면 아무것도 하지 않습니다)
+// 시리즈 누락 점검(seriesReadHoldings_)이 이 칸을 읽어 같은 이름의 다른 출판사 시리즈를 구분합니다.
+function unifiedEnsureHoldingsPublisherColumn_(ss) {
+  ss = ss || seriesSpreadsheet_();
+  var sheet = ss.getSheetByName(SERIES_HOLDINGS_SHEET);
+  if (!sheet) return false;
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+  if (lastRow < 1 || lastColumn < 1) return false;
+
+  // 머리줄 찾기: 맨 위 10줄 안에서 ISBN 칸이 있는 줄 (seriesReadHoldings_ 와 같은 방식)
+  var grid = sheet.getRange(1, 1, Math.min(10, lastRow), lastColumn).getDisplayValues();
+  var headerRow = 0;
+  var lastHeaderColumn = 0;
+  for (var r = 0; r < grid.length && !headerRow; r++) {
+    var hasIsbn = grid[r].some(function(value) { return /^ISBN(13)?$/.test(String(value || '').replace(/\s+/g, '').toUpperCase()); });
+    if (!hasIsbn) continue;
+    headerRow = r + 1;
+    for (var c = 0; c < grid[r].length; c++) {
+      var header = String(grid[r][c] || '').replace(/\s+/g, '');
+      if (/^(출판사|발행자|출판자|발행처)$/.test(header)) return false;   // 이미 있음
+      if (header) lastHeaderColumn = c + 1;
+    }
+  }
+  if (!headerRow || !lastHeaderColumn) return false;
+
+  var column = lastHeaderColumn + 1;
+  if (sheet.getMaxColumns() < column) sheet.insertColumnsAfter(sheet.getMaxColumns(), column - sheet.getMaxColumns());
+  var target = sheet.getRange(headerRow, column);
+  if (String(target.getDisplayValue() || '').trim()) return false;   // 그 칸에 다른 글이 있으면 건드리지 않습니다.
+
+  sheet.getRange(headerRow, lastHeaderColumn).copyFormatToRange(sheet, column, column, headerRow, headerRow);
+  target.setValue('출판사').setNote('DLS 소장 목록의 출판사를 붙여 넣어 주세요. (도서명·ISBN과 같은 줄 순서) 시리즈 누락 점검이 출판사로 시리즈를 구분합니다.');
+  try { sheet.setColumnWidth(column, Math.max(sheet.getColumnWidth(lastHeaderColumn), 160)); } catch (error) {}
+
+  // 머리줄에 필터가 걸려 있으면 새 칸까지 넓힙니다.
+  try {
+    var filter = sheet.getFilter();
+    if (filter) {
+      var range = filter.getRange();
+      if (range.getRow() === headerRow && range.getColumn() <= lastHeaderColumn && range.getLastColumn() < column) {
+        var top = range.getRow(), left = range.getColumn(), rows = Math.max(range.getNumRows(), sheet.getLastRow() - top + 1);
+        filter.remove();
+        sheet.getRange(top, left, rows, column - left + 1).createFilter();
+      }
+    }
+  } catch (error) {
+    console.warn('소장도서 필터 넓히기 실패: ' + error);
+  }
+  return true;
+}

@@ -3849,6 +3849,12 @@ function HR_ensureLibrarySheet_(spreadsheet) {
     sheet.getRange(1, lastColumn).setValue('ISBN13');
   }
 
+  // 시리즈 누락 점검이 출판사로 시리즈를 구분하므로 「출판사」 칸도 둡니다.
+  if (!HR_findAnyHeaderColumn_(headers, ['출판사', '발행자', '출판자', '발행처'])) {
+    lastColumn = Math.max(sheet.getLastColumn(), 0) + 1;
+    sheet.getRange(1, lastColumn).setValue('출판사');
+  }
+
   sheet
     .getRange(1, 1, 1, sheet.getLastColumn())
     .setBackground('#243B64')
