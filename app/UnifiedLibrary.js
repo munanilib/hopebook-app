@@ -404,13 +404,26 @@ function seriesReadHoldings_() {
 function seriesGroupHoldings_(rows) {
   var groupsByKey = {};
 
+  // 같은 시리즈·판형에서 출판사가 적힌 줄이 하나라도 있으면, 출판사가 비어 있는 줄은 그 출판사들의 묶음에 함께 넣습니다.
+  // (출판사를 일부 줄에만 적었을 때 같은 시리즈가 갈라져서, 갈라진 쪽마다 없는 권을 누락으로 잡던 문제를 막습니다.)
+  var knownPublishers = {};
+  var prepared = [];
   rows.forEach(function(book) {
     var parsed = seriesParseTitle_(book.title);
     if (!parsed) return;
-
-    var publisherKey = seriesNormalizePublisher_(book.publisher) || '출판사미상';
+    var publisherKey = seriesNormalizePublisher_(book.publisher) || '';
     var formatKey = seriesFormatKey_(book.title);
-    var signature = parsed.key + '|' + publisherKey + '|' + formatKey;
+    prepared.push({ book: book, parsed: parsed, publisherKey: publisherKey, formatKey: formatKey });
+    if (publisherKey) {
+      var seriesFormat = parsed.key + '|' + formatKey;
+      if (!knownPublishers[seriesFormat]) knownPublishers[seriesFormat] = {};
+      knownPublishers[seriesFormat][publisherKey] = true;
+    }
+  });
+
+  function addToGroup(book, parsed, publisherKey, formatKey) {
+    var groupPublisher = publisherKey || '출판사미상';
+    var signature = parsed.key + '|' + groupPublisher + '|' + formatKey;
 
     if (!groupsByKey[signature]) {
       groupsByKey[signature] = {
@@ -439,7 +452,18 @@ function seriesGroupHoldings_(rows) {
     group.titles.push(book.title);
     if (!group.sampleIsbn && book.isbn) group.sampleIsbn = book.isbn;
     if (parsed.explicit) group.explicitCount++;
-    if (publisherKey !== '출판사미상') group.publishers[publisherKey] = true;
+    if (publisherKey) group.publishers[publisherKey] = true;
+  }
+
+  prepared.forEach(function(entry) {
+    var known = knownPublishers[entry.parsed.key + '|' + entry.formatKey];
+    if (!entry.publisherKey && known) {
+      Object.keys(known).forEach(function(publisherKey) {
+        addToGroup(entry.book, entry.parsed, publisherKey, entry.formatKey);
+      });
+      return;
+    }
+    addToGroup(entry.book, entry.parsed, entry.publisherKey, entry.formatKey);
   });
 
   return Object.keys(groupsByKey)
