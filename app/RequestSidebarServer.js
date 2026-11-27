@@ -13,6 +13,7 @@ var HR_SIDEBAR_TRIGGER_FUNCTION = 'HR_openSidebarOnSpreadsheetOpen';
 var HR_SPREADSHEET_ID_PROPERTY = 'HR_TARGET_SPREADSHEET_ID';
 var HR_YES24_KEY_PROPERTY = 'HR_YES24_API_KEY';
 var HR_NLK_KEY_PROPERTY = 'HR_NLK_API_KEY';
+var HR_D4L_KEY_PROPERTY = 'HR_D4L_API_KEY';
 var HR_SCHOOL_NAME_PROPERTY = 'HR_SCHOOL_NAME';
 var HR_MANAGER_NAME_PROPERTY = 'HR_MANAGER_NAME';
 var HR_MANAGER_EXTENSION_PROPERTY = 'HR_MANAGER_EXTENSION';
@@ -252,6 +253,15 @@ function HR_getNlkKey_() {
     properties.setProperty(HR_NLK_KEY_PROPERTY, legacyKey);
   }
   return legacyKey;
+}
+
+/**
+ * 도서관 정보나루 API 키를 가져옵니다. 「장르로 찾기」용 선택 기능이며, 없으면 빈 값입니다.
+ */
+function HR_getD4lKey_() {
+  return String(
+    PropertiesService.getScriptProperties().getProperty(HR_D4L_KEY_PROPERTY) || ''
+  ).trim();
 }
 
 /**
@@ -1395,7 +1405,7 @@ function HR_formatGuideSheetAdminFirst_() {
       text: 'D10:L11',
       number: '2',
       value:
-        '사본의 「⚙️ 사본 최초설정」 탭에서 API 키 설정을 누릅니다. YES24은 필수, 국립중앙도서관은 선택입니다.'
+        '사본의 「⚙️ 사본 최초설정」 탭에서 API 키 설정을 누릅니다. YES24은 필수, 도서관 정보나루는 선택(장르로 찾기용)입니다.'
     },
     {
       badge: 'B13:C14',
@@ -1444,7 +1454,7 @@ function HR_formatGuideSheetAdminFirst_() {
   sheet
     .getRange('B26')
     .setValue(
-      'API 안내  ·  YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 입력하지 않아도 됩니다.'
+      'API 안내  ·  YES24은 도서 검색에 꼭 필요합니다. 도서관 정보나루 API는 「장르로 찾기」용이라 입력하지 않아도 됩니다.'
     )
     .setBackground('#EDF4FF')
     .setFontColor('#284E86')
@@ -1785,7 +1795,7 @@ function HR_formatGuideSheetLegacy_() {
   sheet
     .getRange('D28')
     .setValue(
-      '사본의 「⚙️ 사본 최초설정」 탭에서 API 키 설정을 누릅니다. YES24은 필수, 국립중앙도서관은 선택입니다.'
+      '사본의 「⚙️ 사본 최초설정」 탭에서 API 키 설정을 누릅니다. YES24은 필수, 도서관 정보나루는 선택(장르로 찾기용)입니다.'
     );
   sheet.getRange('B31').setValue('3');
   sheet
@@ -1863,7 +1873,7 @@ function HR_formatGuideSheetLegacy_() {
   sheet
     .getRange('B45')
     .setValue(
-      'API 안내  ·  YES24 API Key는 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 분류번호 참고용이라 입력하지 않아도 신청 기능은 정상 작동합니다.'
+      'API 안내  ·  YES24 API Key는 도서 검색에 꼭 필요합니다. 도서관 정보나루 API는 「장르로 찾기」용이라 입력하지 않아도 신청 기능은 정상 작동합니다.'
     );
 
   sheet
@@ -2036,18 +2046,18 @@ function HR_showYes24KeyDialog() {
       ui.alert('YES24 API 키를 입력해 주세요.');
       return;
     }
-    var nlkResponse = ui.prompt(
-      '국립중앙도서관 API 키 (선택)',
-      '없으면 빈칸으로 두고 확인을 누르세요.',
+    var d4lResponse = ui.prompt(
+      '도서관 정보나루 API 키 (선택)',
+      '「장르로 찾기」를 쓸 때만 필요합니다. 없으면 빈칸으로 두고 확인을 누르세요.',
       ui.ButtonSet.OK_CANCEL
     );
-    var nlkKey = nlkResponse.getSelectedButton() === ui.Button.OK
-      ? String(nlkResponse.getResponseText() || '').trim()
+    var d4lKey = d4lResponse.getSelectedButton() === ui.Button.OK
+      ? String(d4lResponse.getResponseText() || '').trim()
       : '';
     try {
       var result = HR_saveYes24ApiKey({
         yes24Key: yes24Key,
-        nlkKey: nlkKey
+        d4lKey: d4lKey
       });
       ui.alert(result.message || 'API 키를 저장했습니다.');
     } catch (saveError) {
@@ -2389,7 +2399,7 @@ function HR_getCopySetupState() {
     properties.getProperty(HR_SPREADSHEET_ID_PROPERTY) || ''
   ).trim();
   var yes24Key = HR_getYes24Key_();
-  var nlkKey = HR_getNlkKey_();
+  var d4lKey = HR_getD4lKey_();
   var webAppUrl = HR_getConfiguredPublicWebAppUrl_();
 
   return {
@@ -2408,8 +2418,8 @@ function HR_getCopySetupState() {
     maxClasses: String(properties.getProperty(HR_MAX_CLASSES_PROPERTY) || '').trim(),
     yes24Key: '',
     yes24Ready: Boolean(yes24Key),
-    nlkKey: '',
-    nlkReady: Boolean(nlkKey),
+    d4lKey: '',
+    d4lReady: Boolean(d4lKey),
     targetSheetReady: Boolean(
       spreadsheet.getSheetByName(HR_TARGET_SHEET_NAME)
     ),
@@ -2433,9 +2443,10 @@ function HR_saveYes24ApiKey(formData) {
   var key = String(
     formData && formData.yes24Key || HR_getYes24Key_()
   ).trim();
-  var nlkKey = String(
-    formData && formData.nlkKey || HR_getNlkKey_()
-  ).trim();
+  var hasD4lField = formData && Object.prototype.hasOwnProperty.call(formData, 'd4lKey');
+  var d4lKey = hasD4lField
+    ? String(formData.d4lKey || '').trim()
+    : HR_getD4lKey_();
   var properties = PropertiesService.getScriptProperties();
 
   if (!key) {
@@ -2446,19 +2457,22 @@ function HR_saveYes24ApiKey(formData) {
 
   properties.setProperty(HR_YES24_KEY_PROPERTY, key);
 
-  if (nlkKey) {
-    properties.setProperty(HR_NLK_KEY_PROPERTY, nlkKey);
-  } else {
-    properties.deleteProperty(HR_NLK_KEY_PROPERTY);
+  // 예전 「국립중앙도서관 키」는 설정창에서 뺐습니다. 이미 저장된 키는 지우지 않고 그대로 둡니다.
+  if (hasD4lField) {
+    if (d4lKey) {
+      properties.setProperty(HR_D4L_KEY_PROPERTY, d4lKey);
+    } else {
+      properties.deleteProperty(HR_D4L_KEY_PROPERTY);
+    }
   }
 
   return {
     success: true,
     message:
       'YES24 연결을 확인했습니다.' +
-      (nlkKey
-        ? ' 국립중앙도서관 키도 저장했습니다.'
-        : ' KDC 참고용 키는 비워 두었습니다.')
+      (d4lKey
+        ? ' 도서관 정보나루 키도 저장했습니다. 웹 신청 화면에 「장르로 찾기」가 나타납니다.'
+        : ' 정보나루 키는 비워 두었습니다. (「장르로 찾기」는 꺼져 있습니다.)')
   };
 }
 
@@ -2637,7 +2651,7 @@ function HR_createCopySetupSheet_(spreadsheet) {
     properties.getProperty(HR_SPREADSHEET_ID_PROPERTY) || ''
   ).trim();
   var yes24Ready = Boolean(HR_getYes24Key_());
-  var nlkReady = Boolean(HR_getNlkKey_());
+  var d4lReady = Boolean(HR_getD4lKey_());
   var schoolReady = configuredId === spreadsheet.getId();
   var publicUrlReady = /\/exec(?:$|[?#])/.test(
     HR_getConfiguredPublicWebAppUrl_()
@@ -2715,7 +2729,7 @@ sheet.clear();
       number: '3',
       value:
         '복사한 API 키 붙여 넣기\n' +
-        '화면 위쪽 「⚙️ 사본 설정」 → 「🔑 API 키 설정 (YES24 필수)」을 누르세요. YES24 API Key 칸에 붙여 넣고 저장하세요. 국립중앙도서관 키는 KDC 참고용이므로 비워도 됩니다.'
+        '화면 위쪽 「⚙️ 사본 설정」 → 「🔑 API 키 설정 (YES24 필수)」을 누르세요. YES24 API Key 칸에 붙여 넣고 저장하세요. 도서관 정보나루 키는 「장르로 찾기」용이라 비워도 됩니다.'
     },
     {
       badge: 'B26:C30',
@@ -2832,7 +2846,7 @@ sheet.clear();
     .getRange('B61')
     .setValue(
       (yes24Ready ? '✅ ' : '') +
-      '🔑 API 키 설정  ·  YES24 필수 / 국립중앙도서관 선택'
+      '🔑 API 키 설정  ·  YES24 필수 / 도서관 정보나루 선택(장르로 찾기)'
     );
   sheet.getRange('B65:L67').merge();
   sheet
@@ -2877,8 +2891,8 @@ sheet.clear();
     .setValue(
       '현재 점검  ·  YES24 ' +
       (yes24Ready ? '완료' : '필요') +
-      '  ·  KDC 참고 API ' +
-      (nlkReady ? '사용 중' : '선택') +
+      '  ·  장르로 찾기(정보나루) ' +
+      (d4lReady ? '사용 중' : '선택') +
       '  ·  신청서 연결 ' +
       (schoolReady ? '완료' : '필요') +
       '  ·  소장도서 제목/ISBN13 ' +
@@ -2905,7 +2919,7 @@ sheet.clear();
   sheet
     .getRange('B81')
     .setValue(
-      'YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 없어도 됩니다.\n' +
+      'YES24은 도서 검색에 꼭 필요합니다. 도서관 정보나루 API는 「장르로 찾기」용이라 없어도 됩니다.\n' +
       '이 시트의 프로그램은 저절로 최신 기능으로 바뀝니다. 따로 업데이트하지 않아도 돼요.'
     )
     .setBackground('#EAF3ED')
@@ -2982,7 +2996,7 @@ function HR_createCopySetupSheetBeforeTopGuide_(spreadsheet) {
     properties.getProperty(HR_SPREADSHEET_ID_PROPERTY) || ''
   ).trim();
   var yes24Ready = Boolean(HR_getYes24Key_());
-  var nlkReady = Boolean(HR_getNlkKey_());
+  var d4lReady = Boolean(HR_getD4lKey_());
   var schoolReady = configuredId === spreadsheet.getId();
   var publicUrlReady = /\/exec(?:$|[?#])/.test(
     HR_getConfiguredPublicWebAppUrl_()
@@ -3065,7 +3079,7 @@ function HR_createCopySetupSheetBeforeTopGuide_(spreadsheet) {
     .getRange('B11')
     .setValue(
       (yes24Ready ? '✅ 2' : '2') +
-      '  API 키 설정  ·  YES24 필수 / 국립중앙도서관 선택'
+      '  API 키 설정  ·  YES24 필수 / 도서관 정보나루 선택'
     );
 
   sheet.getRange('B19:L21').merge();
@@ -3150,8 +3164,8 @@ function HR_createCopySetupSheetBeforeTopGuide_(spreadsheet) {
     .setValue(
       '현재 점검  ·  YES24 ' +
       (yes24Ready ? '완료' : '필요') +
-      '  ·  KDC 참고 API ' +
-      (nlkReady ? '사용 중' : '선택') +
+      '  ·  장르로 찾기(정보나루) ' +
+      (d4lReady ? '사용 중' : '선택') +
       '  ·  신청서 연결 ' +
       (schoolReady ? '완료' : '필요') +
       '  ·  소장도서 제목/ISBN13 ' +
@@ -3178,7 +3192,7 @@ function HR_createCopySetupSheetBeforeTopGuide_(spreadsheet) {
   sheet
     .getRange('B43')
     .setValue(
-      'YES24은 도서 검색에 꼭 필요합니다. 국립중앙도서관 API는 KDC 참고용이라 없어도 됩니다.'
+      'YES24은 도서 검색에 꼭 필요합니다. 도서관 정보나루 API는 「장르로 찾기」용이라 없어도 됩니다.'
     )
     .setBackground('#EDF4FF')
     .setFontColor('#284E86')
@@ -3255,7 +3269,7 @@ function HR_writeCopySetupBeginnerDetails_(sheet) {
       number: '3',
       value:
         '복사한 API 키 붙여 넣기\n' +
-        '다시 이 시트로 돌아와 위쪽 「⚙️ 사본 설정」 → 「🔑 API 키 설정 (YES24 필수)」을 누르세요. YES24 API Key 칸에 붙여 넣고 저장하세요. 국립중앙도서관 키는 비워도 됩니다.'
+        '다시 이 시트로 돌아와 위쪽 「⚙️ 사본 설정」 → 「🔑 API 키 설정 (YES24 필수)」을 누르세요. YES24 API Key 칸에 붙여 넣고 저장하세요. 도서관 정보나루 키는 비워도 됩니다.'
     },
     {
       badge: 'B65:C68',
@@ -3365,7 +3379,7 @@ function HR_createCopySetupSheetLegacy_(spreadsheet) {
     properties.getProperty(HR_SPREADSHEET_ID_PROPERTY) || ''
   ).trim();
   var yes24Ready = Boolean(HR_getYes24Key_());
-  var nlkReady = Boolean(HR_getNlkKey_());
+  var d4lReady = Boolean(HR_getD4lKey_());
   var schoolReady = configuredId === spreadsheet.getId();
 
   if (!sheet) {
@@ -3398,7 +3412,7 @@ function HR_createCopySetupSheetLegacy_(spreadsheet) {
     .getRange('B7')
     .setValue(
       (yes24Ready ? '✅' : '1️⃣') +
-      ' 클릭: API 키 설정  ·  YES24 필수 / 국립중앙도서관 선택'
+      ' 클릭: API 키 설정  ·  YES24 필수 / 도서관 정보나루 선택'
     );
 
   sheet.getRange('B12:L14').merge();
@@ -3427,8 +3441,8 @@ function HR_createCopySetupSheetLegacy_(spreadsheet) {
     .setValue(
       '현재 점검  ·  YES24 API ' +
       (yes24Ready ? '완료' : '필요') +
-      '  ·  KDC 참고 API ' +
-      (nlkReady ? '사용 중' : '선택') +
+      '  ·  장르로 찾기(정보나루) ' +
+      (d4lReady ? '사용 중' : '선택') +
       '  ·  신청서 연결 ' +
       (schoolReady ? '완료' : '필요') +
       '  ·  소장도서 제목/ISBN 열 ' +
