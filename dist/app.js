@@ -9,11 +9,13 @@ var APP_FACTORY = function (__host) {
  *
  * 각 시트 맨 위(4행)의 「전체 선택」「구입 검토함으로 보내기」 같은 버튼을 체크박스가 아니라
  * 막대 전체를 누르면 동작하는 큰 버튼으로 만듭니다.
- * - 칸을 선택하는 순간 동작합니다. (onSelectionChange)
+ * - 「전체 선택」은 칸을 선택하는 순간 동작합니다. (onSelectionChange)
+ * - 확인창·점검창이 필요한 막대는 맨 앞 ☐ 칸을 체크하면 동작합니다. (설치형 트리거 onEditTriggerAction)
+ *   단순 트리거(onSelectionChange)는 권한이 없어 showModalDialog·alert 를 띄울 수 없기 때문입니다.
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '2';
+var UNIFIED_BARS_VERSION = '3';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -147,9 +149,25 @@ function unifiedDrawActionBars_(sheet) {
     spec.bars.forEach(function(bar) {
       var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
       var range = sheet.getRange(4, bar.c1, 1, bar.c2 - bar.c1 + 1);
-      if (bar.c2 > bar.c1) range.merge();
+      var label = bar.label;
+      // 확인창·점검창이 필요한 막대는 맨 앞 칸에 ☐ 체크칸을 둡니다. (체크하면 설치형 트리거가 받아서 창을 띄웁니다)
+      if (unifiedBarNeedsCheckbox_(bar)) {
+        var box = sheet.getRange(4, bar.c1);
+        box.insertCheckboxes().setValue(false);
+        range
+          .setBackground(style.bg)
+          .setFontColor(style.fg)
+          .setFontSize(20)
+          .setHorizontalAlignment('center')
+          .setVerticalAlignment('middle')
+          .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
+        if (bar.c2 === bar.c1) { box.setNote(bar.label + '\n(☐ 를 체크하면 실행됩니다)'); return; }
+        range = sheet.getRange(4, bar.c1 + 1, 1, bar.c2 - bar.c1);
+        label = '◀ ' + bar.label.replace(/\s*›\s*$/, '');
+      }
+      if (range.getNumColumns() > 1) range.merge();
       range
-        .setValue(bar.label)
+        .setValue(label)
         .setBackground(style.bg)
         .setFontColor(style.fg)
         .setFontFamily('Arial')
@@ -203,7 +221,13 @@ function unifiedBarAt_(sheet, range) {
 function unifiedHandleBarClick_(sheet, range) {
   var bar = unifiedBarAt_(sheet, range);
   if (!bar) return false;
+  // 확인창·점검창이 필요한 막대는 칸 선택(단순 트리거)으로는 창을 띄울 수 없어서, 맨 앞 ☐ 체크칸으로 안내만 합니다.
+  if (unifiedBarNeedsCheckbox_(bar)) return unifiedGuideBarCheckbox_(sheet, range, bar);
+  return unifiedRunBarAction_(sheet, bar);
+}
 
+// 막대의 실제 동작. (전체 선택은 칸 선택에서, 나머지는 체크칸을 체크했을 때 설치형 트리거에서 부릅니다)
+function unifiedRunBarAction_(sheet, bar) {
   // 같은 클릭이 두 번 처리되지 않게 잠깐 표시를 남깁니다.
   var cache = CacheService.getDocumentCache();
   var busyKey = 'BAR_BUSY_' + bar.id;
@@ -284,6 +308,49 @@ function HR_seriesCheckStart(fresh) {
   }
   refreshMissingSeriesBooks();
   return HR_seriesCheckState();
+}
+
+/* ---------- ☐ 체크칸으로 실행하는 막대 ---------- */
+
+// 확인창·점검창을 띄우는 막대인지 (전체 선택만 칸 선택으로 바로 동작합니다)
+function unifiedBarNeedsCheckbox_(bar) {
+  return !!bar && bar.kind !== 'select';
+}
+
+function unifiedBarHasCheckbox_(sheet, bar) {
+  try {
+    var rule = sheet.getRange(4, bar.c1).getDataValidation();
+    return !!rule && rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX;
+  } catch (error) {
+    return false;
+  }
+}
+
+// 막대 글자 부분을 눌렀을 때(단순 트리거): 맨 앞 ☐ 칸으로 안내합니다.
+function unifiedGuideBarCheckbox_(sheet, range, bar) {
+  if (range.getColumn() === bar.c1 && range.getLastColumn() === bar.c1) return true;   // 체크칸 자체를 고른 것
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var title = bar.label.replace(/\s*›\s*$/, '');
+  if (!unifiedBarHasCheckbox_(sheet, bar)) {
+    try { ss.toast('버튼 모양이 바뀌었습니다. 시트를 닫았다가 다시 열면 막대 앞에 ☐ 칸이 생깁니다. 그동안은 위쪽 메뉴를 이용해 주세요.', title, 8); } catch (error) {}
+    return true;
+  }
+  try { ss.toast('막대 맨 앞의 ☐ 칸을 체크하면 실행됩니다.', title, 5); } catch (error) {}
+  try { sheet.getRange(4, bar.c1).activate(); } catch (error) {}
+  return true;
+}
+
+// 막대 맨 앞 ☐ 칸을 체크했을 때. 설치형 트리거(onEditTriggerAction)에서 부르므로 확인창·점검창을 띄울 수 있습니다. 처리했으면 true.
+function unifiedHandleBarEdit_(e) {
+  var range = e && e.range;
+  if (!range || range.getRow() !== 4 || range.getNumRows() !== 1 || range.getNumColumns() !== 1) return false;
+  var sheet = range.getSheet();
+  var bar = unifiedBarAt_(sheet, range);
+  if (!bar || !unifiedBarNeedsCheckbox_(bar) || range.getColumn() !== bar.c1) return false;
+  if (String(e.value || '').toUpperCase() !== 'TRUE') return true;
+  range.setValue(false);
+  unifiedRunBarAction_(sheet, bar);
+  return true;
 }
 
 
@@ -1319,6 +1386,9 @@ function onEdit(e) {
   const checkboxChanged = checked || valueText === 'FALSE';
   const cell = range.getA1Notation();
 
+  // 맨 위 막대의 ☐ 칸은 설치형 트리거(onEditTriggerAction)가 처리합니다. (예전 A4·D4 체크박스 동작과 겹치지 않게)
+  if (range.getRow() === 4 && unifiedBarNeedsCheckbox_(unifiedBarAt_(sheet, range))) return;
+
   // 대시보드의 「총 예산」 칸에 직접 입력
   if (sheetName === UNIFIED_DASHBOARD_SHEET && cell === 'A17') {
     try {
@@ -1549,6 +1619,9 @@ function onEditTriggerAction(e) {
     return;
   }
   if (!e || !e.range) return;
+
+  // 맨 위 막대의 ☐ 칸 (확인창·점검창은 여기서만 띄울 수 있습니다)
+  if (unifiedHandleBarEdit_(e)) return;
 
   const range = e.range;
   const sheet = range.getSheet();
@@ -3436,7 +3509,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-26-9';
+var HR_GUIDE_VERSION = '2026-11-27-1';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3920,7 +3993,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v838f9a6';
+var HR_BUILD_ID = 'v2c384b0';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9993,7 +10066,7 @@ function setupSeriesFinder() {
     checkedAt: new Date()
   });
   seriesSpreadsheet_().toast(
-    '시리즈 시트 위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 눌러 주세요.',
+    '시리즈 시트 위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대 맨 앞 ☐ 칸을 체크해 주세요.',
     '설정 완료',
     8
   );
@@ -13901,6 +13974,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시트 화면', '막대 버튼 앞에 ☐ 체크칸', '「시리즈 누락 점검 시작」「구입 검토함으로 보내기」처럼 창이 뜨는 막대를 눌렀을 때 「권한이 없어 창을 띄울 수 없다」는 오류가 나던 문제를 고쳤습니다. 이제 막대 맨 앞의 ☐ 칸을 체크하면 확인창·점검창이 뜹니다. 「전체 선택」은 예전처럼 막대를 누르면 됩니다.'],
   ['2026-11-26', '웹 신청', '이미 있는 책·이미 신청된 책 미리 알림, N명 신청', '검색 결과에서 「우리 학교에 이미 있는 책이에요」「이미 N명이 신청한 책이에요」를 미리 보여 줍니다. 이미 신청된 책을 다른 사람이 또 신청하면 책이 늘지 않고 희망도서 목록의 「신청 인원」이 올라가며(같은 사람은 한 번만), 구입 검토함에는 비고에 「👥 N명 신청」이 붙고 많이 신청한 책이 위로 올라옵니다.'],
   ['2026-11-26', '구입 검토', '만화·문제집 표시와 경고', '구입 검토함·시리즈 후보·엑셀 업로드 목록의 비고에 「📙 만화」가 붙고, 문제집·학습지로 보이는 책은 「⚠ 문제집·학습지 의심」과 함께 줄이 연한 빨강으로 보입니다. 서점 전달용을 만들기 전에 해당 책을 보여 주고 한 번 더 묻습니다. 대시보드에도 경고가 나옵니다. (제목·분야로 추정하므로 틀리면 비고에서 지우면 됩니다.)'],
   ['2026-11-26', '대시보드', '예산 현황과 회차별 구입 기록', '대시보드의 노란 「총 예산」 칸에 금액을 쓰면 남은 예산과 사용률이 나옵니다. 서점에 주문한 뒤 「서점 전달용」의 「✅ 이번 회차 구입 확정」을 누르면 회차·날짜·권수·금액이 기록되고, 남은 예산은 확정한 모든 회차를 합쳐서 계산합니다. 기록은 숨겨진 「🧾 구입 기록」 시트에 쌓이며 대시보드의 「지금까지 확정」 칸으로 열 수 있습니다.'],
@@ -14726,10 +14800,15 @@ function verifyYes24Connection() {
     "unifiedApplyActionBarsAll_": unifiedApplyActionBarsAll_,
     "unifiedBarAt_": unifiedBarAt_,
     "unifiedHandleBarClick_": unifiedHandleBarClick_,
+    "unifiedRunBarAction_": unifiedRunBarAction_,
     "HR_showSeriesCheckDialog": HR_showSeriesCheckDialog,
     "HR_openSeriesCheckDialog_": HR_openSeriesCheckDialog_,
     "HR_seriesCheckState": HR_seriesCheckState,
     "HR_seriesCheckStart": HR_seriesCheckStart,
+    "unifiedBarNeedsCheckbox_": unifiedBarNeedsCheckbox_,
+    "unifiedBarHasCheckbox_": unifiedBarHasCheckbox_,
+    "unifiedGuideBarCheckbox_": unifiedGuideBarCheckbox_,
+    "unifiedHandleBarEdit_": unifiedHandleBarEdit_,
     "HR_showApplyLinksDialog": HR_showApplyLinksDialog,
     "HR_audienceKey_": HR_audienceKey_,
     "HR_audienceLabel_": HR_audienceLabel_,
