@@ -473,7 +473,7 @@ function seriesGroupHoldings_(rows) {
     addToGroup(entry.book, entry.parsed, entry.publisherKey, entry.formatKey);
   });
 
-  return Object.keys(groupsByKey)
+  var finalGroups = Object.keys(groupsByKey)
     .map(function(key) {
       var group = groupsByKey[key];
       var coreSearchBases = Object.keys(group.coreSearchBases || {}).sort(function(a, b) {
@@ -505,6 +505,19 @@ function seriesGroupHoldings_(rows) {
       }
       return true;
     });
+
+  // 같은 시리즈·판형인데 출판사 표기가 달라(예: 「고릴라박스」와 「비룡소」) 따로 묶인 곳의 보유 권도 알아 둡니다.
+  // 후보를 고를 때 「다른 묶음에 이미 있는 권」을 누락으로 잡지 않기 위해서입니다. (순환 참조를 피하려고 복사본만 담습니다)
+  finalGroups.forEach(function(group) {
+    group.siblingHeld = finalGroups
+      .filter(function(other) {
+        return other !== group && other.seriesKey === group.seriesKey && other.formatKey === group.formatKey;
+      })
+      .map(function(other) {
+        return { publishers: other.publishers, volumes: other.volumes };
+      });
+  });
+  return finalGroups;
 }
 
 function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
@@ -1025,6 +1038,10 @@ function seriesCandidateFromItem_(group, item, holdings) {
   // ISBN으로 확인한 학교 보유 판본과 같은 시리즈·출판사·판형만 인정합니다.
   if (!compatibleKey || !publisherMatched || !sameFormat) return null;
   if (group.volumes[parsed.volume]) return null;
+  // 출판사 표기가 달라 따로 묶인 같은 시리즈의 묶음에 이미 있는 권이고, 그 묶음의 출판사가 이 책의 출판사와 맞으면 가진 책입니다.
+  if ((group.siblingHeld || []).some(function(other) {
+    return other.volumes[parsed.volume] && seriesPublisherMatches_(other.publishers, item.publisher);
+  })) return null;
 
   var isbn = seriesCleanIsbn_(item.isbn13 || item.isbn10);
   if (!isbn || holdings.isbnSet[isbn]) return null;

@@ -4140,7 +4140,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v0613b1b';
+var HR_BUILD_ID = 'v173c176';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10662,7 +10662,7 @@ function seriesGroupHoldings_(rows) {
     addToGroup(entry.book, entry.parsed, entry.publisherKey, entry.formatKey);
   });
 
-  return Object.keys(groupsByKey)
+  var finalGroups = Object.keys(groupsByKey)
     .map(function(key) {
       var group = groupsByKey[key];
       var coreSearchBases = Object.keys(group.coreSearchBases || {}).sort(function(a, b) {
@@ -10694,6 +10694,19 @@ function seriesGroupHoldings_(rows) {
       }
       return true;
     });
+
+  // 같은 시리즈·판형인데 출판사 표기가 달라(예: 「고릴라박스」와 「비룡소」) 따로 묶인 곳의 보유 권도 알아 둡니다.
+  // 후보를 고를 때 「다른 묶음에 이미 있는 권」을 누락으로 잡지 않기 위해서입니다. (순환 참조를 피하려고 복사본만 담습니다)
+  finalGroups.forEach(function(group) {
+    group.siblingHeld = finalGroups
+      .filter(function(other) {
+        return other !== group && other.seriesKey === group.seriesKey && other.formatKey === group.formatKey;
+      })
+      .map(function(other) {
+        return { publishers: other.publishers, volumes: other.volumes };
+      });
+  });
+  return finalGroups;
 }
 
 function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
@@ -11214,6 +11227,10 @@ function seriesCandidateFromItem_(group, item, holdings) {
   // ISBN으로 확인한 학교 보유 판본과 같은 시리즈·출판사·판형만 인정합니다.
   if (!compatibleKey || !publisherMatched || !sameFormat) return null;
   if (group.volumes[parsed.volume]) return null;
+  // 출판사 표기가 달라 따로 묶인 같은 시리즈의 묶음에 이미 있는 권이고, 그 묶음의 출판사가 이 책의 출판사와 맞으면 가진 책입니다.
+  if ((group.siblingHeld || []).some(function(other) {
+    return other.volumes[parsed.volume] && seriesPublisherMatches_(other.publishers, item.publisher);
+  })) return null;
 
   var isbn = seriesCleanIsbn_(item.isbn13 || item.isbn10);
   if (!isbn || holdings.isbnSet[isbn]) return null;
@@ -14214,6 +14231,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시리즈 점검', '출판사 표기가 달라도 이미 있는 권은 누락으로 나오지 않게', '같은 시리즈인데 소장도서의 출판사 표기가 서로 달라(예: 「고릴라박스」와 「비룡소」) 두 묶음으로 갈라지면, 한쪽에 있는 권을 다른 쪽에서 「중간 누락」으로 잡던 문제를 고쳤습니다. 이제 다른 묶음에 이미 있는 권이고 출판사가 맞으면 가진 책으로 봅니다. 서로 다른 출판사의 같은 이름 시리즈는 예전처럼 따로 점검합니다. 고친 뒤에는 「시리즈 누락 점검」을 처음부터 다시 실행해 주세요.'],
   ['2026-11-27', '시리즈 점검', '시리즈 점검 멈추기', '「🧰 통합 도서업무 → ⏹ 시리즈 점검 멈추기」를 누르면 돌고 있는 시리즈 점검이 몇 초 안에 멈추고, 1분 뒤 자동 이어가기도 취소됩니다. 멈춘 점검의 이번 결과는 쓰지 않고 저장된 점검 위치도 지워서 다음 점검은 처음부터 시작합니다. 이전에 만들어진 결과 시트는 그대로 남습니다.'],
   ['2026-11-27', '시리즈 점검', '점검 막대를 체크하면 점검 창이 뜹니다', '시리즈 점검 시트의 「🔎 시리즈 누락 점검 시작」 ☐ 를 체크하면 「시리즈 누락 점검」 창이 뜹니다. 창에서 「점검 시작」(또는 중간에 멈춘 점검이 있으면 「이어서 점검」·「처음부터 다시 점검하기」)을 누르면 됩니다.'],
   ['2026-11-27', '시리즈 점검', '출판사를 일부만 넣어도 있는 책이 누락으로 나오지 않게', '소장도서의 「출판사」 칸을 일부 줄에만 넣으면 같은 시리즈가 출판사별로 갈라져서, 이미 가진 권이 「누락」으로 나오던 문제를 고쳤습니다. 이제 출판사가 비어 있는 줄은 같은 시리즈의 출판사 묶음에 함께 들어가 보유로 인정됩니다. 서로 다른 출판사의 같은 이름 시리즈는 예전처럼 따로 점검합니다. 고친 뒤에는 「시리즈 누락 점검」을 처음부터 다시 실행해 주세요.'],
