@@ -157,7 +157,7 @@ function unifiedDrawActionBars_(sheet) {
           .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
         if (bar.c2 === bar.c1) { box.setNote(bar.label + '\n(☐ 를 체크하면 실행됩니다)'); return; }
         range = sheet.getRange(4, bar.c1 + 1, 1, bar.c2 - bar.c1);
-        label = '◀ ' + bar.label.replace(/\s*›\s*$/, '');
+        label = '  ' + bar.label;
       }
       if (range.getNumColumns() > 1) range.merge();
       range
@@ -170,6 +170,11 @@ function unifiedDrawActionBars_(sheet) {
         .setHorizontalAlignment('center')
         .setVerticalAlignment('middle')
         .setBorder(true, true, true, true, false, false, style.border, SpreadsheetApp.BorderStyle.SOLID_THICK);
+      if (unifiedBarNeedsCheckbox_(bar) && bar.c2 > bar.c1) {
+        // ☐ 칸과 글자가 한 버튼으로 보이도록: 사이 테두리를 없애고, ☐ 는 오른쪽·글자는 왼쪽으로 붙입니다.
+        sheet.getRange(4, bar.c1).setHorizontalAlignment('right').setBorder(null, null, null, false, null, null);
+        range.setHorizontalAlignment('left').setBorder(null, false, null, null, null, null);
+      }
     });
     sheet.setRowHeight(4, 56);
   } catch (error) {
