@@ -3509,7 +3509,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-27-1';
+var HR_GUIDE_VERSION = '2026-11-27-2';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3720,6 +3720,11 @@ function HR_refreshGuidesOnce_() {
       HR_writeUpdateLogSheet_();   // 「업데이트 내용」 탭을 최신 내용으로 다시 씁니다.
     } catch (error) {
       console.warn('업데이트 내용 탭 쓰기 실패: ' + error);
+    }
+    try {
+      unifiedEnsureHoldingsPublisherColumn_(spreadsheet);   // 소장도서 탭에 「출판사」 칸이 없으면 한 번 만들어 둡니다.
+    } catch (error) {
+      console.warn('소장도서 출판사 칸 만들기 실패: ' + error);
     }
     try {
       unifiedApplyActionBarsAll_();   // 체크박스였던 맨 위 버튼을 클릭 막대로 한 번 바꿉니다.
@@ -3993,7 +3998,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v2c384b0';
+var HR_BUILD_ID = 'v873f9c1';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -7768,6 +7773,12 @@ function HR_ensureLibrarySheet_(spreadsheet) {
   if (!isbnColumn) {
     lastColumn = Math.max(sheet.getLastColumn(), 0) + 1;
     sheet.getRange(1, lastColumn).setValue('ISBN13');
+  }
+
+  // 시리즈 누락 점검이 출판사로 시리즈를 구분하므로 「출판사」 칸도 둡니다.
+  if (!HR_findAnyHeaderColumn_(headers, ['출판사', '발행자', '출판자', '발행처'])) {
+    lastColumn = Math.max(sheet.getLastColumn(), 0) + 1;
+    sheet.getRange(1, lastColumn).setValue('출판사');
   }
 
   sheet
@@ -13960,6 +13971,60 @@ function seriesFormatKey_(value) {
   return tags.length ? tags.join('+') : '일반';
 }
 
+/* ---------- 🏫 소장도서 「출판사」 칸 ---------- */
+
+// 소장도서 탭 머리줄에 「출판사」 칸이 없으면 바로 오른쪽 빈 칸에 만듭니다. (이미 있으면 아무것도 하지 않습니다)
+// 시리즈 누락 점검(seriesReadHoldings_)이 이 칸을 읽어 같은 이름의 다른 출판사 시리즈를 구분합니다.
+function unifiedEnsureHoldingsPublisherColumn_(ss) {
+  ss = ss || seriesSpreadsheet_();
+  var sheet = ss.getSheetByName(SERIES_HOLDINGS_SHEET);
+  if (!sheet) return false;
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+  if (lastRow < 1 || lastColumn < 1) return false;
+
+  // 머리줄 찾기: 맨 위 10줄 안에서 ISBN 칸이 있는 줄 (seriesReadHoldings_ 와 같은 방식)
+  var grid = sheet.getRange(1, 1, Math.min(10, lastRow), lastColumn).getDisplayValues();
+  var headerRow = 0;
+  var lastHeaderColumn = 0;
+  for (var r = 0; r < grid.length && !headerRow; r++) {
+    var hasIsbn = grid[r].some(function(value) { return /^ISBN(13)?$/.test(String(value || '').replace(/\s+/g, '').toUpperCase()); });
+    if (!hasIsbn) continue;
+    headerRow = r + 1;
+    for (var c = 0; c < grid[r].length; c++) {
+      var header = String(grid[r][c] || '').replace(/\s+/g, '');
+      if (/^(출판사|발행자|출판자|발행처)$/.test(header)) return false;   // 이미 있음
+      if (header) lastHeaderColumn = c + 1;
+    }
+  }
+  if (!headerRow || !lastHeaderColumn) return false;
+
+  var column = lastHeaderColumn + 1;
+  if (sheet.getMaxColumns() < column) sheet.insertColumnsAfter(sheet.getMaxColumns(), column - sheet.getMaxColumns());
+  var target = sheet.getRange(headerRow, column);
+  if (String(target.getDisplayValue() || '').trim()) return false;   // 그 칸에 다른 글이 있으면 건드리지 않습니다.
+
+  sheet.getRange(headerRow, lastHeaderColumn).copyFormatToRange(sheet, column, column, headerRow, headerRow);
+  target.setValue('출판사').setNote('DLS 소장 목록의 출판사를 붙여 넣어 주세요. (도서명·ISBN과 같은 줄 순서) 시리즈 누락 점검이 출판사로 시리즈를 구분합니다.');
+  try { sheet.setColumnWidth(column, Math.max(sheet.getColumnWidth(lastHeaderColumn), 160)); } catch (error) {}
+
+  // 머리줄에 필터가 걸려 있으면 새 칸까지 넓힙니다.
+  try {
+    var filter = sheet.getFilter();
+    if (filter) {
+      var range = filter.getRange();
+      if (range.getRow() === headerRow && range.getColumn() <= lastHeaderColumn && range.getLastColumn() < column) {
+        var top = range.getRow(), left = range.getColumn(), rows = Math.max(range.getNumRows(), sheet.getLastRow() - top + 1);
+        filter.remove();
+        sheet.getRange(top, left, rows, column - left + 1).createFilter();
+      }
+    }
+  } catch (error) {
+    console.warn('소장도서 필터 넓히기 실패: ' + error);
+  }
+  return true;
+}
+
 
 /* ===== UpdateLog.gs ===== */
 /**
@@ -13974,6 +14039,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-27', '시리즈 점검', '소장도서 탭에 「출판사」 칸', '「🏫 우리학교 소장도서」 탭에 「출판사」 칸이 생겼습니다. DLS 소장 목록의 출판사를 이 칸에 붙여 넣으면(도서명·ISBN과 같은 줄 순서로) 시리즈 누락 점검이 같은 이름의 다른 출판사 시리즈를 섞지 않아 엉뚱한 후보가 줄어듭니다. 비워 두어도 예전처럼 동작합니다.'],
   ['2026-11-27', '시트 화면', '막대 버튼 앞에 ☐ 체크칸', '「시리즈 누락 점검 시작」「구입 검토함으로 보내기」처럼 창이 뜨는 막대를 눌렀을 때 「권한이 없어 창을 띄울 수 없다」는 오류가 나던 문제를 고쳤습니다. 이제 막대 맨 앞의 ☐ 칸을 체크하면 확인창·점검창이 뜹니다. 「전체 선택」은 예전처럼 막대를 누르면 됩니다.'],
   ['2026-11-26', '웹 신청', '이미 있는 책·이미 신청된 책 미리 알림, N명 신청', '검색 결과에서 「우리 학교에 이미 있는 책이에요」「이미 N명이 신청한 책이에요」를 미리 보여 줍니다. 이미 신청된 책을 다른 사람이 또 신청하면 책이 늘지 않고 희망도서 목록의 「신청 인원」이 올라가며(같은 사람은 한 번만), 구입 검토함에는 비고에 「👥 N명 신청」이 붙고 많이 신청한 책이 위로 올라옵니다.'],
   ['2026-11-26', '구입 검토', '만화·문제집 표시와 경고', '구입 검토함·시리즈 후보·엑셀 업로드 목록의 비고에 「📙 만화」가 붙고, 문제집·학습지로 보이는 책은 「⚠ 문제집·학습지 의심」과 함께 줄이 연한 빨강으로 보입니다. 서점 전달용을 만들기 전에 해당 책을 보여 주고 한 번 더 묻습니다. 대시보드에도 경고가 나옵니다. (제목·분야로 추정하므로 틀리면 비고에서 지우면 됩니다.)'],
@@ -15129,6 +15195,7 @@ function verifyYes24Connection() {
     "seriesFamilySearchText_": seriesFamilySearchText_,
     "seriesFamilyKey_": seriesFamilyKey_,
     "seriesFormatKey_": seriesFormatKey_,
+    "unifiedEnsureHoldingsPublisherColumn_": unifiedEnsureHoldingsPublisherColumn_,
     "HR_writeUpdateLogSheet_": HR_writeUpdateLogSheet_,
     "HR_parseCsv_": HR_parseCsv_,
     "HR_noticeIsOn_": HR_noticeIsOn_,
