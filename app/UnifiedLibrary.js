@@ -10,11 +10,13 @@ var SERIES_MAX_GROUPS = 3000;
 var SERIES_MAX_API_REQUESTS = 5000;
 var SERIES_DAILY_API_SAFE_LIMIT = 18000;
 var SERIES_SEARCH_CHUNK = 5;
-var SERIES_MAX_ENRICH_REQUESTS = 20;
-var SERIES_EXECUTION_BUDGET_MS = 285000;
+var SERIES_ENRICH_BUDGET_MS = 150000;      // 준비 단계(출판사·판본 확인)에 쓰는 시간. 다 못 하면 다음 알람에서 이어서 합니다.
+// 한 번에 점검하는 시간. 이 뒤에 결과 시트를 쓰는 시간(수십 초)이 더 필요하고 전체 한도는 6분이라, 여유를 넉넉히 둡니다.
+var SERIES_EXECUTION_BUDGET_MS = 210000;
 var SERIES_FOLLOWUP_RESULTS = 50;
 var SERIES_GAP_RESULTS = 50;
 var SERIES_MAX_GAP_PAGES = 3;
+var SERIES_ALGORITHM_VERSION = 'v3-prepare-first';
 var SERIES_RESUME_STATE_KEY = 'YES24_SERIES_RESUME_STATE_V1';
 // 소장도서 탭에 적어 둔 「출판사」 칸은 묶음 나누기에 쓰지 않습니다. (일부 줄만 적거나 표기가 서로 달라 같은 시리즈가 갈라져 있는 책이 누락으로 나오는 일이 있었습니다)
 // 출판사는 YES24 에서 ISBN 으로 자동으로 확인한 값(seriesEnrichGroupsFromIsbn_)만 씁니다.
@@ -241,7 +243,21 @@ function refreshMissingSeriesBooks() {
     }
 
     var existingCandidates = continuing ? seriesReadExistingCandidates_() : [];
-    var enrichment = seriesEnrichGroupsFromIsbn_(groups, key);
+    var enrichment = seriesEnrichGroupsFromIsbn_(groups, key, runStartedAt);
+    // 준비 단계를 다 못 끝냈으면 검색은 다음 알람으로 미루고, 지금까지 확인한 만큼은 기억해 둡니다.
+    if (enrichment.pending > 0) {
+      if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) return;
+      seriesSaveResumeState_({
+        fingerprint: fingerprint,
+        offset: resumeOffset,
+        total: Math.max(Number(resumeState && resumeState.total) || 0, groups.length),
+        updatedAt: new Date().toISOString()
+      });
+      seriesScheduleAutoContinue_();
+      seriesWriteStatus_('wait', '⏳ 준비 중 · 시리즈 출판사·판본 확인 ' + seriesProgressText_(enrichment.total - enrichment.pending, enrichment.total).replace(/건\)$/, '개)') + ' · 약 1분 뒤 저절로 이어갑니다');
+      spreadsheet.toast('시리즈 ' + enrichment.pending + '개의 출판사·판본을 더 확인해야 합니다. 약 1분 뒤 저절로 이어갑니다.', '시리즈 점검 준비 중', 8);
+      return;
+    }
 
     if (!groups.length) {
       seriesClearResumeState_();
@@ -278,6 +294,17 @@ function refreshMissingSeriesBooks() {
     // 3000개를 넘는 시리즈는 이번 점검 대상이 아닙니다. (예전에는 이것 때문에 다 끝나도 「미완료」로 남아 1분마다 영원히 반복됐습니다.)
     var incomplete = searchResult.truncated;
 
+    seriesBuildResultSheet_(candidates, {
+      seriesCount: groups.length,
+      searchedCount: searchResult.searchedGroupCount,
+      requestCount: searchResult.requestCount + enrichment.requestCount,
+      truncated: incomplete,
+      progressDone: searchResult.nextOffset,
+      progressTotal: searchResult.totalSpecCount,
+      remainingCount: Math.max(0, searchResult.totalSpecCount - searchResult.nextOffset),
+      checkedAt: new Date()
+    });
+    // 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다. (시트를 쓰다 시간이 끝나도 이번 구간을 다시 하면 되고, 결과가 빠지지 않습니다)
     if (incomplete) {
       seriesSaveResumeState_({
         fingerprint: fingerprint,
@@ -295,16 +322,6 @@ function refreshMissingSeriesBooks() {
     PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_NEXT_PROPERTY);
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
-    seriesBuildResultSheet_(candidates, {
-      seriesCount: groups.length,
-      searchedCount: searchResult.searchedGroupCount,
-      requestCount: searchResult.requestCount + enrichment.requestCount,
-      truncated: incomplete,
-      progressDone: searchResult.nextOffset,
-      progressTotal: searchResult.totalSpecCount,
-      remainingCount: Math.max(0, searchResult.totalSpecCount - searchResult.nextOffset),
-      checkedAt: new Date()
-    });
     if (incomplete) {
       seriesWriteStatus_('wait', '⏳ 대기 중 · ' + seriesProgressText_(searchResult.nextOffset, searchResult.totalSpecCount) + ' · ' + seriesNowText_() + ' 저장 · 약 1분 뒤 저절로 이어서 점검합니다');
     } else {
@@ -622,7 +639,7 @@ function seriesGroupHoldings_(rows) {
   return finalGroups;
 }
 
-function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
+function seriesEnrichGroupsFromIsbn_(groups, apiKey, runStartedAt) {
   
   var properties = PropertiesService.getScriptProperties();
   var specs = [];
@@ -641,17 +658,23 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
     specs.push({group: group, isbn: group.sampleIsbn, cacheKey: cacheKey});
   });
 
-  // 판본 확인은 검색 정확도를 높이는 보조 단계입니다. 실제 후속권 검색이 먼저 끝나도록 일부만 확인합니다.
-  specs = specs.slice(0, SERIES_MAX_ENRICH_REQUESTS);
-  var requiredToday = specs.length;
-  if (seriesApiRemaining_() < requiredToday) {
+  // 준비 단계: 검색을 시작하기 전에 모든 시리즈의 판본·출판사를 먼저 확인합니다.
+  // (예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다.)
+  // 시간이 모자라면 확인한 만큼 저장해 두고 나머지는 다음 알람에서 이어서 합니다. 확인한 결과는 기억해 두어 다시 묻지 않습니다.
+  var totalSpecs = specs.length;
+  var allowed = Math.min(totalSpecs, seriesApiRemaining_());
+  if (totalSpecs > 0 && allowed < 1) {
     throw new Error(
       '오늘 안전하게 사용할 수 있는 YES24 조회량이 부족합니다. 기존 결과는 그대로 보존했습니다. 내일 다시 점검해 주세요.'
     );
   }
+  specs = specs.slice(0, allowed);
 
   var requestCount = 0;
+  var processed = 0;
   for (var start = 0; start < specs.length; start += SERIES_SEARCH_CHUNK) {
+    if (start > 0 && Date.now() - Number(runStartedAt || 0) >= SERIES_ENRICH_BUDGET_MS) break;
+    if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) break;
     var chunk = specs.slice(start, start + SERIES_SEARCH_CHUNK);
     var requests = chunk.map(function(spec) {
       return {
@@ -664,6 +687,7 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
     });
     var responses = yes24FetchAll_(requests);
     requestCount += responses.length;
+    processed += chunk.length;
     seriesRecordApiUsage_(responses.length);
 
     responses.forEach(function(response, index) {
@@ -696,7 +720,7 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
   if (Object.keys(cacheWrites).length) {
     try { properties.setProperties(cacheWrites, false); } catch (ignore) {}
   }
-  return {requestCount: requestCount};
+  return {requestCount: requestCount, total: totalSpecs, done: processed, pending: Math.max(0, totalSpecs - processed)};
 }
 
 // 두 시리즈 이름(정규화한 글)이 사실상 같은 시리즈인지: 글자 두 개씩 겹치는 비율(Dice)이 0.6 이상이거나,
@@ -786,6 +810,8 @@ function seriesResumeFingerprint_(groups) {
       .sort(function(a, b) { return a - b; })
       .join(',');
   }).sort().join('\n');
+  // 점검 방식을 크게 바꿀 때 올립니다. 올리면 예전 방식으로 하던 중간 진행·결과를 이어가지 않고 처음부터 다시 합니다.
+  source = SERIES_ALGORITHM_VERSION + '\n' + source;
 
   var digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,

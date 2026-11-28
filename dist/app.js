@@ -4151,7 +4151,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v9a5b8e5';
+var HR_BUILD_ID = 'v0d3dfab';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10212,11 +10212,13 @@ var SERIES_MAX_GROUPS = 3000;
 var SERIES_MAX_API_REQUESTS = 5000;
 var SERIES_DAILY_API_SAFE_LIMIT = 18000;
 var SERIES_SEARCH_CHUNK = 5;
-var SERIES_MAX_ENRICH_REQUESTS = 20;
-var SERIES_EXECUTION_BUDGET_MS = 285000;
+var SERIES_ENRICH_BUDGET_MS = 150000;      // 준비 단계(출판사·판본 확인)에 쓰는 시간. 다 못 하면 다음 알람에서 이어서 합니다.
+// 한 번에 점검하는 시간. 이 뒤에 결과 시트를 쓰는 시간(수십 초)이 더 필요하고 전체 한도는 6분이라, 여유를 넉넉히 둡니다.
+var SERIES_EXECUTION_BUDGET_MS = 210000;
 var SERIES_FOLLOWUP_RESULTS = 50;
 var SERIES_GAP_RESULTS = 50;
 var SERIES_MAX_GAP_PAGES = 3;
+var SERIES_ALGORITHM_VERSION = 'v3-prepare-first';
 var SERIES_RESUME_STATE_KEY = 'YES24_SERIES_RESUME_STATE_V1';
 // 소장도서 탭에 적어 둔 「출판사」 칸은 묶음 나누기에 쓰지 않습니다. (일부 줄만 적거나 표기가 서로 달라 같은 시리즈가 갈라져 있는 책이 누락으로 나오는 일이 있었습니다)
 // 출판사는 YES24 에서 ISBN 으로 자동으로 확인한 값(seriesEnrichGroupsFromIsbn_)만 씁니다.
@@ -10443,7 +10445,21 @@ function refreshMissingSeriesBooks() {
     }
 
     var existingCandidates = continuing ? seriesReadExistingCandidates_() : [];
-    var enrichment = seriesEnrichGroupsFromIsbn_(groups, key);
+    var enrichment = seriesEnrichGroupsFromIsbn_(groups, key, runStartedAt);
+    // 준비 단계를 다 못 끝냈으면 검색은 다음 알람으로 미루고, 지금까지 확인한 만큼은 기억해 둡니다.
+    if (enrichment.pending > 0) {
+      if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) return;
+      seriesSaveResumeState_({
+        fingerprint: fingerprint,
+        offset: resumeOffset,
+        total: Math.max(Number(resumeState && resumeState.total) || 0, groups.length),
+        updatedAt: new Date().toISOString()
+      });
+      seriesScheduleAutoContinue_();
+      seriesWriteStatus_('wait', '⏳ 준비 중 · 시리즈 출판사·판본 확인 ' + seriesProgressText_(enrichment.total - enrichment.pending, enrichment.total).replace(/건\)$/, '개)') + ' · 약 1분 뒤 저절로 이어갑니다');
+      spreadsheet.toast('시리즈 ' + enrichment.pending + '개의 출판사·판본을 더 확인해야 합니다. 약 1분 뒤 저절로 이어갑니다.', '시리즈 점검 준비 중', 8);
+      return;
+    }
 
     if (!groups.length) {
       seriesClearResumeState_();
@@ -10480,6 +10496,17 @@ function refreshMissingSeriesBooks() {
     // 3000개를 넘는 시리즈는 이번 점검 대상이 아닙니다. (예전에는 이것 때문에 다 끝나도 「미완료」로 남아 1분마다 영원히 반복됐습니다.)
     var incomplete = searchResult.truncated;
 
+    seriesBuildResultSheet_(candidates, {
+      seriesCount: groups.length,
+      searchedCount: searchResult.searchedGroupCount,
+      requestCount: searchResult.requestCount + enrichment.requestCount,
+      truncated: incomplete,
+      progressDone: searchResult.nextOffset,
+      progressTotal: searchResult.totalSpecCount,
+      remainingCount: Math.max(0, searchResult.totalSpecCount - searchResult.nextOffset),
+      checkedAt: new Date()
+    });
+    // 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다. (시트를 쓰다 시간이 끝나도 이번 구간을 다시 하면 되고, 결과가 빠지지 않습니다)
     if (incomplete) {
       seriesSaveResumeState_({
         fingerprint: fingerprint,
@@ -10497,16 +10524,6 @@ function refreshMissingSeriesBooks() {
     PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_NEXT_PROPERTY);
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
-    seriesBuildResultSheet_(candidates, {
-      seriesCount: groups.length,
-      searchedCount: searchResult.searchedGroupCount,
-      requestCount: searchResult.requestCount + enrichment.requestCount,
-      truncated: incomplete,
-      progressDone: searchResult.nextOffset,
-      progressTotal: searchResult.totalSpecCount,
-      remainingCount: Math.max(0, searchResult.totalSpecCount - searchResult.nextOffset),
-      checkedAt: new Date()
-    });
     if (incomplete) {
       seriesWriteStatus_('wait', '⏳ 대기 중 · ' + seriesProgressText_(searchResult.nextOffset, searchResult.totalSpecCount) + ' · ' + seriesNowText_() + ' 저장 · 약 1분 뒤 저절로 이어서 점검합니다');
     } else {
@@ -10824,7 +10841,7 @@ function seriesGroupHoldings_(rows) {
   return finalGroups;
 }
 
-function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
+function seriesEnrichGroupsFromIsbn_(groups, apiKey, runStartedAt) {
   
   var properties = PropertiesService.getScriptProperties();
   var specs = [];
@@ -10843,17 +10860,23 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
     specs.push({group: group, isbn: group.sampleIsbn, cacheKey: cacheKey});
   });
 
-  // 판본 확인은 검색 정확도를 높이는 보조 단계입니다. 실제 후속권 검색이 먼저 끝나도록 일부만 확인합니다.
-  specs = specs.slice(0, SERIES_MAX_ENRICH_REQUESTS);
-  var requiredToday = specs.length;
-  if (seriesApiRemaining_() < requiredToday) {
+  // 준비 단계: 검색을 시작하기 전에 모든 시리즈의 판본·출판사를 먼저 확인합니다.
+  // (예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다.)
+  // 시간이 모자라면 확인한 만큼 저장해 두고 나머지는 다음 알람에서 이어서 합니다. 확인한 결과는 기억해 두어 다시 묻지 않습니다.
+  var totalSpecs = specs.length;
+  var allowed = Math.min(totalSpecs, seriesApiRemaining_());
+  if (totalSpecs > 0 && allowed < 1) {
     throw new Error(
       '오늘 안전하게 사용할 수 있는 YES24 조회량이 부족합니다. 기존 결과는 그대로 보존했습니다. 내일 다시 점검해 주세요.'
     );
   }
+  specs = specs.slice(0, allowed);
 
   var requestCount = 0;
+  var processed = 0;
   for (var start = 0; start < specs.length; start += SERIES_SEARCH_CHUNK) {
+    if (start > 0 && Date.now() - Number(runStartedAt || 0) >= SERIES_ENRICH_BUDGET_MS) break;
+    if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) break;
     var chunk = specs.slice(start, start + SERIES_SEARCH_CHUNK);
     var requests = chunk.map(function(spec) {
       return {
@@ -10866,6 +10889,7 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
     });
     var responses = yes24FetchAll_(requests);
     requestCount += responses.length;
+    processed += chunk.length;
     seriesRecordApiUsage_(responses.length);
 
     responses.forEach(function(response, index) {
@@ -10898,7 +10922,7 @@ function seriesEnrichGroupsFromIsbn_(groups, apiKey) {
   if (Object.keys(cacheWrites).length) {
     try { properties.setProperties(cacheWrites, false); } catch (ignore) {}
   }
-  return {requestCount: requestCount};
+  return {requestCount: requestCount, total: totalSpecs, done: processed, pending: Math.max(0, totalSpecs - processed)};
 }
 
 // 두 시리즈 이름(정규화한 글)이 사실상 같은 시리즈인지: 글자 두 개씩 겹치는 비율(Dice)이 0.6 이상이거나,
@@ -10988,6 +11012,8 @@ function seriesResumeFingerprint_(groups) {
       .sort(function(a, b) { return a - b; })
       .join(',');
   }).sort().join('\n');
+  // 점검 방식을 크게 바꿀 때 올립니다. 올리면 예전 방식으로 하던 중간 진행·결과를 이어가지 않고 처음부터 다시 합니다.
+  source = SERIES_ALGORITHM_VERSION + '\n' + source;
 
   var digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
@@ -14474,6 +14500,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '시리즈 점검', '점검 순서를 바꿈: 준비 → 검색 → 저장 (예전 방식으로 하던 중간 점검은 처음부터 다시 합니다)', '① 준비: 검색을 시작하기 전에 모든 시리즈의 출판사·판본을 YES24 에서 먼저 확인합니다. 예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다. ② 검색: 그 뒤에 후속권·중간 누락을 검색합니다. ③ 저장: 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다(시트를 쓰다 시간이 끝나도 결과가 빠지지 않습니다). 한 번에 점검하는 시간도 줄여 여유를 두었습니다. 예전 방식으로 하다 만 점검은 이어가지 않고 처음부터 다시 합니다.'],
   ['2026-11-28', '시리즈 점검', '이어가기 알람을 「계속 울리는 알람」으로 바꿈', '예전에는 「1분 뒤에 한 번만 울리는 알람」으로 이어갔기 때문에, 그 한 번이 헛돌거나 오류로 끝나면 거기서 이어가기가 끊겨 점검이 멈춰 있었습니다. 이제 점검이 끝날 때까지 1분마다(한도·오류로 쉬는 중에는 10분·5분마다) 알람이 계속 울려서, 한 번 실패해도 다음 알람에서 저절로 이어집니다. 쉬는 시간이 안 지났거나 이미 돌고 있으면 조용히 넘어가고, 다 끝나면 알람을 지웁니다.'],
   ['2026-11-28', '시리즈 점검', '자꾸 멈추던 문제 고침 (일시적 YES24 거절에 점검이 통째로 버려지던 문제)', 'YES24 가 한 묶음 중 한 건만 일시적으로 거절해도 점검이 오류로 끝나고, 그때까지 몇 분간 한 검색이 모두 버려지던 문제를 고쳤습니다. 이제 잠깐 쉬었다 다시 시도하고, 그래도 안 되면 지금까지 한 만큼은 저장한 채 이어서 점검합니다. 키 문제가 아닌 오류로 끝나도 5분 뒤 저절로 다시 시도합니다(연달아 6번까지). 시트 맨 위 상태 줄에 이유가 보입니다.'],
   ['2026-11-28', '시리즈 점검', '점검 상태를 시트 맨 위에 크게 표시', '시리즈 점검 결과 시트 맨 위 둘째 줄에 지금 상태가 색깔로 보입니다. 🟢 점검 중(시작 시각) · ⏳ 대기 중(약 1분 뒤 자동으로 이어감) · ⏳ 한도로 쉬는 중(이어갈 시각) · ✅ 전체 확인 완료 · ⏹ 멈춤 · ⚠ 오류. 점검이 중간에 멈춘 채 예약이 없으면 시트나 점검 창을 열 때 스스로 다시 예약합니다.'],
