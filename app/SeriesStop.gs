@@ -10,6 +10,7 @@ var SERIES_STOP_PROPERTY = 'SERIES_STOP_REQUESTED_AT';
 function HR_seriesStopCheck() {
   var properties = PropertiesService.getScriptProperties();
   properties.setProperty(SERIES_STOP_PROPERTY, String(Date.now()));
+  ['YES24_SERIES_QUOTA_NEXT', 'YES24_SERIES_QUOTA_RETRY', 'YES24_SERIES_ERROR_NEXT', 'YES24_SERIES_ERROR_RETRY'].forEach(function(key) { properties.deleteProperty(key); });
   try { seriesCancelAutoContinue_(); } catch (error) { console.warn('자동 이어가기 지우기 실패: ' + error); }
   try { seriesClearResumeState_(); } catch (error) { console.warn('점검 위치 지우기 실패: ' + error); }
   try { seriesWriteStatus_('stop', '⏹ 멈추기를 눌렀습니다 · ' + seriesNowText_() + ' (다음 점검은 처음부터 시작합니다)'); } catch (error) {}

@@ -292,6 +292,7 @@ function refreshMissingSeriesBooks() {
     }
 
     PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_RETRY_PROPERTY);
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_NEXT_PROPERTY);
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
     seriesBuildResultSheet_(candidates, {
@@ -362,6 +363,7 @@ function refreshMissingSeriesBooks() {
         console.warn('오류 뒤 다시 시도 예약 실패: ' + retryError);
       }
     }
+    try { seriesCancelAutoContinue_(); } catch (ignore) {}   // 더 시도해도 소용없는 오류(키 문제 등)는 알람을 끕니다
     seriesWriteStatus_('error', '⚠ 오류로 멈췄습니다 · ' + seriesNowText_() + ' · ' + errorText.split('\n')[0].slice(0, 120));
     seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
@@ -403,8 +405,7 @@ function seriesScheduleQuotaResume_(message) {
 
   var yes24Rejected = !/오늘 안전하게 사용할 수 있는/.test(String(message || ''));
   var when = seriesQuotaResumeTime_(new Date(), yes24Rejected, Session.getScriptTimeZone());
-  seriesCancelAutoContinue_();
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  seriesScheduleAutoContinue_(10);   // 10분마다 확인하고, 쉬는 시간이 지났을 때 이어갑니다
   var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
   var whenText = Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵';
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({ at: when.getTime(), text: whenText }));
@@ -412,6 +413,7 @@ function seriesScheduleQuotaResume_(message) {
 }
 
 var SERIES_ERROR_RETRY_PROPERTY = 'YES24_SERIES_ERROR_RETRY';
+var SERIES_ERROR_NEXT_PROPERTY = 'YES24_SERIES_ERROR_NEXT';
 var SERIES_ERROR_RETRY_MAX = 6;
 var SERIES_ERROR_RETRY_DELAY_MS = 5 * 60 * 1000;
 // 일시적인 오류 뒤 5분 뒤에 다시 시도하도록 예약합니다. 연달아 6번 실패하면 예약하지 않고 null 을 돌려줍니다.
@@ -423,9 +425,9 @@ function seriesScheduleErrorRetry_(message) {
     return null;
   }
   properties.setProperty(SERIES_ERROR_RETRY_PROPERTY, String(retries + 1));
-  seriesCancelAutoContinue_();
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().after(SERIES_ERROR_RETRY_DELAY_MS).create();
+  seriesScheduleAutoContinue_(5);
   var when = new Date(Date.now() + SERIES_ERROR_RETRY_DELAY_MS);
+  properties.setProperty(SERIES_ERROR_NEXT_PROPERTY, JSON.stringify({ at: when.getTime() }));
   var whenText = Utilities.formatDate(when, Session.getScriptTimeZone() || 'Asia/Seoul', 'HH:mm') + ' 무렵';
   seriesWriteStatus_('wait', '⏳ 일시적인 오류로 잠시 쉬는 중 · ' + whenText + ' 다시 시도합니다 (' + (retries + 1) + '/' + SERIES_ERROR_RETRY_MAX + '번째) · ' + String(message || '').split('\n')[0].slice(0, 80));
   return { whenText: whenText };
@@ -835,7 +837,24 @@ function resetSeriesFinderProgress() {
   );
 }
 
+// 이어가기 예약이 울릴 때마다 불립니다. 예약은 「한 번만 울리는 알람」이 아니라 「계속 울리는 알람」이라서,
+// 한 번 헛돌거나 오류가 나도 다음 알람에서 다시 이어집니다. 점검이 다 끝나면 알람을 지웁니다.
+// 여기서 「할 일이 있는지」를 확인하고, 쉬어야 하는 때(한도 대기·오류 대기)나 이미 돌고 있을 때는 조용히 넘어갑니다.
 function seriesAutoContinueMissingBooks_() {
+  var properties = PropertiesService.getScriptProperties();
+  var pending = properties.getProperty(SERIES_RESUME_STATE_KEY) ||
+    properties.getProperty(SERIES_QUOTA_NEXT_PROPERTY) || properties.getProperty(SERIES_ERROR_NEXT_PROPERTY);
+  if (!pending) { seriesCancelAutoContinue_(); return; }
+  var now = Date.now();
+  var runAt = Number(properties.getProperty(SERIES_RUN_AT_PROPERTY) || 0);
+  if (runAt && now - runAt < 7 * 60 * 1000) return;   // 지금 돌고 있는 점검이 있습니다
+  var waiting = [SERIES_QUOTA_NEXT_PROPERTY, SERIES_ERROR_NEXT_PROPERTY].some(function(key) {
+    try {
+      var info = JSON.parse(properties.getProperty(key) || 'null');
+      return info && Number(info.at) > now;
+    } catch (ignore) { return false; }
+  });
+  if (waiting) return;   // 한도·오류로 쉬는 시간이 아직 안 지났습니다
   refreshMissingSeriesBooks();
 }
 
@@ -854,7 +873,7 @@ function seriesEnsureAutoContinue_() {
     return true;
   }
   var when = seriesQuotaResumeTime_(new Date(), false, Session.getScriptTimeZone());
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  seriesScheduleAutoContinue_(10);
   var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({
     at: when.getTime(), text: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵'
@@ -933,11 +952,12 @@ function seriesCancelAutoContinue_() {
   });
 }
 
-function seriesScheduleAutoContinue_() {
+// 1분마다 울리는 이어가기 알람을 만듭니다. (한 번만 울리는 알람은 헛돌거나 오류가 나면 거기서 끊겼습니다.)
+function seriesScheduleAutoContinue_(everyMinutes) {
   seriesCancelAutoContinue_();
   ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER)
     .timeBased()
-    .after(SERIES_AUTO_CONTINUE_DELAY_MS)
+    .everyMinutes(everyMinutes || 1)
     .create();
 }
 

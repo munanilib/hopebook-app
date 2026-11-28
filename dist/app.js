@@ -4151,7 +4151,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vcb1bfc3';
+var HR_BUILD_ID = 'v9a5b8e5';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9980,6 +9980,7 @@ var SERIES_STOP_PROPERTY = 'SERIES_STOP_REQUESTED_AT';
 function HR_seriesStopCheck() {
   var properties = PropertiesService.getScriptProperties();
   properties.setProperty(SERIES_STOP_PROPERTY, String(Date.now()));
+  ['YES24_SERIES_QUOTA_NEXT', 'YES24_SERIES_QUOTA_RETRY', 'YES24_SERIES_ERROR_NEXT', 'YES24_SERIES_ERROR_RETRY'].forEach(function(key) { properties.deleteProperty(key); });
   try { seriesCancelAutoContinue_(); } catch (error) { console.warn('자동 이어가기 지우기 실패: ' + error); }
   try { seriesClearResumeState_(); } catch (error) { console.warn('점검 위치 지우기 실패: ' + error); }
   try { seriesWriteStatus_('stop', '⏹ 멈추기를 눌렀습니다 · ' + seriesNowText_() + ' (다음 점검은 처음부터 시작합니다)'); } catch (error) {}
@@ -10493,6 +10494,7 @@ function refreshMissingSeriesBooks() {
     }
 
     PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_RETRY_PROPERTY);
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_NEXT_PROPERTY);
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
     seriesBuildResultSheet_(candidates, {
@@ -10563,6 +10565,7 @@ function refreshMissingSeriesBooks() {
         console.warn('오류 뒤 다시 시도 예약 실패: ' + retryError);
       }
     }
+    try { seriesCancelAutoContinue_(); } catch (ignore) {}   // 더 시도해도 소용없는 오류(키 문제 등)는 알람을 끕니다
     seriesWriteStatus_('error', '⚠ 오류로 멈췄습니다 · ' + seriesNowText_() + ' · ' + errorText.split('\n')[0].slice(0, 120));
     seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
@@ -10604,8 +10607,7 @@ function seriesScheduleQuotaResume_(message) {
 
   var yes24Rejected = !/오늘 안전하게 사용할 수 있는/.test(String(message || ''));
   var when = seriesQuotaResumeTime_(new Date(), yes24Rejected, Session.getScriptTimeZone());
-  seriesCancelAutoContinue_();
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  seriesScheduleAutoContinue_(10);   // 10분마다 확인하고, 쉬는 시간이 지났을 때 이어갑니다
   var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
   var whenText = Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵';
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({ at: when.getTime(), text: whenText }));
@@ -10613,6 +10615,7 @@ function seriesScheduleQuotaResume_(message) {
 }
 
 var SERIES_ERROR_RETRY_PROPERTY = 'YES24_SERIES_ERROR_RETRY';
+var SERIES_ERROR_NEXT_PROPERTY = 'YES24_SERIES_ERROR_NEXT';
 var SERIES_ERROR_RETRY_MAX = 6;
 var SERIES_ERROR_RETRY_DELAY_MS = 5 * 60 * 1000;
 // 일시적인 오류 뒤 5분 뒤에 다시 시도하도록 예약합니다. 연달아 6번 실패하면 예약하지 않고 null 을 돌려줍니다.
@@ -10624,9 +10627,9 @@ function seriesScheduleErrorRetry_(message) {
     return null;
   }
   properties.setProperty(SERIES_ERROR_RETRY_PROPERTY, String(retries + 1));
-  seriesCancelAutoContinue_();
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().after(SERIES_ERROR_RETRY_DELAY_MS).create();
+  seriesScheduleAutoContinue_(5);
   var when = new Date(Date.now() + SERIES_ERROR_RETRY_DELAY_MS);
+  properties.setProperty(SERIES_ERROR_NEXT_PROPERTY, JSON.stringify({ at: when.getTime() }));
   var whenText = Utilities.formatDate(when, Session.getScriptTimeZone() || 'Asia/Seoul', 'HH:mm') + ' 무렵';
   seriesWriteStatus_('wait', '⏳ 일시적인 오류로 잠시 쉬는 중 · ' + whenText + ' 다시 시도합니다 (' + (retries + 1) + '/' + SERIES_ERROR_RETRY_MAX + '번째) · ' + String(message || '').split('\n')[0].slice(0, 80));
   return { whenText: whenText };
@@ -11036,7 +11039,24 @@ function resetSeriesFinderProgress() {
   );
 }
 
+// 이어가기 예약이 울릴 때마다 불립니다. 예약은 「한 번만 울리는 알람」이 아니라 「계속 울리는 알람」이라서,
+// 한 번 헛돌거나 오류가 나도 다음 알람에서 다시 이어집니다. 점검이 다 끝나면 알람을 지웁니다.
+// 여기서 「할 일이 있는지」를 확인하고, 쉬어야 하는 때(한도 대기·오류 대기)나 이미 돌고 있을 때는 조용히 넘어갑니다.
 function seriesAutoContinueMissingBooks_() {
+  var properties = PropertiesService.getScriptProperties();
+  var pending = properties.getProperty(SERIES_RESUME_STATE_KEY) ||
+    properties.getProperty(SERIES_QUOTA_NEXT_PROPERTY) || properties.getProperty(SERIES_ERROR_NEXT_PROPERTY);
+  if (!pending) { seriesCancelAutoContinue_(); return; }
+  var now = Date.now();
+  var runAt = Number(properties.getProperty(SERIES_RUN_AT_PROPERTY) || 0);
+  if (runAt && now - runAt < 7 * 60 * 1000) return;   // 지금 돌고 있는 점검이 있습니다
+  var waiting = [SERIES_QUOTA_NEXT_PROPERTY, SERIES_ERROR_NEXT_PROPERTY].some(function(key) {
+    try {
+      var info = JSON.parse(properties.getProperty(key) || 'null');
+      return info && Number(info.at) > now;
+    } catch (ignore) { return false; }
+  });
+  if (waiting) return;   // 한도·오류로 쉬는 시간이 아직 안 지났습니다
   refreshMissingSeriesBooks();
 }
 
@@ -11055,7 +11075,7 @@ function seriesEnsureAutoContinue_() {
     return true;
   }
   var when = seriesQuotaResumeTime_(new Date(), false, Session.getScriptTimeZone());
-  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  seriesScheduleAutoContinue_(10);
   var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({
     at: when.getTime(), text: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵'
@@ -11134,11 +11154,12 @@ function seriesCancelAutoContinue_() {
   });
 }
 
-function seriesScheduleAutoContinue_() {
+// 1분마다 울리는 이어가기 알람을 만듭니다. (한 번만 울리는 알람은 헛돌거나 오류가 나면 거기서 끊겼습니다.)
+function seriesScheduleAutoContinue_(everyMinutes) {
   seriesCancelAutoContinue_();
   ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER)
     .timeBased()
-    .after(SERIES_AUTO_CONTINUE_DELAY_MS)
+    .everyMinutes(everyMinutes || 1)
     .create();
 }
 
@@ -14453,6 +14474,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '시리즈 점검', '이어가기 알람을 「계속 울리는 알람」으로 바꿈', '예전에는 「1분 뒤에 한 번만 울리는 알람」으로 이어갔기 때문에, 그 한 번이 헛돌거나 오류로 끝나면 거기서 이어가기가 끊겨 점검이 멈춰 있었습니다. 이제 점검이 끝날 때까지 1분마다(한도·오류로 쉬는 중에는 10분·5분마다) 알람이 계속 울려서, 한 번 실패해도 다음 알람에서 저절로 이어집니다. 쉬는 시간이 안 지났거나 이미 돌고 있으면 조용히 넘어가고, 다 끝나면 알람을 지웁니다.'],
   ['2026-11-28', '시리즈 점검', '자꾸 멈추던 문제 고침 (일시적 YES24 거절에 점검이 통째로 버려지던 문제)', 'YES24 가 한 묶음 중 한 건만 일시적으로 거절해도 점검이 오류로 끝나고, 그때까지 몇 분간 한 검색이 모두 버려지던 문제를 고쳤습니다. 이제 잠깐 쉬었다 다시 시도하고, 그래도 안 되면 지금까지 한 만큼은 저장한 채 이어서 점검합니다. 키 문제가 아닌 오류로 끝나도 5분 뒤 저절로 다시 시도합니다(연달아 6번까지). 시트 맨 위 상태 줄에 이유가 보입니다.'],
   ['2026-11-28', '시리즈 점검', '점검 상태를 시트 맨 위에 크게 표시', '시리즈 점검 결과 시트 맨 위 둘째 줄에 지금 상태가 색깔로 보입니다. 🟢 점검 중(시작 시각) · ⏳ 대기 중(약 1분 뒤 자동으로 이어감) · ⏳ 한도로 쉬는 중(이어갈 시각) · ✅ 전체 확인 완료 · ⏹ 멈춤 · ⚠ 오류. 점검이 중간에 멈춘 채 예약이 없으면 시트나 점검 창을 열 때 스스로 다시 예약합니다.'],
   ['2026-11-28', '시리즈 점검', '한도 뒤 자동 이어가기 보강', 'YES24 응답에 들어 있는 한도 오류 문구도 알아보도록 넓혔고, 시리즈 점검 창에 「한도 때문에 ○월 ○일 ○○:○○ 무렵에 저절로 이어서 점검하도록 예약되어 있습니다」가 보이게 했습니다. 예약이 안 되어 있으면 이 문구가 보이지 않습니다.'],
