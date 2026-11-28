@@ -3736,7 +3736,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-28-2';
+var HR_GUIDE_VERSION = '2026-11-28-3';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3947,6 +3947,11 @@ function HR_refreshGuidesOnce_() {
       HR_writeUpdateLogSheet_();   // 「업데이트 내용」 탭을 최신 내용으로 다시 씁니다.
     } catch (error) {
       console.warn('업데이트 내용 탭 쓰기 실패: ' + error);
+    }
+    try {
+      unifiedRefreshEmptySeriesSheet_();
+    } catch (error) {
+      console.warn('빈 시리즈 시트 새로 그리기 실패: ' + error);
     }
     try {
       unifiedFixReviewNotice_();
@@ -4249,7 +4254,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v7daf7f7';
+var HR_BUILD_ID = 'v00780ca';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -11270,6 +11275,19 @@ function seriesShowStateStatus_() {
   }
 }
 
+// 점검 결과가 없는 빈 시리즈 시트는 옛 안내문(「상단 메뉴…」)과 옛 모양이 남아 있을 수 있어, 새 모양으로 한 번 다시 그립니다. (YES24 를 부르지 않습니다)
+function unifiedRefreshEmptySeriesSheet_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SERIES_FINDER_SHEET);
+  if (!sheet) return;
+  if (PropertiesService.getScriptProperties().getProperty(SERIES_RESUME_STATE_KEY)) return;   // 점검하던 중이면 건드리지 않습니다
+  if (sheet.getLastRow() >= 6) {
+    var isbns = sheet.getRange(6, 11, sheet.getLastRow() - 5, 1).getDisplayValues();   // ISBN13 칸에 값이 있으면 점검 결과가 있는 시트입니다
+    if (isbns.some(function(row) { return String(row[0] || '').trim(); })) return;
+  }
+  seriesBuildResultSheet_([], { seriesCount: 0, searchedCount: 0, never: true, checkedAt: new Date() });
+  seriesWriteStatus_('stop', '아직 점검한 적이 없습니다 · 위 「🔎 시리즈 누락 점검 시작」 막대 앞 ☐ 를 체크하세요');
+}
+
 function seriesCancelAutoContinue_() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER) {
@@ -11905,7 +11923,7 @@ function seriesBuildResultSheet_(candidates, meta) {
   var summaryText =
     '📚 확인한 시리즈  ' + Number(meta.seriesCount || 0) + '개\n' +
     '🛒 구매 검토 후보  ' + candidates.length + '권';
-  var lastCheckedText = '마지막 확인\n' + checkedAt;
+  var lastCheckedText = meta.never ? '마지막 확인\n아직 점검한 적 없음' : '마지막 확인\n' + checkedAt;
   sheet.getRange(5, 1, 1, headers.length).setValues([headers]);
 
   if (candidates.length) {
@@ -11949,7 +11967,7 @@ function seriesBuildResultSheet_(candidates, meta) {
     sheet.getRange('A6:N7').merge().setValue(
       Number(meta.searchedCount || 0) > 0
         ? '현재 YES24 검색 결과에서 추가 구매 후보를 찾지 못했습니다.'
-        : '위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 누르면 결과가 채워집니다.'
+        : '위쪽 「🔎 시리즈 누락 점검 시작」 막대 앞의 ☐ 를 체크하세요. 점검 창이 열리고, 「점검 시작」을 누르면 결과가 채워집니다.'
     );
     sheet.getRange('A6:N7').setHorizontalAlignment('center').setVerticalAlignment('middle');
   }
@@ -14564,6 +14582,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '시리즈 점검', '빈 시리즈 시트 안내를 「상단 메뉴」에서 「☐ 체크」로', '아직 점검한 적이 없는 「🔎 시리즈 누락 점검」 시트에 「상단 메뉴를 누르면 결과가 채워집니다」라는 옛 안내가 남아 있던 것을 「막대 앞 ☐ 를 체크하면 점검 창이 열립니다」로 고치고, 맨 위 칸도 새 모양으로 다시 그렸습니다. 시트를 열 때 한 번 저절로 바뀌며, 점검 결과가 있거나 점검 중이면 건드리지 않습니다.'],
   ['2026-11-28', '구입 검토', '구입 확정 뒤 막대에 결과를 10초 동안 보여 줌', '「✅ 이번 회차 구입 확정」을 누르면 막대가 「처리하는 중입니다」였다가, 끝나면 초록색으로 「○회차 구입 확정 완료 (○권 · ○○원) · 「🧾 구입 기록」 시트에서 확인하세요」를 10초 동안 보여 주고 원래 모양으로 돌아옵니다. 이미 확정한 목록이면 주황색으로 알려 줍니다. (구입 기록 시트는 평소 숨겨져 있어서 대시보드의 「지금까지 확정」 칸이나 메뉴 「🧾 구입 기록 보기」로 엽니다)'],
   ['2026-11-28', '구입 검토', '「이번 회차 구입 확정」도 한 번만 누르면 실행', '서점 전달용 시트의 「✅ 이번 회차 구입 확정」은 한 번 누르면 바로 그 회차를 기록하고 구입 검토함의 책을 「주문완료」로 바꿉니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했고, 선택이 막대에 남으면 반응이 없기도 했습니다). 같은 목록을 두 번 확정해 회차가 중복으로 쌓이지 않도록, 이미 확정한 목록이면 알려 주고 기록하지 않습니다. 잘못 확정했다면 「🧾 구입 기록」 시트에서 그 줄을 지우면 예산이 되돌아갑니다.'],
   ['2026-11-28', '구입 검토', '막대를 누르면 「처리하는 중입니다…」가 바로 보임', '「이번 회차 구입 확정」 등 막대를 실제로 실행하는 동안 막대가 파란 「⏳ 처리하는 중입니다… 잠시만 기다려 주세요」로 바뀌었다가, 끝나면 원래 모양으로 돌아옵니다. 구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않습니다.'],
@@ -15678,6 +15697,7 @@ function verifyYes24Connection() {
     "seriesNowText_": seriesNowText_,
     "seriesWriteStatus_": seriesWriteStatus_,
     "seriesShowStateStatus_": seriesShowStateStatus_,
+    "unifiedRefreshEmptySeriesSheet_": unifiedRefreshEmptySeriesSheet_,
     "seriesCancelAutoContinue_": seriesCancelAutoContinue_,
     "seriesScheduleAutoContinue_": seriesScheduleAutoContinue_,
     "seriesLegacyResumeOffset_": seriesLegacyResumeOffset_,

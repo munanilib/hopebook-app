@@ -970,6 +970,19 @@ function seriesShowStateStatus_() {
   }
 }
 
+// 점검 결과가 없는 빈 시리즈 시트는 옛 안내문(「상단 메뉴…」)과 옛 모양이 남아 있을 수 있어, 새 모양으로 한 번 다시 그립니다. (YES24 를 부르지 않습니다)
+function unifiedRefreshEmptySeriesSheet_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SERIES_FINDER_SHEET);
+  if (!sheet) return;
+  if (PropertiesService.getScriptProperties().getProperty(SERIES_RESUME_STATE_KEY)) return;   // 점검하던 중이면 건드리지 않습니다
+  if (sheet.getLastRow() >= 6) {
+    var isbns = sheet.getRange(6, 11, sheet.getLastRow() - 5, 1).getDisplayValues();   // ISBN13 칸에 값이 있으면 점검 결과가 있는 시트입니다
+    if (isbns.some(function(row) { return String(row[0] || '').trim(); })) return;
+  }
+  seriesBuildResultSheet_([], { seriesCount: 0, searchedCount: 0, never: true, checkedAt: new Date() });
+  seriesWriteStatus_('stop', '아직 점검한 적이 없습니다 · 위 「🔎 시리즈 누락 점검 시작」 막대 앞 ☐ 를 체크하세요');
+}
+
 function seriesCancelAutoContinue_() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER) {
@@ -1605,7 +1618,7 @@ function seriesBuildResultSheet_(candidates, meta) {
   var summaryText =
     '📚 확인한 시리즈  ' + Number(meta.seriesCount || 0) + '개\n' +
     '🛒 구매 검토 후보  ' + candidates.length + '권';
-  var lastCheckedText = '마지막 확인\n' + checkedAt;
+  var lastCheckedText = meta.never ? '마지막 확인\n아직 점검한 적 없음' : '마지막 확인\n' + checkedAt;
   sheet.getRange(5, 1, 1, headers.length).setValues([headers]);
 
   if (candidates.length) {
@@ -1649,7 +1662,7 @@ function seriesBuildResultSheet_(candidates, meta) {
     sheet.getRange('A6:N7').merge().setValue(
       Number(meta.searchedCount || 0) > 0
         ? '현재 YES24 검색 결과에서 추가 구매 후보를 찾지 못했습니다.'
-        : '위쪽의 「🔎 시리즈 누락 점검 시작 ›」 막대를 누르면 결과가 채워집니다.'
+        : '위쪽 「🔎 시리즈 누락 점검 시작」 막대 앞의 ☐ 를 체크하세요. 점검 창이 열리고, 「점검 시작」을 누르면 결과가 채워집니다.'
     );
     sheet.getRange('A6:N7').setHorizontalAlignment('center').setVerticalAlignment('middle');
   }
