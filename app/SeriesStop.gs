@@ -12,6 +12,7 @@ function HR_seriesStopCheck() {
   properties.setProperty(SERIES_STOP_PROPERTY, String(Date.now()));
   try { seriesCancelAutoContinue_(); } catch (error) { console.warn('자동 이어가기 지우기 실패: ' + error); }
   try { seriesClearResumeState_(); } catch (error) { console.warn('점검 위치 지우기 실패: ' + error); }
+  try { seriesWriteStatus_('stop', '⏹ 멈추기를 눌렀습니다 · ' + seriesNowText_() + ' (다음 점검은 처음부터 시작합니다)'); } catch (error) {}
   try {
     seriesSpreadsheet_().toast(
       '점검을 멈추도록 요청했습니다. 돌고 있는 점검은 몇 초 안에 멈추고, 1분 뒤 자동 이어가기는 취소했습니다. 다음 점검은 처음부터 시작합니다.',

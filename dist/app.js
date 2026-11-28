@@ -4147,7 +4147,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vfe29d21';
+var HR_BUILD_ID = 'vf2f6275';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -9978,6 +9978,7 @@ function HR_seriesStopCheck() {
   properties.setProperty(SERIES_STOP_PROPERTY, String(Date.now()));
   try { seriesCancelAutoContinue_(); } catch (error) { console.warn('자동 이어가기 지우기 실패: ' + error); }
   try { seriesClearResumeState_(); } catch (error) { console.warn('점검 위치 지우기 실패: ' + error); }
+  try { seriesWriteStatus_('stop', '⏹ 멈추기를 눌렀습니다 · ' + seriesNowText_() + ' (다음 점검은 처음부터 시작합니다)'); } catch (error) {}
   try {
     seriesSpreadsheet_().toast(
       '점검을 멈추도록 요청했습니다. 돌고 있는 점검은 몇 초 안에 멈추고, 1분 뒤 자동 이어가기는 취소했습니다. 다음 점검은 처음부터 시작합니다.',
@@ -10414,6 +10415,7 @@ function refreshMissingSeriesBooks() {
       throw new Error('YES24 API 키가 없습니다. 「🔎 시리즈 점검 → YES24 API 키 설정」에서 입력해 주세요.');
     }
 
+    seriesWriteStatus_('run', '🟢 점검 중입니다 · ' + seriesNowText_() + ' 시작 (끝나면 이 줄이 바뀝니다)');
     spreadsheet.toast('보유목록에서 시리즈와 빈 권차를 찾고 있습니다.', '시리즈 점검', 5);
     var holdings = seriesReadHoldings_();
     var allGroups = seriesGroupHoldings_(holdings.rows).sort(seriesGroupPriority_);
@@ -10464,6 +10466,7 @@ function refreshMissingSeriesBooks() {
     if (typeof seriesStopRequested_ === 'function' && seriesStopRequested_(runStartedAt)) {
       seriesClearResumeState_();
       seriesCancelAutoContinue_();
+      seriesWriteStatus_('stop', '⏹ 점검을 멈췄습니다 · ' + seriesNowText_() + ' (다음 점검은 처음부터 시작합니다)');
       spreadsheet.toast('점검을 멈췄습니다. 이번 점검의 결과는 쓰지 않았습니다. 다음 점검은 처음부터 시작합니다.', '⏹ 시리즈 점검 멈춤', 8);
       return;
     }
@@ -10496,6 +10499,11 @@ function refreshMissingSeriesBooks() {
       remainingCount: Math.max(0, searchResult.totalSpecCount - searchResult.nextOffset),
       checkedAt: new Date()
     });
+    if (incomplete) {
+      seriesWriteStatus_('wait', '⏳ 대기 중 · ' + searchResult.nextOffset + ' / ' + searchResult.totalSpecCount + '건 진행 · ' + seriesNowText_() + ' 저장 · 약 1분 뒤 저절로 이어서 점검합니다');
+    } else {
+      seriesWriteStatus_('done', '✅ 전체 확인 완료 · ' + seriesNowText_());
+    }
 
     spreadsheet.setActiveSheet(spreadsheet.getSheetByName(SERIES_FINDER_SHEET));
     var percent = searchResult.totalSpecCount
@@ -10526,6 +10534,7 @@ function refreshMissingSeriesBooks() {
     if (seriesIsQuotaError_(errorText)) {
       try {
         var resumeInfo = seriesScheduleQuotaResume_(errorText);
+        seriesWriteStatus_('wait', '⏳ YES24 하루 조회 한도로 쉬는 중 · ' + resumeInfo.whenText + ' 저절로 이어서 점검합니다 (진행 위치는 보존됨)');
         seriesSpreadsheet_().toast(
           'YES24 하루 조회 한도에 닿아 잠시 멈췄습니다. ' + resumeInfo.whenText + '에 저절로 이어서 점검합니다. (진행 위치는 보존되어 있습니다. 시트를 열어 두지 않아도 됩니다)',
           '시리즈 점검 일시 정지',
@@ -10536,6 +10545,7 @@ function refreshMissingSeriesBooks() {
         console.warn('한도 뒤 이어가기 예약 실패: ' + scheduleError);
       }
     }
+    seriesWriteStatus_('error', '⚠ 오류로 멈췄습니다 · ' + seriesNowText_() + ' · ' + errorText.split('\n')[0].slice(0, 120));
     seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
   } finally {
@@ -11002,6 +11012,7 @@ function seriesEnsureAutoContinue_() {
   if (already) return false;
   if (seriesApiRemaining_() > 0) {
     seriesScheduleAutoContinue_();
+    seriesWriteStatus_('wait', '⏳ 점검이 중간에 멈춰 있어 다시 예약했습니다 · 약 1분 뒤 저절로 이어서 점검합니다 (' + seriesNowText_() + ' 확인)');
     return true;
   }
   var when = seriesQuotaResumeTime_(new Date(), false, Session.getScriptTimeZone());
@@ -11010,7 +11021,32 @@ function seriesEnsureAutoContinue_() {
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({
     at: when.getTime(), text: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵'
   }));
+  seriesWriteStatus_('wait', '⏳ 오늘 YES24 조회 한도를 다 써서 쉬는 중 · ' + Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵 저절로 이어서 점검합니다');
   return true;
+}
+
+// 시리즈 점검 결과 시트 맨 위(2번째 줄)에 지금 상태를 크게 보여 줍니다. (점검 중 / 이어가기 대기 / 한도 대기 / 완료 / 멈춤 / 오류)
+var SERIES_STATUS_STYLES = {
+  run:   { bg: '#E4F1FB', fg: '#1F5A8A' },
+  wait:  { bg: '#FFF4D9', fg: '#8A6518' },
+  done:  { bg: '#EAF5EE', fg: '#2D6A50' },
+  stop:  { bg: '#EEEEEE', fg: '#555555' },
+  error: { bg: '#FDECEC', fg: '#A33B36' }
+};
+function seriesNowText_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Seoul', 'M월 d일 HH:mm');
+}
+function seriesWriteStatus_(kind, text) {
+  try {
+    var sheet = seriesSpreadsheet_().getSheetByName(SERIES_FINDER_SHEET);
+    if (!sheet) return;
+    var style = SERIES_STATUS_STYLES[kind] || SERIES_STATUS_STYLES.stop;
+    sheet.getRange('A2:N2').setBackground(style.bg).setFontColor(style.fg).setFontWeight('bold').setFontSize(11);
+    sheet.getRange('A2').setValue(text);
+    SpreadsheetApp.flush();
+  } catch (error) {
+    console.warn('점검 상태 표시 실패: ' + error);
+  }
 }
 
 function seriesCancelAutoContinue_() {
@@ -14316,6 +14352,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '시리즈 점검', '점검 상태를 시트 맨 위에 크게 표시', '시리즈 점검 결과 시트 맨 위 둘째 줄에 지금 상태가 색깔로 보입니다. 🟢 점검 중(시작 시각) · ⏳ 대기 중(약 1분 뒤 자동으로 이어감) · ⏳ 한도로 쉬는 중(이어갈 시각) · ✅ 전체 확인 완료 · ⏹ 멈춤 · ⚠ 오류. 점검이 중간에 멈춘 채 예약이 없으면 시트나 점검 창을 열 때 스스로 다시 예약합니다.'],
   ['2026-11-28', '시리즈 점검', '한도 뒤 자동 이어가기 보강', 'YES24 응답에 들어 있는 한도 오류 문구도 알아보도록 넓혔고, 시리즈 점검 창에 「한도 때문에 ○월 ○일 ○○:○○ 무렵에 저절로 이어서 점검하도록 예약되어 있습니다」가 보이게 했습니다. 예약이 안 되어 있으면 이 문구가 보이지 않습니다.'],
   ['2026-11-27', '시리즈 점검', 'YES24 하루 한도에 닿으면 풀릴 때 저절로 이어서 점검', '점검 도중 YES24 하루 조회 한도에 닿으면 오류로 끝나지 않고 잠시 멈춥니다. 우리 쪽 안전 한도에 닿았으면 다음 날 00:10 무렵, YES24가 직접 한도를 알려 왔으면 1시간 뒤에 저절로 이어서 점검합니다(시트를 열어 두지 않아도 됩니다). 진행 위치는 그대로 보존됩니다. 계속 막혀 있으면 6번까지만 다시 시도하고 알려 드립니다. 멈추려면 「⏹ 시리즈 점검 멈추기」를 누르세요.'],
   ['2026-11-27', '시리즈 점검', '출판사는 자동으로 확인 (소장도서에 적지 않아도 됩니다)', '소장도서 탭에 직접 적은 「출판사」 칸은 더 이상 쓰지 않습니다. 일부 줄만 적거나 표기가 서로 달라 같은 시리즈가 갈라지면 가진 책이 누락으로 나오는 일이 있어서, 이제 출판사는 소장도서의 ISBN 으로 YES24 에서 자동으로 확인한 값만 씁니다. 이미 적어 둔 칸은 그대로 두셔도 되고 지우셔도 됩니다. 고친 뒤에는 「시리즈 누락 점검」을 처음부터 다시 실행해 주세요.'],
@@ -15412,6 +15449,8 @@ function verifyYes24Connection() {
     "resetSeriesFinderProgress": resetSeriesFinderProgress,
     "seriesAutoContinueMissingBooks_": seriesAutoContinueMissingBooks_,
     "seriesEnsureAutoContinue_": seriesEnsureAutoContinue_,
+    "seriesNowText_": seriesNowText_,
+    "seriesWriteStatus_": seriesWriteStatus_,
     "seriesCancelAutoContinue_": seriesCancelAutoContinue_,
     "seriesScheduleAutoContinue_": seriesScheduleAutoContinue_,
     "seriesLegacyResumeOffset_": seriesLegacyResumeOffset_,
