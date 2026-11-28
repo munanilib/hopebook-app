@@ -289,9 +289,9 @@ function unifiedClickWithConfirm_(sheet, bar) {
   var cell = sheet.getRange(4, bar.c1);
   cell.setValue('⚠  한 번 더 누르면 실행합니다').setBackground(style.bg).setFontColor(style.fg);
   var detail = unifiedBarConfirmDetail_(bar);
-  try { ss.toast(detail + '\n(그만두려면 다른 칸을 누르세요)', title, 8); } catch (error) {}
+  try { ss.toast(detail + '\n(그만두려면 다른 칸을 누르세요. 눌러도 반응이 없으면 다른 칸을 한 번 누른 뒤 막대를 다시 눌러 주세요)', title, 10); } catch (error) {}
   // 같은 막대를 또 누르면 다시 이벤트가 오도록 선택을 막대 밖으로 옮깁니다.
-  try { sheet.setActiveRange(sheet.getRange(6, 2)); } catch (error) {}
+  unifiedMoveSelectionAway_(sheet);
   return true;
 }
 
@@ -319,6 +319,17 @@ function unifiedBarConfirmDetail_(bar) {
 }
 
 // 막대를 원래 글자·색으로 되돌립니다.
+// 선택을 막대 밖(목록 첫 칸)으로 옮깁니다. 선택이 막대에 그대로 남아 있으면 같은 막대를 다시 눌러도 칸 선택이 바뀌지 않아
+// 이벤트가 오지 않고, 그러면 「눌러도 아무 반응이 없는」 상태가 됩니다. 옮긴 뒤 바로 화면에 반영합니다.
+function unifiedMoveSelectionAway_(sheet) {
+  try {
+    sheet.setActiveRange(sheet.getRange(6, 2));
+  } catch (error) {
+    try { sheet.getRange(6, 2).activate(); } catch (ignore) {}
+  }
+  try { SpreadsheetApp.flush(); } catch (ignore) {}
+}
+
 // 막대를 「처리 중」으로 바꾸고 바로 화면에 반영합니다.
 function unifiedShowBarBusy_(sheet, bar) {
   try {
@@ -404,7 +415,7 @@ function unifiedRunBarAction_(sheet, bar) {
     ss.toast(String(error && error.message ? error.message : error), '처리하지 못했습니다', 8);
   } finally {
     // 같은 막대를 다시 눌러도 동작하도록, 선택을 막대 밖(목록 첫 칸)으로 옮깁니다.
-    try { sheet.setActiveRange(sheet.getRange(6, 2)); } catch (error) {}
+    unifiedMoveSelectionAway_(sheet);
   }
   return true;
 }
