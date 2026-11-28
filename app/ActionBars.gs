@@ -418,7 +418,14 @@ function HR_seriesCheckState() {
     var parsedNext = JSON.parse(props.getProperty('YES24_SERIES_QUOTA_NEXT') || 'null');
     if (parsedNext && parsedNext.at) quotaNext = { at: Number(parsedNext.at), text: String(parsedNext.text || '') };
   } catch (error) {}
+  // 시트 맨 위 상태 줄(🟢·⏳·✅·⏹·⚠ 로 시작)과 같은 내용을 창에도 보여 줍니다.
+  var headline = '';
+  try {
+    var shown = result ? String(result.getRange('A2').getDisplayValue() || '') : '';
+    if (/^(🟢|⏳|✅|⏹|⚠)/.test(shown)) headline = shown;
+  } catch (error) {}
   return {
+    headline: headline,
     hasKey: Boolean(seriesGetYes24Key_()),
     quotaNext: quotaNext,
     resume: resume,

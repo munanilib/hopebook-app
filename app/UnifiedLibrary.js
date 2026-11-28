@@ -935,7 +935,7 @@ function seriesWriteStatus_(kind, text) {
     var style = SERIES_STATUS_STYLES[kind] || SERIES_STATUS_STYLES.stop;
     sheet.getRange('A2:N2').setBackground(style.bg).setFontColor(style.fg).setFontWeight('bold').setFontSize(14)
       .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-    sheet.setRowHeight(2, 44);
+    sheet.setRowHeight(2, 48);
     sheet.getRange('A2').setValue(text);
     SpreadsheetApp.flush();
   } catch (error) {
@@ -1563,7 +1563,7 @@ function refreshSeriesSaleStatuses() {
       });
       Utilities.sleep(180);
     }
-    seriesApplyApiGauge_(sheet, sheet.getRange('A3').getDisplayValue(), sheet.getRange('E3').getDisplayValue());
+    seriesApplyApiGauge_(sheet, sheet.getRange('A3').getDisplayValue(), sheet.getRange('D3').getDisplayValue());
     seriesSpreadsheet_().toast('절판 여부 확인 완료 · 표시 변경 ' + changed + '권', '시리즈 점검', 8);
   } finally {
     if (PropertiesService.getScriptProperties().getProperty(SERIES_RESUME_STATE_KEY)) {
@@ -1601,10 +1601,10 @@ function seriesBuildResultSheet_(candidates, meta) {
     ? '  ·  검색 진행 ' + progressDone + '/' + progressTotal + '건 (' + progressPercent + '%)' +
       (meta.truncated ? '  ·  남은 검색 ' + Math.max(0, progressTotal - progressDone) + '건' : '')
     : '';
+  // 진행 막대·단계는 맨 위 상태 줄(2번째 줄)에서 보여 주므로, 여기에는 개수만 적습니다.
   var summaryText =
-    '확인 시리즈 ' + Number(meta.seriesCount || 0) + '개  ·  구매 검토 후보 ' +
-    candidates.length + '권' + progressText +
-    (meta.truncated ? '  ·  ⚠ 이어서 점검 필요' : '  ·  ✅ 전체 확인 완료');
+    '📚 확인한 시리즈  ' + Number(meta.seriesCount || 0) + '개\n' +
+    '🛒 구매 검토 후보  ' + candidates.length + '권';
   var lastCheckedText = '마지막 확인\n' + checkedAt;
   sheet.getRange(5, 1, 1, headers.length).setValues([headers]);
 
@@ -1675,29 +1675,14 @@ function seriesApplyApiGauge_(sheet, summaryText, lastCheckedText) {
   var panelText = usageRatio >= 0.9 ? '#A33B36' : usageRatio >= 0.7 ? '#8A6518' : '#2D6A50';
 
   sheet.getRange('A3:N3').breakApart().clearContent().clearNote();
-
-  sheet.getRange('A3:D3')
-    .merge()
-    .setValue(summaryText)
-    .setBackground('#F7F4EA')
-    .setFontColor('#765A25')
-    .setFontSize(10)
-    .setFontWeight('bold')
-    .setWrap(true)
-    .setHorizontalAlignment('left')
-    .setVerticalAlignment('middle');
-
-  sheet.getRange('E3:F3')
-    .merge()
-    .setValue(lastCheckedText || '마지막 확인\n-')
-    .setBackground('#EEF2EF')
-    .setFontColor('#4E6357')
-    .setFontSize(9)
-    .setFontWeight('bold')
-    .setWrap(true)
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-
+  var card = function(range, value, bg, fg, size, align) {
+    return sheet.getRange(range).merge().setValue(value).setBackground(bg).setFontColor(fg)
+      .setFontSize(size).setFontWeight('bold').setWrap(true)
+      .setHorizontalAlignment(align || 'center').setVerticalAlignment('middle');
+  };
+  // 한 줄에 세 칸: [개수 요약] [마지막 확인] [오늘 API 사용량] + 오른쪽 사용 순서
+  card('A3:C3', summaryText, '#F4F1E4', '#5F4A1E', 12, 'left');
+  card('D3:F3', lastCheckedText || '마지막 확인\n-', '#EEF2EF', '#3F5348', 11);
   sheet.getRange('G3:H3')
     .merge()
     .setFormula(
@@ -1707,31 +1692,15 @@ function seriesApplyApiGauge_(sheet, summaryText, lastCheckedText) {
     )
     .setBackground(panelBackground)
     .setVerticalAlignment('middle');
-
   sheet.getRange('I3')
-    .setValue('API ' + apiUsed + '/' + SERIES_DAILY_API_SAFE_LIMIT + '\n남음 ' + apiRemaining + '회')
+    .setValue('오늘 API ' + apiUsed + ' / ' + SERIES_DAILY_API_SAFE_LIMIT + '\n남음 ' + apiRemaining + '회')
     .setNote('오늘 API 사용률 ' + apiPercent + '% · 이 표시를 확인하거나 새로고침하는 것 자체는 API를 사용하지 않습니다.')
-    .setBackground(panelBackground)
-    .setFontColor(panelText)
-    .setFontSize(9)
-    .setFontWeight('bold')
-    .setWrap(true)
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
+    .setBackground(panelBackground).setFontColor(panelText).setFontSize(10).setFontWeight('bold')
+    .setWrap(true).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  card('J3:N3', '사용 순서\n① 아래 ☐ 체크 → 점검  ② 아래 표에서 살 책 체크  ③ 금색 막대로 구입 검토함에 보내기', '#F6F8F7', '#6B7B73', 10, 'left');
 
-  sheet.getRange('J3:N3')
-    .merge()
-    .setValue('사용량 표시 새로고침은 API 미사용')
-    .setBackground('#F6F8F7')
-    .setFontColor('#78867F')
-    .setFontSize(9)
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-
-  sheet.getRange('E3:I3').setBorder(
-    true, true, true, true, false, false,
-    usageRatio >= 0.9 ? '#E3A8A4' : usageRatio >= 0.7 ? '#E6CA87' : '#B7D7C4',
-    SpreadsheetApp.BorderStyle.SOLID
+  sheet.getRange('A3:N3').setBorder(
+    true, true, true, true, true, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID_THICK
   );
 }
 
@@ -1749,7 +1718,7 @@ function refreshSeriesApiGauge() {
   var lastMatch = currentText.match(
     /마지막 확인\s+(\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{1,2}:\d{2})/
   );
-  var lastCheckedText = String(sheet.getRange('E3').getDisplayValue() || '').trim();
+  var lastCheckedText = String(sheet.getRange('D3').getDisplayValue() || '').trim();
 
   if (lastMatch) {
     lastCheckedText = '마지막 확인\n' + lastMatch[1];
@@ -1775,16 +1744,16 @@ function refreshSeriesApiGauge() {
 
 function seriesStyleResultSheet_(sheet, rowCount) {
   sheet.setFrozenRows(5);
-  sheet.setRowHeight(1, 62);
-  sheet.setRowHeight(2, 42);
-  sheet.setRowHeight(3, 46);
+  sheet.setRowHeight(1, 52);
+  sheet.setRowHeight(2, 48);
+  sheet.setRowHeight(3, 58);
   sheet.setRowHeight(4, 14);
   sheet.setRowHeight(5, 42);
 
   sheet.getRange('A1:N1')
     .setBackground('#20382D')
     .setFontColor('#FFFFFF')
-    .setFontSize(24)
+    .setFontSize(20)
     .setFontWeight('bold')
     .setHorizontalAlignment('left')
     .setVerticalAlignment('middle');
@@ -1792,17 +1761,6 @@ function seriesStyleResultSheet_(sheet, rowCount) {
     .setBackground('#E9F1EC')
     .setFontColor('#40594D')
     .setFontSize(11)
-    .setVerticalAlignment('middle');
-  sheet.getRange('A3:D3')
-    .setBackground('#F7F4EA')
-    .setFontColor('#765A25')
-    .setFontSize(10)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('left')
-    .setVerticalAlignment('middle');
-  sheet.getRange('E3:N3')
-    .setFontSize(9)
-    .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
   sheet.getRange('A5:N5')
     .setBackground('#526C5D')

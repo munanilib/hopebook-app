@@ -5,46 +5,65 @@
 <meta charset="utf-8">
 <style>
   *{box-sizing:border-box}
-  body{margin:0;padding:20px 22px 22px;background:#f8f5ed;font-family:Arial,"Noto Sans KR",sans-serif;color:#2e3a33}
-  h1{margin:0 0 6px;font-size:22px;color:#183d35}
-  .lead{margin:0 0 14px;font-size:14px;line-height:1.55;color:#52685f}
-  .steps{margin:0 0 14px;padding:0;list-style:none}
-  .steps li{display:flex;gap:12px;align-items:flex-start;margin-bottom:9px;padding:11px 13px;border:1px solid #d9e2dc;border-radius:12px;background:#fff;font-size:14px;line-height:1.45}
-  .num{flex:none;width:26px;height:26px;border-radius:50%;background:#d9a441;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
-  .steps b{display:block;color:#244d42}
-  .status{margin:0 0 12px;padding:11px 13px;border-radius:12px;background:#e3efe9;color:#1f5c4a;font-size:14px;line-height:1.5}
-  .status.warn{background:#fdecea;color:#8a2a1f}
-  .status.wait{background:#fdf1d6;color:#6b4d0a}
-  .bar{height:12px;border-radius:999px;background:#dfe7e2;overflow:hidden;margin-top:8px}
-  .bar i{display:block;height:100%;width:0;background:#2e5b4f;border-radius:999px;transition:width .4s}
+  body{margin:0;padding:18px 20px 20px;background:#f6f4ec;font-family:Arial,"Noto Sans KR",sans-serif;color:#2e3a33}
+  .top{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  .top h1{margin:0;font-size:20px;color:#183d35}
+  .top span{font-size:13px;color:#6a786f}
+  .card{border-radius:14px;padding:16px 16px 14px;background:#e3efe9;color:#1f5c4a}
+  .card.run{background:#e4f1fb;color:#1f5a8a}
+  .card.wait{background:#fff4d9;color:#8a6518}
+  .card.done{background:#eaf5ee;color:#2d6a50}
+  .card.stop{background:#eee;color:#555}
+  .card.err{background:#fdecea;color:#a33b36}
+  .head{font-size:17px;font-weight:800;line-height:1.45;word-break:keep-all}
+  .sub{margin-top:6px;font-size:13px;line-height:1.5;opacity:.9;word-break:keep-all}
+  .bar{height:16px;border-radius:999px;background:rgba(255,255,255,.7);overflow:hidden;margin-top:12px}
+  .bar i{display:block;height:100%;width:0;background:currentColor;border-radius:999px;transition:width .5s}
+  .pct{margin-top:6px;font-size:13px;font-weight:700}
+  .nums{display:flex;gap:10px;margin:12px 0}
+  .nums div{flex:1;background:#fff;border:1px solid #dfe6e1;border-radius:12px;padding:10px 12px}
+  .nums b{display:block;font-size:20px;color:#183d35}
+  .nums small{font-size:12px;color:#6a786f}
   button{width:100%;border:0;border-radius:14px;font-family:inherit;cursor:pointer}
-  .go{padding:16px;background:#2e5b4f;color:#fff;font-size:18px;font-weight:800}
+  .go{padding:17px;background:#2e5b4f;color:#fff;font-size:19px;font-weight:800}
   .go:disabled{opacity:.55;cursor:default}
-  .again{margin-top:9px;padding:11px;background:#fff;border:1px solid #c9d3cc;color:#4b5a52;font-size:13.5px;font-weight:700}
+  .again{margin-top:9px;padding:12px;background:#fff;border:1px solid #c9d3cc;color:#4b5a52;font-size:14px;font-weight:700}
   .msg{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:14px;line-height:1.5}
   .msg.ok{background:#e3efe9;color:#1f5c4a}.msg.err{background:#fdecea;color:#8a2a1f}
-  .note{margin-top:12px;font-size:12.5px;color:#6a786f;line-height:1.5}
+  details{margin-top:14px;font-size:13px;color:#52685f;line-height:1.6}
+  summary{cursor:pointer;font-weight:700;color:#3b5a4e}
+  details li{margin:3px 0}
+  .live{margin-top:10px;font-size:12px;color:#8a978f;text-align:right}
   [hidden]{display:none!important}
 </style>
 </head>
 <body>
-  <h1>🔎 시리즈 누락 점검</h1>
-  <p class="lead">우리 학교 소장도서에서 시리즈를 찾아, <b>빠진 권</b>과 <b>새로 나온 후속권</b>을 알려 드립니다.</p>
+  <div class="top"><h1>🔎 시리즈 누락 점검</h1><span>빠진 권과 새 후속권을 찾아 드립니다</span></div>
 
-  <ol class="steps">
-    <li><span class="num">1</span><div><b>아래 「점검 시작」을 누릅니다</b>소장도서의 시리즈를 찾고 YES24에서 빠진 권을 확인합니다.</div></li>
-    <li><span class="num">2</span><div><b>잠시 기다립니다</b>오래 걸리면 중간에 멈췄다가 약 1분 뒤 저절로 이어서 점검합니다. 창을 닫아도 됩니다.</div></li>
-    <li><span class="num">3</span><div><b>「시리즈 누락 점검」 표에서 고릅니다</b>사고 싶은 책을 체크하고 「구입 검토함으로 보내기」를 누르세요.</div></li>
-  </ol>
+  <div id="card" class="card"><div id="head" class="head">상태를 확인하는 중…</div><div id="sub" class="sub" hidden></div>
+    <div id="progress" hidden><div class="bar"><i id="fill"></i></div><div id="pct" class="pct"></div></div></div>
 
-  <div id="status" class="status">상태를 확인하는 중…</div>
-  <div id="progress" hidden><div class="bar"><i id="fill"></i></div></div>
+  <div class="nums">
+    <div><b id="nHold">-</b><small>소장도서(권)</small></div>
+    <div><b id="nCand">-</b><small>지금 표에 있는 후보(권)</small></div>
+  </div>
 
   <button class="go" id="go" type="button" disabled>▶ 점검 시작</button>
   <button class="again" id="again" type="button" hidden>처음부터 다시 점검하기</button>
   <div id="msg" class="msg" hidden></div>
-  <p class="note">YES24 API 키가 필요합니다. 없으면 「⚙️ 사본 설정 → 🔑 API 키 설정」에서 먼저 입력해 주세요.</p>
-  <p class="note">💡 출판사는 적지 않아도 됩니다. 소장도서의 ISBN 으로 YES24 에서 자동으로 확인해 같은 이름의 다른 출판사 책이 걸리는 일을 줄입니다.</p>
+
+  <details>
+    <summary>사용 방법 · 알아 두실 점</summary>
+    <ol>
+      <li>「점검 시작」을 누르면 소장도서의 시리즈를 찾아 YES24에서 빠진 권을 확인합니다.</li>
+      <li>오래 걸리면 중간에 멈췄다가 1분 뒤 저절로 이어갑니다. 이 창을 닫아도, 시트를 닫아도 계속됩니다.</li>
+      <li>진행 상황은 시트 「시리즈 누락 점검」 맨 위 줄에도 같은 내용이 뜹니다.</li>
+      <li>끝나면 표에서 살 책을 체크하고 「구입 검토함으로 보내기」를 누르세요.</li>
+      <li>YES24 API 키가 필요합니다. 없으면 「⚙️ 사본 설정 → 🔑 API 키 설정」에서 입력하세요.</li>
+      <li>출판사는 적지 않아도 됩니다. ISBN 으로 YES24 에서 자동으로 확인합니다.</li>
+    </ol>
+  </details>
+  <div class="live" id="live"></div>
 
 <script>
   var $ = function (id) { return document.getElementById(id); };
@@ -54,37 +73,54 @@
 
   function showMsg(text, ok) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); m.hidden = false; }
 
+  function kindOf(text) {
+    var c = String(text || '').charAt(0);
+    var m = { '🟢': 'run', '⏳': 'wait', '✅': 'done', '⏹': 'stop', '⚠': 'err' };
+    return m[c] || '';
+  }
+
   function render(s) {
-    var status = $('status'), go = $('go'), again = $('again');
+    var card = $('card'), go = $('go'), again = $('again');
     if (AUTO && !autoDone && s.hasKey && !busy) { autoDone = true; start(false); return; }
-    $('progress').hidden = true;
+    $('nHold').textContent = s.holdings;
+    $('nCand').textContent = s.candidates;
     again.hidden = true;
+    var pct = s.resume && s.resume.total ? Math.min(100, Math.round(s.resume.offset / s.resume.total * 1000) / 10) : null;
+    $('progress').hidden = pct === null;
+    if (pct !== null) { $('fill').style.width = pct + '%'; $('pct').textContent = pct + '%  (' + s.resume.offset + ' / ' + s.resume.total + '건)'; }
+
     if (!s.hasKey) {
-      status.className = 'status warn';
-      status.textContent = '⚠ YES24 API 키가 아직 없습니다. 「⚙️ 사본 설정 → 🔑 API 키 설정」에서 입력한 뒤 다시 열어 주세요.';
+      card.className = 'card err';
+      $('head').textContent = '⚠ YES24 API 키가 아직 없습니다';
+      $('sub').hidden = false; $('sub').textContent = '「⚙️ 사본 설정 → 🔑 API 키 설정」에서 입력한 뒤 다시 열어 주세요.';
       go.disabled = true; go.textContent = '▶ 점검 시작';
       return;
     }
     go.disabled = busy;
-    if (s.resume) {
-      var pct = Math.min(100, Math.round(s.resume.offset / s.resume.total * 100));
-      status.className = 'status wait';
-      status.textContent = '이전 점검이 중간에서 멈췄습니다. (' + s.resume.offset + ' / ' + s.resume.total + '건, ' + pct + '%) 이어서 점검할 수 있습니다.';
-      if (s.quotaNext && s.quotaNext.at > Date.now()) status.textContent += ' · YES24 하루 한도 때문에 ' + s.quotaNext.text + '에 저절로 이어서 점검하도록 예약되어 있습니다.';
-      $('progress').hidden = false; $('fill').style.width = pct + '%';
-      go.textContent = '▶ 이어서 점검';
-      again.hidden = false;
+    $('sub').hidden = true;
+    if (s.headline) {
+      card.className = 'card ' + kindOf(s.headline);
+      $('head').textContent = s.headline;
+    } else if (s.resume) {
+      card.className = 'card wait';
+      $('head').textContent = '⏳ 이전 점검이 중간에서 멈췄습니다';
     } else {
-      status.className = 'status';
-      status.textContent = '소장도서 ' + s.holdings + '권 · 지금 표에 있는 점검 결과 ' + s.candidates + '권' + (s.candidates ? '' : ' · 아직 점검한 적이 없거나 결과가 없습니다.');
-      go.textContent = s.candidates ? '▶ 다시 점검' : '▶ 점검 시작';
+      card.className = 'card';
+      $('head').textContent = s.candidates ? '✅ 점검 결과가 표에 있습니다' : '아직 점검한 적이 없습니다';
     }
+    if (s.quotaNext && s.quotaNext.at > Date.now()) {
+      $('sub').hidden = false;
+      $('sub').textContent = 'YES24 하루 한도 때문에 ' + s.quotaNext.text + '에 저절로 이어서 점검하도록 예약되어 있습니다.';
+    }
+    if (s.resume) { go.textContent = '▶ 지금 이어서 점검'; again.hidden = false; }
+    else go.textContent = s.candidates ? '▶ 다시 점검' : '▶ 점검 시작';
+    $('live').textContent = '마지막으로 불러온 시각 ' + new Date().toLocaleTimeString('ko-KR') + ' · 15초마다 저절로 갱신됩니다';
   }
 
   function load() {
     google.script.run
       .withSuccessHandler(render)
-      .withFailureHandler(function () { $('status').className = 'status warn'; $('status').textContent = '상태를 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'; })
+      .withFailureHandler(function () { $('card').className = 'card err'; $('head').textContent = '상태를 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'; })
       .HR_seriesCheckState();
   }
 
@@ -92,8 +128,9 @@
     if (busy) return;
     busy = true; $('go').disabled = true; $('again').hidden = true; $('msg').hidden = true;
     $('go').textContent = '점검하는 중… (몇 분 걸릴 수 있습니다)';
-    $('status').className = 'status wait';
-    $('status').textContent = '🔎 점검을 시작했습니다. 이 창은 지금 닫아도 됩니다. 점검은 계속 진행되고, 끝나면 시트 오른쪽 아래에 알림이 뜹니다.';
+    $('card').className = 'card run';
+    $('head').textContent = '🔎 점검을 시작했습니다';
+    $('sub').hidden = false; $('sub').textContent = '이 창은 지금 닫아도 됩니다. 점검은 계속 진행되고, 끝나면 시트 오른쪽 아래에 알림이 뜹니다.';
     google.script.run
       .withSuccessHandler(function (s) {
         busy = false; render(s);
@@ -110,6 +147,7 @@
   $('go').onclick = function () { start(false); };
   $('again').onclick = function () { start(true); };
   load();
+  setInterval(function () { if (!busy) load(); }, 15000);
 </script>
 </body>
 </html>
