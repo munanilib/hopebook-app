@@ -9,7 +9,7 @@
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '5';
+var UNIFIED_BARS_VERSION = '6';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -60,9 +60,9 @@ function unifiedBarSpecBase_(sheet) {
     ] };
   }
   if (name === UNIFIED_EXPORT_SHEET) {
-    return { last: 10, fractions: [0.42, 0.58], bars: [
-      { id: 'export-rebuild', kind: 'send', once: true, c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
-      { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
+    // 「다시 만들기」 막대는 구입 검토함의 「서점 전달용으로 보내기」와 같은 일이라 없앴습니다. (목록을 바꾸려면 검토함에서 체크한 뒤 그 막대를 다시 누릅니다)
+    return { last: 10, fractions: [1], bars: [
+      { id: 'export-confirm', kind: 'check', c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
   return null;
@@ -297,7 +297,7 @@ function unifiedClickWithConfirm_(sheet, bar) {
 function unifiedBarConfirmDetail_(bar) {
   var text = bar.confirm || '이 작업을 실행할까요?';
   try {
-    if (bar.id === 'review-export' || bar.id === 'export-rebuild') {
+    if (bar.id === 'review-export') {
       var review = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(UNIFIED_REVIEW_SHEET);
       if (review && review.getLastRow() >= 6) {
         var rows = review.getRange(6, 1, review.getLastRow() - 5, 12).getValues();
@@ -379,7 +379,7 @@ function unifiedRunBarAction_(sheet, bar) {
         if (bar.id === 'hope-send') sendHopeRequestsToReview();
         else if (bar.id === 'series-send') sendSelectedSeriesToReview();
         else if (bar.id === 'upload-send') sendSelectedUploadItemsToReview();
-        else buildUnifiedBookstoreExportSheet();   // review-export · export-rebuild
+        else buildUnifiedBookstoreExportSheet();   // review-export
       }
     }
   } catch (error) {

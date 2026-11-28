@@ -2456,6 +2456,7 @@ function buildUnifiedBookstoreExportSheet() {
       ? '우리학교 소장도서 ' + ownedCount + '권을 제외했습니다.'
       : '우리학교 소장도서와 다시 대조해 중복이 없는 도서만 담았습니다.'
   );
+  target.getRange('A3').setValue(String(target.getRange('A3').getValue() || '') + '  ·  목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요.');
   target.getRange('A4')
     .insertCheckboxes()
     .setValue(false)

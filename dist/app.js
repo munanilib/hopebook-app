@@ -15,7 +15,7 @@ var APP_FACTORY = function (__host) {
  * - 보내기·만들기처럼 되돌리기 번거로운 동작은 「정말 할까요?」를 한 번 물어봅니다.
  * - 「전체 선택/해제」는 막대 앞의 ☐/☑ 로 지금 상태를 보여 줍니다.
  */
-var UNIFIED_BARS_VERSION = '5';
+var UNIFIED_BARS_VERSION = '6';
 // 전체 선택 막대의 두 상태 글자 (앞 그림이 상태를 알려 줍니다)
 var BAR_SELECT_ON = '✅  전체 선택';
 var BAR_SELECT_OFF = '⬜  전체 해제';
@@ -66,9 +66,9 @@ function unifiedBarSpecBase_(sheet) {
     ] };
   }
   if (name === UNIFIED_EXPORT_SHEET) {
-    return { last: 10, fractions: [0.42, 0.58], bars: [
-      { id: 'export-rebuild', kind: 'send', once: true, c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
-      { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
+    // 「다시 만들기」 막대는 구입 검토함의 「서점 전달용으로 보내기」와 같은 일이라 없앴습니다. (목록을 바꾸려면 검토함에서 체크한 뒤 그 막대를 다시 누릅니다)
+    return { last: 10, fractions: [1], bars: [
+      { id: 'export-confirm', kind: 'check', c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
   return null;
@@ -303,7 +303,7 @@ function unifiedClickWithConfirm_(sheet, bar) {
 function unifiedBarConfirmDetail_(bar) {
   var text = bar.confirm || '이 작업을 실행할까요?';
   try {
-    if (bar.id === 'review-export' || bar.id === 'export-rebuild') {
+    if (bar.id === 'review-export') {
       var review = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(UNIFIED_REVIEW_SHEET);
       if (review && review.getLastRow() >= 6) {
         var rows = review.getRange(6, 1, review.getLastRow() - 5, 12).getValues();
@@ -385,7 +385,7 @@ function unifiedRunBarAction_(sheet, bar) {
         if (bar.id === 'hope-send') sendHopeRequestsToReview();
         else if (bar.id === 'series-send') sendSelectedSeriesToReview();
         else if (bar.id === 'upload-send') sendSelectedUploadItemsToReview();
-        else buildUnifiedBookstoreExportSheet();   // review-export · export-rebuild
+        else buildUnifiedBookstoreExportSheet();   // review-export
       }
     }
   } catch (error) {
@@ -4177,7 +4177,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 've65ce42';
+var HR_BUILD_ID = 'v0379e5f';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12684,6 +12684,7 @@ function buildUnifiedBookstoreExportSheet() {
       ? '우리학교 소장도서 ' + ownedCount + '권을 제외했습니다.'
       : '우리학교 소장도서와 다시 대조해 중복이 없는 도서만 담았습니다.'
   );
+  target.getRange('A3').setValue(String(target.getRange('A3').getValue() || '') + '  ·  목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요.');
   target.getRange('A4')
     .insertCheckboxes()
     .setValue(false)
@@ -14491,7 +14492,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
-  ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」와 서점 전달용 시트의 「🔄 서점 전달용 다시 만들기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
+  ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 같은 일을 하던 서점 전달용 시트의 「🔄 다시 만들기」 막대는 없앴습니다. 목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요. 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
   ['2026-11-28', '시리즈 점검', '시리즈 점검 시트·점검 창 디자인 정리', '시트 맨 위를 한눈에 읽히게 정리했습니다. 제목은 작게, 지금 상태 줄은 크게, 그 아래에 「확인한 시리즈·구매 검토 후보 개수 / 마지막 확인 / 오늘 API 사용량 / 사용 순서」를 칸으로 나눠 보여 줍니다(진행 막대와 단계는 상태 줄에서만 보여 줍니다). 점검 창도 시트 상태 줄과 같은 내용을 색깔 카드와 진행 막대로 크게 보여 주고, 15초마다 저절로 갱신됩니다. 사용 방법은 접어 두었습니다.'],
   ['2026-11-28', '시리즈 점검', '점검 순서를 바꿈: 준비 → 검색 → 저장 (예전 방식으로 하던 중간 점검은 처음부터 다시 합니다)', '① 준비: 검색을 시작하기 전에 모든 시리즈의 출판사·판본을 YES24 에서 먼저 확인합니다. 예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다. ② 검색: 그 뒤에 후속권·중간 누락을 검색합니다. ③ 저장: 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다(시트를 쓰다 시간이 끝나도 결과가 빠지지 않습니다). 한 번에 점검하는 시간도 줄여 여유를 두었습니다. 예전 방식으로 하다 만 점검은 이어가지 않고 처음부터 다시 합니다.'],
   ['2026-11-28', '시리즈 점검', '이어가기 알람을 「계속 울리는 알람」으로 바꿈', '예전에는 「1분 뒤에 한 번만 울리는 알람」으로 이어갔기 때문에, 그 한 번이 헛돌거나 오류로 끝나면 거기서 이어가기가 끊겨 점검이 멈춰 있었습니다. 이제 점검이 끝날 때까지 1분마다(한도·오류로 쉬는 중에는 10분·5분마다) 알람이 계속 울려서, 한 번 실패해도 다음 알람에서 저절로 이어집니다. 쉬는 시간이 안 지났거나 이미 돌고 있으면 조용히 넘어가고, 다 끝나면 알람을 지웁니다.'],
