@@ -91,6 +91,24 @@ function unifiedConfirmPurchaseRound_() {
     return { success: false };
   }
 
+  // 한 번 누르면 바로 실행되므로, 같은 목록을 두 번 확정해 회차가 중복으로 쌓이지 않게 막습니다.
+  // (서점 전달용의 책이 구입 검토함에서 모두 이미 「주문완료」·「소장중」이면 이미 확정한 목록입니다)
+  var skipDialogEarly = typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG;
+  var reviewForCheck = ss.getSheetByName(UNIFIED_REVIEW_SHEET);
+  if (skipDialogEarly && reviewForCheck && reviewForCheck.getLastRow() >= 6) {
+    var matched = 0, notYet = 0;
+    reviewForCheck.getRange(6, 1, reviewForCheck.getLastRow() - 5, 12).getValues().forEach(function(r) {
+      var k = unifiedBookKey_(r[7], r[3]);
+      if (!k || !keys[k]) return;
+      matched++;
+      if (String(r[2]) !== '주문완료' && String(r[2]) !== '소장중') notYet++;
+    });
+    if (matched > 0 && notYet === 0) {
+      ss.toast('이미 구입 확정한 목록입니다. 새로 주문할 책은 구입 검토함에서 체크한 뒤 「서점 전달용으로 보내기」를 다시 눌러 주세요.', '구입 확정', 9);
+      return { success: false, already: true };
+    }
+  }
+
   var log = unifiedEnsurePurchaseLogSheet_();
   var stats = unifiedPurchaseLogStats_(ss);
   var round = stats.rounds + 1;

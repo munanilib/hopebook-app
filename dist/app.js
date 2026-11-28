@@ -68,7 +68,7 @@ function unifiedBarSpecBase_(sheet) {
   if (name === UNIFIED_EXPORT_SHEET) {
     // 「다시 만들기」 막대는 구입 검토함의 「서점 전달용으로 보내기」와 같은 일이라 없앴습니다. (목록을 바꾸려면 검토함에서 체크한 뒤 그 막대를 다시 누릅니다)
     return { last: 10, fractions: [1], bars: [
-      { id: 'export-confirm', kind: 'check', c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
+      { id: 'export-confirm', kind: 'check', once: true, c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
   return null;
@@ -4046,6 +4046,24 @@ function unifiedConfirmPurchaseRound_() {
     return { success: false };
   }
 
+  // 한 번 누르면 바로 실행되므로, 같은 목록을 두 번 확정해 회차가 중복으로 쌓이지 않게 막습니다.
+  // (서점 전달용의 책이 구입 검토함에서 모두 이미 「주문완료」·「소장중」이면 이미 확정한 목록입니다)
+  var skipDialogEarly = typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG;
+  var reviewForCheck = ss.getSheetByName(UNIFIED_REVIEW_SHEET);
+  if (skipDialogEarly && reviewForCheck && reviewForCheck.getLastRow() >= 6) {
+    var matched = 0, notYet = 0;
+    reviewForCheck.getRange(6, 1, reviewForCheck.getLastRow() - 5, 12).getValues().forEach(function(r) {
+      var k = unifiedBookKey_(r[7], r[3]);
+      if (!k || !keys[k]) return;
+      matched++;
+      if (String(r[2]) !== '주문완료' && String(r[2]) !== '소장중') notYet++;
+    });
+    if (matched > 0 && notYet === 0) {
+      ss.toast('이미 구입 확정한 목록입니다. 새로 주문할 책은 구입 검토함에서 체크한 뒤 「서점 전달용으로 보내기」를 다시 눌러 주세요.', '구입 확정', 9);
+      return { success: false, already: true };
+    }
+  }
+
   var log = unifiedEnsurePurchaseLogSheet_();
   var stats = unifiedPurchaseLogStats_(ss);
   var round = stats.rounds + 1;
@@ -4206,7 +4224,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vee35b9d';
+var HR_BUILD_ID = 'v4305f8f';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -14521,6 +14539,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '구입 검토', '「이번 회차 구입 확정」도 한 번만 누르면 실행', '서점 전달용 시트의 「✅ 이번 회차 구입 확정」은 한 번 누르면 바로 그 회차를 기록하고 구입 검토함의 책을 「주문완료」로 바꿉니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했고, 선택이 막대에 남으면 반응이 없기도 했습니다). 같은 목록을 두 번 확정해 회차가 중복으로 쌓이지 않도록, 이미 확정한 목록이면 알려 주고 기록하지 않습니다. 잘못 확정했다면 「🧾 구입 기록」 시트에서 그 줄을 지우면 예산이 되돌아갑니다.'],
   ['2026-11-28', '구입 검토', '막대를 누르면 「처리하는 중입니다…」가 바로 보임', '「이번 회차 구입 확정」 등 막대를 실제로 실행하는 동안 막대가 파란 「⏳ 처리하는 중입니다… 잠시만 기다려 주세요」로 바뀌었다가, 끝나면 원래 모양으로 돌아옵니다. 구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않습니다.'],
   ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 같은 일을 하던 서점 전달용 시트의 「🔄 다시 만들기」 막대는 없앴습니다. 목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요. 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
   ['2026-11-28', '시리즈 점검', '시리즈 점검 시트·점검 창 디자인 정리', '시트 맨 위를 한눈에 읽히게 정리했습니다. 제목은 작게, 지금 상태 줄은 크게, 그 아래에 「확인한 시리즈·구매 검토 후보 개수 / 마지막 확인 / 오늘 API 사용량 / 사용 순서」를 칸으로 나눠 보여 줍니다(진행 막대와 단계는 상태 줄에서만 보여 줍니다). 점검 창도 시트 상태 줄과 같은 내용을 색깔 카드와 진행 막대로 크게 보여 주고, 15초마다 저절로 갱신됩니다. 사용 방법은 접어 두었습니다.'],

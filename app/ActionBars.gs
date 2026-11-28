@@ -62,7 +62,7 @@ function unifiedBarSpecBase_(sheet) {
   if (name === UNIFIED_EXPORT_SHEET) {
     // 「다시 만들기」 막대는 구입 검토함의 「서점 전달용으로 보내기」와 같은 일이라 없앴습니다. (목록을 바꾸려면 검토함에서 체크한 뒤 그 막대를 다시 누릅니다)
     return { last: 10, fractions: [1], bars: [
-      { id: 'export-confirm', kind: 'check', c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
+      { id: 'export-confirm', kind: 'check', once: true, c1: 1, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
   return null;
