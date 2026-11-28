@@ -264,7 +264,7 @@ function unifiedHandleBarClick_(sheet, range) {
   if (bar.once) {
     UNIFIED_BAR_NO_DIALOG = true;
     unifiedShowBarBusy_(sheet, bar);
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedFinishBar_(sheet, bar); }
   }
   return unifiedClickWithConfirm_(sheet, bar);
 }
@@ -287,7 +287,7 @@ function unifiedClickWithConfirm_(sheet, bar) {
     // 일이 끝날 때까지 막대에 「처리 중」을 보여 줍니다. (구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않게)
     unifiedShowBarBusy_(sheet, bar);
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedFinishBar_(sheet, bar); }
   }
 
   if (cache) cache.put(key, String(Date.now()), UNIFIED_BAR_PENDING_SECONDS + 5);
@@ -345,6 +345,27 @@ function unifiedShowBarBusy_(sheet, bar) {
       .setFontColor('#FFFFFF');
     SpreadsheetApp.flush();
   } catch (error) {}
+}
+
+// 일이 끝난 뒤: 결과 문구가 있으면 막대에 10초 동안 보여 주고, 그 뒤 원래 모양으로 되돌립니다.
+// (처리하는 동안 막대가 「처리하는 중입니다」였다가, 끝나면 「어디서 확인하면 되는지」를 알려 주는 용도입니다)
+var UNIFIED_BAR_RESULT = null;          // {text, kind: 'ok' | 'warn'} — 일을 한 함수가 채웁니다
+var UNIFIED_BAR_RESULT_SECONDS = 10;
+function unifiedFinishBar_(sheet, bar) {
+  var result = UNIFIED_BAR_RESULT;
+  UNIFIED_BAR_RESULT = null;
+  if (result && result.text) {
+    try {
+      var warn = result.kind === 'warn';
+      sheet.getRange(4, bar.c1)
+        .setValue('  ' + result.text)
+        .setBackground(warn ? '#B9770E' : '#2E7D5B')
+        .setFontColor('#FFFFFF');
+      SpreadsheetApp.flush();
+      Utilities.sleep(UNIFIED_BAR_RESULT_SECONDS * 1000);
+    } catch (error) {}
+  }
+  unifiedRestoreBarLookSafe_(sheet, bar);
 }
 
 // 일이 끝난 뒤 막대를 원래 모양으로 되돌립니다. (실패해도 일 자체의 결과에는 영향이 없게 합니다)
@@ -4060,6 +4081,7 @@ function unifiedConfirmPurchaseRound_() {
     });
     if (matched > 0 && notYet === 0) {
       ss.toast('이미 구입 확정한 목록입니다. 새로 주문할 책은 구입 검토함에서 체크한 뒤 「서점 전달용으로 보내기」를 다시 눌러 주세요.', '구입 확정', 9);
+      if (typeof UNIFIED_BAR_RESULT !== 'undefined') UNIFIED_BAR_RESULT = { text: 'ℹ️  이미 구입 확정한 목록입니다 · 「🧾 구입 기록」에서 확인하세요', kind: 'warn' };
       return { success: false, already: true };
     }
   }
@@ -4111,6 +4133,9 @@ function unifiedConfirmPurchaseRound_() {
       round + '회차 ' + quantity + '권 · ' + unifiedMoney_(amount) + '을 기록했습니다. (구입 검토함 ' + marked + '권을 주문완료로 바꿨습니다)',
       '✅ 구입 확정', 9
     );
+    if (typeof UNIFIED_BAR_RESULT !== 'undefined') {
+      UNIFIED_BAR_RESULT = { text: '✅  ' + round + '회차 구입 확정 완료 (' + quantity + '권 · ' + unifiedMoney_(amount) + ') · 「🧾 구입 기록」 시트에서 확인하세요', kind: 'ok' };
+    }
     return { success: true, round: round, quantity: quantity, amount: amount, marked: marked };
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (releaseError) {} }
@@ -4224,7 +4249,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v4305f8f';
+var HR_BUILD_ID = 'v7daf7f7';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -14539,6 +14564,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '구입 검토', '구입 확정 뒤 막대에 결과를 10초 동안 보여 줌', '「✅ 이번 회차 구입 확정」을 누르면 막대가 「처리하는 중입니다」였다가, 끝나면 초록색으로 「○회차 구입 확정 완료 (○권 · ○○원) · 「🧾 구입 기록」 시트에서 확인하세요」를 10초 동안 보여 주고 원래 모양으로 돌아옵니다. 이미 확정한 목록이면 주황색으로 알려 줍니다. (구입 기록 시트는 평소 숨겨져 있어서 대시보드의 「지금까지 확정」 칸이나 메뉴 「🧾 구입 기록 보기」로 엽니다)'],
   ['2026-11-28', '구입 검토', '「이번 회차 구입 확정」도 한 번만 누르면 실행', '서점 전달용 시트의 「✅ 이번 회차 구입 확정」은 한 번 누르면 바로 그 회차를 기록하고 구입 검토함의 책을 「주문완료」로 바꿉니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했고, 선택이 막대에 남으면 반응이 없기도 했습니다). 같은 목록을 두 번 확정해 회차가 중복으로 쌓이지 않도록, 이미 확정한 목록이면 알려 주고 기록하지 않습니다. 잘못 확정했다면 「🧾 구입 기록」 시트에서 그 줄을 지우면 예산이 되돌아갑니다.'],
   ['2026-11-28', '구입 검토', '막대를 누르면 「처리하는 중입니다…」가 바로 보임', '「이번 회차 구입 확정」 등 막대를 실제로 실행하는 동안 막대가 파란 「⏳ 처리하는 중입니다… 잠시만 기다려 주세요」로 바뀌었다가, 끝나면 원래 모양으로 돌아옵니다. 구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않습니다.'],
   ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 같은 일을 하던 서점 전달용 시트의 「🔄 다시 만들기」 막대는 없앴습니다. 목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요. 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
@@ -15391,6 +15417,7 @@ function verifyYes24Connection() {
     "unifiedBarConfirmDetail_": unifiedBarConfirmDetail_,
     "unifiedMoveSelectionAway_": unifiedMoveSelectionAway_,
     "unifiedShowBarBusy_": unifiedShowBarBusy_,
+    "unifiedFinishBar_": unifiedFinishBar_,
     "unifiedRestoreBarLookSafe_": unifiedRestoreBarLookSafe_,
     "unifiedRestoreBarLook_": unifiedRestoreBarLook_,
     "unifiedRevertPendingBars_": unifiedRevertPendingBars_,

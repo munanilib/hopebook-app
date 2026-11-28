@@ -258,7 +258,7 @@ function unifiedHandleBarClick_(sheet, range) {
   if (bar.once) {
     UNIFIED_BAR_NO_DIALOG = true;
     unifiedShowBarBusy_(sheet, bar);
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedFinishBar_(sheet, bar); }
   }
   return unifiedClickWithConfirm_(sheet, bar);
 }
@@ -281,7 +281,7 @@ function unifiedClickWithConfirm_(sheet, bar) {
     // 일이 끝날 때까지 막대에 「처리 중」을 보여 줍니다. (구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않게)
     unifiedShowBarBusy_(sheet, bar);
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedFinishBar_(sheet, bar); }
   }
 
   if (cache) cache.put(key, String(Date.now()), UNIFIED_BAR_PENDING_SECONDS + 5);
@@ -339,6 +339,27 @@ function unifiedShowBarBusy_(sheet, bar) {
       .setFontColor('#FFFFFF');
     SpreadsheetApp.flush();
   } catch (error) {}
+}
+
+// 일이 끝난 뒤: 결과 문구가 있으면 막대에 10초 동안 보여 주고, 그 뒤 원래 모양으로 되돌립니다.
+// (처리하는 동안 막대가 「처리하는 중입니다」였다가, 끝나면 「어디서 확인하면 되는지」를 알려 주는 용도입니다)
+var UNIFIED_BAR_RESULT = null;          // {text, kind: 'ok' | 'warn'} — 일을 한 함수가 채웁니다
+var UNIFIED_BAR_RESULT_SECONDS = 10;
+function unifiedFinishBar_(sheet, bar) {
+  var result = UNIFIED_BAR_RESULT;
+  UNIFIED_BAR_RESULT = null;
+  if (result && result.text) {
+    try {
+      var warn = result.kind === 'warn';
+      sheet.getRange(4, bar.c1)
+        .setValue('  ' + result.text)
+        .setBackground(warn ? '#B9770E' : '#2E7D5B')
+        .setFontColor('#FFFFFF');
+      SpreadsheetApp.flush();
+      Utilities.sleep(UNIFIED_BAR_RESULT_SECONDS * 1000);
+    } catch (error) {}
+  }
+  unifiedRestoreBarLookSafe_(sheet, bar);
 }
 
 // 일이 끝난 뒤 막대를 원래 모양으로 되돌립니다. (실패해도 일 자체의 결과에는 영향이 없게 합니다)

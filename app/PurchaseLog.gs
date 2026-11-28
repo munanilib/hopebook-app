@@ -105,6 +105,7 @@ function unifiedConfirmPurchaseRound_() {
     });
     if (matched > 0 && notYet === 0) {
       ss.toast('이미 구입 확정한 목록입니다. 새로 주문할 책은 구입 검토함에서 체크한 뒤 「서점 전달용으로 보내기」를 다시 눌러 주세요.', '구입 확정', 9);
+      if (typeof UNIFIED_BAR_RESULT !== 'undefined') UNIFIED_BAR_RESULT = { text: 'ℹ️  이미 구입 확정한 목록입니다 · 「🧾 구입 기록」에서 확인하세요', kind: 'warn' };
       return { success: false, already: true };
     }
   }
@@ -156,6 +157,9 @@ function unifiedConfirmPurchaseRound_() {
       round + '회차 ' + quantity + '권 · ' + unifiedMoney_(amount) + '을 기록했습니다. (구입 검토함 ' + marked + '권을 주문완료로 바꿨습니다)',
       '✅ 구입 확정', 9
     );
+    if (typeof UNIFIED_BAR_RESULT !== 'undefined') {
+      UNIFIED_BAR_RESULT = { text: '✅  ' + round + '회차 구입 확정 완료 (' + quantity + '권 · ' + unifiedMoney_(amount) + ') · 「🧾 구입 기록」 시트에서 확인하세요', kind: 'ok' };
+    }
     return { success: true, round: round, quantity: quantity, amount: amount, marked: marked };
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (releaseError) {} }
