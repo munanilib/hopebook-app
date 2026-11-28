@@ -101,6 +101,11 @@ function onOpen() {
     console.warn('신청구분 칸 준비 실패: ' + error);
   }
   try {
+    if (typeof seriesEnsureAutoContinue_ === 'function') seriesEnsureAutoContinue_();
+  } catch (error) {
+    console.warn('시리즈 이어가기 예약 확인 실패: ' + error);
+  }
+  try {
     HR_refreshGuidesOnce_();
   } catch (error) {
     console.warn('안내 시트 새 내용 반영 실패: ' + error);

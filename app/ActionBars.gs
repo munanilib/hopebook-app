@@ -403,6 +403,7 @@ function HR_openSeriesCheckDialog_(autostart) {
 // 창이 열릴 때와 점검이 끝날 때마다 현재 상태를 알려 줍니다.
 function HR_seriesCheckState() {
   var props = PropertiesService.getScriptProperties();
+  try { seriesEnsureAutoContinue_(); } catch (error) { console.warn('이어가기 예약 점검 실패: ' + error); }
   var resume = null;
   try {
     var parsed = JSON.parse(props.getProperty(SERIES_RESUME_STATE_KEY) || 'null');

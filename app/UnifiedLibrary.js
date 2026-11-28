@@ -795,6 +795,28 @@ function seriesAutoContinueMissingBooks_() {
   refreshMissingSeriesBooks();
 }
 
+// 점검이 중간에 멈춰 진행 위치만 남았는데 이어가기 예약이 하나도 없으면(예: 예전 버전에서 한도에 닿아 멈춘 경우) 스스로 예약을 다시 만듭니다.
+// 오늘 한도가 남아 있으면 1분 뒤, 다 썼으면 한도가 풀리는 시각(다음 날 00:10)입니다.
+function seriesEnsureAutoContinue_() {
+  var properties = PropertiesService.getScriptProperties();
+  if (!properties.getProperty(SERIES_RESUME_STATE_KEY)) return false;
+  var already = ScriptApp.getProjectTriggers().some(function(trigger) {
+    return trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER;
+  });
+  if (already) return false;
+  if (seriesApiRemaining_() > 0) {
+    seriesScheduleAutoContinue_();
+    return true;
+  }
+  var when = seriesQuotaResumeTime_(new Date(), false, Session.getScriptTimeZone());
+  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
+  properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({
+    at: when.getTime(), text: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵'
+  }));
+  return true;
+}
+
 function seriesCancelAutoContinue_() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER) {

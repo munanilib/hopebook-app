@@ -409,6 +409,7 @@ function HR_openSeriesCheckDialog_(autostart) {
 // 창이 열릴 때와 점검이 끝날 때마다 현재 상태를 알려 줍니다.
 function HR_seriesCheckState() {
   var props = PropertiesService.getScriptProperties();
+  try { seriesEnsureAutoContinue_(); } catch (error) { console.warn('이어가기 예약 점검 실패: ' + error); }
   var resume = null;
   try {
     var parsed = JSON.parse(props.getProperty(SERIES_RESUME_STATE_KEY) || 'null');
@@ -994,6 +995,11 @@ function onOpen() {
     HR_prepareAudienceColumns_();
   } catch (error) {
     console.warn('신청구분 칸 준비 실패: ' + error);
+  }
+  try {
+    if (typeof seriesEnsureAutoContinue_ === 'function') seriesEnsureAutoContinue_();
+  } catch (error) {
+    console.warn('시리즈 이어가기 예약 확인 실패: ' + error);
   }
   try {
     HR_refreshGuidesOnce_();
@@ -4141,7 +4147,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v29ca5f4';
+var HR_BUILD_ID = 'vfe29d21';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10985,6 +10991,28 @@ function seriesAutoContinueMissingBooks_() {
   refreshMissingSeriesBooks();
 }
 
+// 점검이 중간에 멈춰 진행 위치만 남았는데 이어가기 예약이 하나도 없으면(예: 예전 버전에서 한도에 닿아 멈춘 경우) 스스로 예약을 다시 만듭니다.
+// 오늘 한도가 남아 있으면 1분 뒤, 다 썼으면 한도가 풀리는 시각(다음 날 00:10)입니다.
+function seriesEnsureAutoContinue_() {
+  var properties = PropertiesService.getScriptProperties();
+  if (!properties.getProperty(SERIES_RESUME_STATE_KEY)) return false;
+  var already = ScriptApp.getProjectTriggers().some(function(trigger) {
+    return trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER;
+  });
+  if (already) return false;
+  if (seriesApiRemaining_() > 0) {
+    seriesScheduleAutoContinue_();
+    return true;
+  }
+  var when = seriesQuotaResumeTime_(new Date(), false, Session.getScriptTimeZone());
+  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().at(when).create();
+  var zone = Session.getScriptTimeZone() || 'Asia/Seoul';
+  properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({
+    at: when.getTime(), text: Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵'
+  }));
+  return true;
+}
+
 function seriesCancelAutoContinue_() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER) {
@@ -15383,6 +15411,7 @@ function verifyYes24Connection() {
     "seriesClearResumeState_": seriesClearResumeState_,
     "resetSeriesFinderProgress": resetSeriesFinderProgress,
     "seriesAutoContinueMissingBooks_": seriesAutoContinueMissingBooks_,
+    "seriesEnsureAutoContinue_": seriesEnsureAutoContinue_,
     "seriesCancelAutoContinue_": seriesCancelAutoContinue_,
     "seriesScheduleAutoContinue_": seriesScheduleAutoContinue_,
     "seriesLegacyResumeOffset_": seriesLegacyResumeOffset_,
