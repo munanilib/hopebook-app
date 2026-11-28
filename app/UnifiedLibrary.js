@@ -218,6 +218,7 @@ function refreshMissingSeriesBooks() {
       throw new Error('YES24 API 키가 없습니다. 「🔎 시리즈 점검 → YES24 API 키 설정」에서 입력해 주세요.');
     }
 
+    PropertiesService.getScriptProperties().setProperty(SERIES_RUN_AT_PROPERTY, String(Date.now()));
     seriesWriteStatus_('run', '🟢 점검 중입니다 · ' + seriesNowText_() + ' 시작 (끝나면 이 줄이 바뀝니다)');
     spreadsheet.toast('보유목록에서 시리즈와 빈 권차를 찾고 있습니다.', '시리즈 점검', 5);
     var holdings = seriesReadHoldings_();
@@ -365,6 +366,7 @@ function refreshMissingSeriesBooks() {
     seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
   } finally {
+    try { PropertiesService.getScriptProperties().deleteProperty(SERIES_RUN_AT_PROPERTY); } catch (ignore) {}
     lock.releaseLock();
   }
 }
@@ -877,11 +879,40 @@ function seriesWriteStatus_(kind, text) {
     var sheet = seriesSpreadsheet_().getSheetByName(SERIES_FINDER_SHEET);
     if (!sheet) return;
     var style = SERIES_STATUS_STYLES[kind] || SERIES_STATUS_STYLES.stop;
-    sheet.getRange('A2:N2').setBackground(style.bg).setFontColor(style.fg).setFontWeight('bold').setFontSize(11);
+    sheet.getRange('A2:N2').setBackground(style.bg).setFontColor(style.fg).setFontWeight('bold').setFontSize(14)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+    sheet.setRowHeight(2, 44);
     sheet.getRange('A2').setValue(text);
     SpreadsheetApp.flush();
   } catch (error) {
     console.warn('점검 상태 표시 실패: ' + error);
+  }
+}
+
+// 시트를 열 때/창을 열 때, 저장된 점검 상태를 맨 위 상태 줄에 맞춰 보여 줍니다. (예약을 만들지는 않고 보여 주기만 합니다)
+var SERIES_RUN_AT_PROPERTY = 'YES24_SERIES_RUN_AT';
+function seriesShowStateStatus_() {
+  var properties = PropertiesService.getScriptProperties();
+  var resume = null;
+  try { resume = JSON.parse(properties.getProperty(SERIES_RESUME_STATE_KEY) || 'null'); } catch (ignore) {}
+  if (!resume || !(Number(resume.total) > 0)) return;
+  var runAt = Number(properties.getProperty(SERIES_RUN_AT_PROPERTY) || 0);
+  if (runAt && Date.now() - runAt < 7 * 60 * 1000) return;   // 지금 돌고 있는 점검이 쓴 「점검 중」 줄을 덮지 않습니다
+  var progress = Number(resume.offset || 0) + ' / ' + Number(resume.total) + '건 진행';
+  var hasTrigger = false;
+  try {
+    hasTrigger = ScriptApp.getProjectTriggers().some(function(trigger) {
+      return trigger.getHandlerFunction() === SERIES_AUTO_CONTINUE_HANDLER;
+    });
+  } catch (ignore) { return; }
+  var next = null;
+  try { next = JSON.parse(properties.getProperty(SERIES_QUOTA_NEXT_PROPERTY) || 'null'); } catch (ignore) {}
+  if (hasTrigger && next && Number(next.at) > Date.now()) {
+    seriesWriteStatus_('wait', '⏳ YES24 하루 조회 한도로 쉬는 중 · ' + next.text + ' 저절로 이어서 점검합니다 · ' + progress);
+  } else if (hasTrigger) {
+    seriesWriteStatus_('wait', '⏳ 대기 중 · ' + progress + ' · 곧 저절로 이어서 점검합니다');
+  } else {
+    seriesWriteStatus_('error', '⚠ 점검이 멈춰 있습니다 · ' + progress + ' · 위의 ☐ 를 체크해 점검 창을 열면 다시 예약됩니다');
   }
 }
 

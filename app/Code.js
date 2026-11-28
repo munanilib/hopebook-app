@@ -106,6 +106,9 @@ function onOpen() {
     console.warn('시리즈 이어가기 예약 확인 실패: ' + error);
   }
   try {
+    if (typeof seriesShowStateStatus_ === 'function') seriesShowStateStatus_();
+  } catch (error) {}
+  try {
     HR_refreshGuidesOnce_();
   } catch (error) {
     console.warn('안내 시트 새 내용 반영 실패: ' + error);

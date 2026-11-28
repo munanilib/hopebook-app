@@ -404,6 +404,7 @@ function HR_openSeriesCheckDialog_(autostart) {
 function HR_seriesCheckState() {
   var props = PropertiesService.getScriptProperties();
   try { seriesEnsureAutoContinue_(); } catch (error) { console.warn('이어가기 예약 점검 실패: ' + error); }
+  try { seriesShowStateStatus_(); } catch (error) {}
   var resume = null;
   try {
     var parsed = JSON.parse(props.getProperty(SERIES_RESUME_STATE_KEY) || 'null');
