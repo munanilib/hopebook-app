@@ -81,7 +81,16 @@ function unifiedConfirmWorkbooks_(books) {
   });
   if (!titles.length) return true;
 
-  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) return true;   // 막대 클릭으로 실행 중: 창 없이 계속(첫 번째 누름에서 알려 줬습니다)
+  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) {   // 막대 클릭으로 실행 중: 창 없이 계속하고, 포함됐다는 것만 알려 줍니다
+    try {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '⚠ 문제집·학습지로 보이는 책 ' + titles.length + '권이 포함됩니다: ' + titles.slice(0, 3).join(', ') + (titles.length > 3 ? ' 외' : '') +
+        '\n빼려면 구입 검토함에서 체크를 풀고 「서점 전달용 다시 만들기」를 누르세요.',
+        '문제집·학습지 확인', 12
+      );
+    } catch (ignore) {}
+    return true;
+  }
   var ui;
   try { ui = SpreadsheetApp.getUi(); } catch (error) { return true; }
   var list = titles.slice(0, 10).map(function(title) { return '· ' + title; }).join('\n') +

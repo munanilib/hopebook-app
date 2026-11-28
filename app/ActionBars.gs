@@ -56,12 +56,12 @@ function unifiedBarSpecBase_(sheet) {
   if (name === UNIFIED_REVIEW_SHEET) {
     return { last: 12, fractions: [0.30, 0.70], bars: [
       { id: 'review-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
-      { id: 'review-export', kind: 'send', c1: 4, c2: 12, label: '📦  서점 전달용으로 보내기 (중복 확인)  ›', confirm: '체크한 책의 소장 중복을 확인하고 서점 전달용 목록을 만들까요?' }
+      { id: 'review-export', kind: 'send', once: true, c1: 4, c2: 12, label: '📦  서점 전달용으로 보내기 (중복 확인)  ›', confirm: '체크한 책의 소장 중복을 확인하고 서점 전달용 목록을 만들까요?' }
     ] };
   }
   if (name === UNIFIED_EXPORT_SHEET) {
     return { last: 10, fractions: [0.42, 0.58], bars: [
-      { id: 'export-rebuild', kind: 'send', c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
+      { id: 'export-rebuild', kind: 'send', once: true, c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
       { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
@@ -254,6 +254,11 @@ function unifiedHandleBarClick_(sheet, range) {
   if (!bar) return false;
   if (unifiedBarNeedsCheckbox_(bar)) return unifiedGuideBarCheckbox_(sheet, range, bar);
   if (bar.kind === 'select') return unifiedRunBarAction_(sheet, bar);
+  // 서점 전달용 목록 만들기는 데이터를 지우거나 옮기지 않고 목록만 새로 만드는 일이라, 한 번 누르면 바로 실행합니다.
+  if (bar.once) {
+    UNIFIED_BAR_NO_DIALOG = true;
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+  }
   return unifiedClickWithConfirm_(sheet, bar);
 }
 

@@ -2245,6 +2245,13 @@ function unifiedReadReviewManual_(sheet) {
   return result;
 }
 
+// 구입 검토함 맨 위 안내 문구를 사실에 맞게 고칩니다. (예전 문구는 「체크하면 바로 서점 전달용에 반영된다」고 해서 오해를 줬습니다)
+function unifiedFixReviewNotice_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(UNIFIED_REVIEW_SHEET);
+  if (!sheet) return;
+  sheet.getRange('A3:L3').breakApart().merge().setValue('구입할 책의 「선택」을 체크한 뒤 아래 금색 막대를 한 번 누르면 「📦 서점 전달용」 시트가 만들어지고 그 시트로 이동합니다. (체크만으로는 반영되지 않습니다)');
+}
+
 function unifiedEnsureReviewSheet_() {
   var ss = seriesSpreadsheet_();
   var sheet = ss.getSheetByName(UNIFIED_REVIEW_SHEET) || ss.insertSheet(UNIFIED_REVIEW_SHEET);
@@ -2269,7 +2276,7 @@ function unifiedEnsureReviewSheet_() {
   sheet.getRange('A3:L3')
     .breakApart()
     .merge()
-    .setValue('구입할 도서의 「선택」 체크박스를 누르면 「서점 전달용」 시트에 반영됩니다.');
+    .setValue('구입할 책의 「선택」을 체크한 뒤 아래 금색 막대를 한 번 누르면 「📦 서점 전달용」 시트가 만들어지고 그 시트로 이동합니다. (체크만으로는 반영되지 않습니다)');
 
   sheet.getRange('A4:L4').breakApart().clearContent().clearDataValidations();
   sheet.getRange('A4')

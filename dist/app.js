@@ -62,12 +62,12 @@ function unifiedBarSpecBase_(sheet) {
   if (name === UNIFIED_REVIEW_SHEET) {
     return { last: 12, fractions: [0.30, 0.70], bars: [
       { id: 'review-select', kind: 'select', c1: 1, c2: 3, label: SELECT },
-      { id: 'review-export', kind: 'send', c1: 4, c2: 12, label: '📦  서점 전달용으로 보내기 (중복 확인)  ›', confirm: '체크한 책의 소장 중복을 확인하고 서점 전달용 목록을 만들까요?' }
+      { id: 'review-export', kind: 'send', once: true, c1: 4, c2: 12, label: '📦  서점 전달용으로 보내기 (중복 확인)  ›', confirm: '체크한 책의 소장 중복을 확인하고 서점 전달용 목록을 만들까요?' }
     ] };
   }
   if (name === UNIFIED_EXPORT_SHEET) {
     return { last: 10, fractions: [0.42, 0.58], bars: [
-      { id: 'export-rebuild', kind: 'send', c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
+      { id: 'export-rebuild', kind: 'send', once: true, c1: 1, c2: 5, label: '🔄  서점 전달용 다시 만들기  ›', confirm: '구입 검토함의 최신 선택으로 서점 전달용 목록을 다시 만들까요?' },
       { id: 'export-confirm', kind: 'check', c1: 6, c2: 10, label: '✅  이번 회차 구입 확정  ›' }
     ] };
   }
@@ -260,6 +260,11 @@ function unifiedHandleBarClick_(sheet, range) {
   if (!bar) return false;
   if (unifiedBarNeedsCheckbox_(bar)) return unifiedGuideBarCheckbox_(sheet, range, bar);
   if (bar.kind === 'select') return unifiedRunBarAction_(sheet, bar);
+  // 서점 전달용 목록 만들기는 데이터를 지우거나 옮기지 않고 목록만 새로 만드는 일이라, 한 번 누르면 바로 실행합니다.
+  if (bar.once) {
+    UNIFIED_BAR_NO_DIALOG = true;
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+  }
   return unifiedClickWithConfirm_(sheet, bar);
 }
 
@@ -887,7 +892,16 @@ function unifiedConfirmWorkbooks_(books) {
   });
   if (!titles.length) return true;
 
-  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) return true;   // 막대 클릭으로 실행 중: 창 없이 계속(첫 번째 누름에서 알려 줬습니다)
+  if (typeof UNIFIED_BAR_NO_DIALOG !== 'undefined' && UNIFIED_BAR_NO_DIALOG) {   // 막대 클릭으로 실행 중: 창 없이 계속하고, 포함됐다는 것만 알려 줍니다
+    try {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        '⚠ 문제집·학습지로 보이는 책 ' + titles.length + '권이 포함됩니다: ' + titles.slice(0, 3).join(', ') + (titles.length > 3 ? ' 외' : '') +
+        '\n빼려면 구입 검토함에서 체크를 풀고 「서점 전달용 다시 만들기」를 누르세요.',
+        '문제집·학습지 확인', 12
+      );
+    } catch (ignore) {}
+    return true;
+  }
   var ui;
   try { ui = SpreadsheetApp.getUi(); } catch (error) { return true; }
   var list = titles.slice(0, 10).map(function(title) { return '· ' + title; }).join('\n') +
@@ -3672,7 +3686,7 @@ function HR_notifyInquiryAnswersOnOpen_() {
  * 업데이트 소식, 데이터 가져오기)까지 한 장에 정리합니다.
  * 안내 시트는 원래 교체해도 되는 시트라서, 새 버전이 나오면 처음 열 때 한 번 자동으로 새 내용으로 바꿉니다.
  */
-var HR_GUIDE_VERSION = '2026-11-28-1';
+var HR_GUIDE_VERSION = '2026-11-28-2';
 var HR_GUIDE_VERSION_PROPERTY = 'HR_GUIDE_VERSION';
 
 var HR_MANUAL_TITLE = '📘 학교도서관 희망도서·구입 업무 전체 사용방법';
@@ -3883,6 +3897,11 @@ function HR_refreshGuidesOnce_() {
       HR_writeUpdateLogSheet_();   // 「업데이트 내용」 탭을 최신 내용으로 다시 씁니다.
     } catch (error) {
       console.warn('업데이트 내용 탭 쓰기 실패: ' + error);
+    }
+    try {
+      unifiedFixReviewNotice_();
+    } catch (error) {
+      console.warn('구입 검토함 안내 문구 고치기 실패: ' + error);
     }
     try {
       unifiedApplyActionBarsAll_();   // 체크박스였던 맨 위 버튼을 클릭 막대로 한 번 바꿉니다.
@@ -4158,7 +4177,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v31aa3b5';
+var HR_BUILD_ID = 've65ce42';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -12454,6 +12473,13 @@ function unifiedReadReviewManual_(sheet) {
   return result;
 }
 
+// 구입 검토함 맨 위 안내 문구를 사실에 맞게 고칩니다. (예전 문구는 「체크하면 바로 서점 전달용에 반영된다」고 해서 오해를 줬습니다)
+function unifiedFixReviewNotice_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(UNIFIED_REVIEW_SHEET);
+  if (!sheet) return;
+  sheet.getRange('A3:L3').breakApart().merge().setValue('구입할 책의 「선택」을 체크한 뒤 아래 금색 막대를 한 번 누르면 「📦 서점 전달용」 시트가 만들어지고 그 시트로 이동합니다. (체크만으로는 반영되지 않습니다)');
+}
+
 function unifiedEnsureReviewSheet_() {
   var ss = seriesSpreadsheet_();
   var sheet = ss.getSheetByName(UNIFIED_REVIEW_SHEET) || ss.insertSheet(UNIFIED_REVIEW_SHEET);
@@ -12478,7 +12504,7 @@ function unifiedEnsureReviewSheet_() {
   sheet.getRange('A3:L3')
     .breakApart()
     .merge()
-    .setValue('구입할 도서의 「선택」 체크박스를 누르면 「서점 전달용」 시트에 반영됩니다.');
+    .setValue('구입할 책의 「선택」을 체크한 뒤 아래 금색 막대를 한 번 누르면 「📦 서점 전달용」 시트가 만들어지고 그 시트로 이동합니다. (체크만으로는 반영되지 않습니다)');
 
   sheet.getRange('A4:L4').breakApart().clearContent().clearDataValidations();
   sheet.getRange('A4')
@@ -14465,6 +14491,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」와 서점 전달용 시트의 「🔄 서점 전달용 다시 만들기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
   ['2026-11-28', '시리즈 점검', '시리즈 점검 시트·점검 창 디자인 정리', '시트 맨 위를 한눈에 읽히게 정리했습니다. 제목은 작게, 지금 상태 줄은 크게, 그 아래에 「확인한 시리즈·구매 검토 후보 개수 / 마지막 확인 / 오늘 API 사용량 / 사용 순서」를 칸으로 나눠 보여 줍니다(진행 막대와 단계는 상태 줄에서만 보여 줍니다). 점검 창도 시트 상태 줄과 같은 내용을 색깔 카드와 진행 막대로 크게 보여 주고, 15초마다 저절로 갱신됩니다. 사용 방법은 접어 두었습니다.'],
   ['2026-11-28', '시리즈 점검', '점검 순서를 바꿈: 준비 → 검색 → 저장 (예전 방식으로 하던 중간 점검은 처음부터 다시 합니다)', '① 준비: 검색을 시작하기 전에 모든 시리즈의 출판사·판본을 YES24 에서 먼저 확인합니다. 예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다. ② 검색: 그 뒤에 후속권·중간 누락을 검색합니다. ③ 저장: 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다(시트를 쓰다 시간이 끝나도 결과가 빠지지 않습니다). 한 번에 점검하는 시간도 줄여 여유를 두었습니다. 예전 방식으로 하다 만 점검은 이어가지 않고 처음부터 다시 합니다.'],
   ['2026-11-28', '시리즈 점검', '이어가기 알람을 「계속 울리는 알람」으로 바꿈', '예전에는 「1분 뒤에 한 번만 울리는 알람」으로 이어갔기 때문에, 그 한 번이 헛돌거나 오류로 끝나면 거기서 이어가기가 끊겨 점검이 멈춰 있었습니다. 이제 점검이 끝날 때까지 1분마다(한도·오류로 쉬는 중에는 10분·5분마다) 알람이 계속 울려서, 한 번 실패해도 다음 알람에서 저절로 이어집니다. 쉬는 시간이 안 지났거나 이미 돌고 있으면 조용히 넘어가고, 다 끝나면 알람을 지웁니다.'],
@@ -15611,6 +15638,7 @@ function verifyYes24Connection() {
     "unifiedReadSeriesItems_": unifiedReadSeriesItems_,
     "unifiedHeaderMap_": unifiedHeaderMap_,
     "unifiedReadReviewManual_": unifiedReadReviewManual_,
+    "unifiedFixReviewNotice_": unifiedFixReviewNotice_,
     "unifiedEnsureReviewSheet_": unifiedEnsureReviewSheet_,
     "unifiedStyleReviewSheet_": unifiedStyleReviewSheet_,
     "buildUnifiedBookstoreExportSheet": buildUnifiedBookstoreExportSheet,
