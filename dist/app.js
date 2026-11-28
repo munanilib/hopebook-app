@@ -263,7 +263,8 @@ function unifiedHandleBarClick_(sheet, range) {
   // 서점 전달용 목록 만들기는 데이터를 지우거나 옮기지 않고 목록만 새로 만드는 일이라, 한 번 누르면 바로 실행합니다.
   if (bar.once) {
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+    unifiedShowBarBusy_(sheet, bar);
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
   }
   return unifiedClickWithConfirm_(sheet, bar);
 }
@@ -283,9 +284,10 @@ function unifiedClickWithConfirm_(sheet, bar) {
 
   if (pendingAt && Date.now() - pendingAt < UNIFIED_BAR_PENDING_SECONDS * 1000) {
     cache.remove(key);
-    unifiedRestoreBarLook_(sheet, bar);
+    // 일이 끝날 때까지 막대에 「처리 중」을 보여 줍니다. (구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않게)
+    unifiedShowBarBusy_(sheet, bar);
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
   }
 
   if (cache) cache.put(key, String(Date.now()), UNIFIED_BAR_PENDING_SECONDS + 5);
@@ -323,6 +325,22 @@ function unifiedBarConfirmDetail_(bar) {
 }
 
 // 막대를 원래 글자·색으로 되돌립니다.
+// 막대를 「처리 중」으로 바꾸고 바로 화면에 반영합니다.
+function unifiedShowBarBusy_(sheet, bar) {
+  try {
+    sheet.getRange(4, bar.c1)
+      .setValue('⏳  처리하는 중입니다… 잠시만 기다려 주세요')
+      .setBackground('#1F5A8A')
+      .setFontColor('#FFFFFF');
+    SpreadsheetApp.flush();
+  } catch (error) {}
+}
+
+// 일이 끝난 뒤 막대를 원래 모양으로 되돌립니다. (실패해도 일 자체의 결과에는 영향이 없게 합니다)
+function unifiedRestoreBarLookSafe_(sheet, bar) {
+  try { unifiedRestoreBarLook_(sheet, bar); } catch (error) {}
+}
+
 function unifiedRestoreBarLook_(sheet, bar) {
   var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
   sheet.getRange(4, bar.c1)
@@ -4177,7 +4195,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'v0379e5f';
+var HR_BUILD_ID = 'vc57bb4e';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -14492,6 +14510,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '구입 검토', '막대를 누르면 「처리하는 중입니다…」가 바로 보임', '「이번 회차 구입 확정」 등 막대를 실제로 실행하는 동안 막대가 파란 「⏳ 처리하는 중입니다… 잠시만 기다려 주세요」로 바뀌었다가, 끝나면 원래 모양으로 돌아옵니다. 구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않습니다.'],
   ['2026-11-28', '구입 검토', '「서점 전달용으로 보내기」는 한 번만 누르면 바로 실행', '구입 검토함의 「📦 서점 전달용으로 보내기」는 이제 한 번만 누르면 바로 만들고 「📦 서점 전달용」 시트로 이동합니다(예전에는 「한 번 더 누르면 실행합니다」가 떠서 두 번 눌러야 했습니다). 같은 일을 하던 서점 전달용 시트의 「🔄 다시 만들기」 막대는 없앴습니다. 목록을 바꾸려면 구입 검토함에서 체크한 뒤 금색 막대를 다시 누르세요. 문제집·학습지로 보이는 책이 있으면 알림으로만 알려 드립니다. 구입 검토함 맨 위 안내문도 「체크만 하면 반영된다」는 잘못된 설명을 고쳐 「체크한 뒤 금색 막대를 한 번 누르면 만들어집니다」로 바꿨습니다.'],
   ['2026-11-28', '시리즈 점검', '시리즈 점검 시트·점검 창 디자인 정리', '시트 맨 위를 한눈에 읽히게 정리했습니다. 제목은 작게, 지금 상태 줄은 크게, 그 아래에 「확인한 시리즈·구매 검토 후보 개수 / 마지막 확인 / 오늘 API 사용량 / 사용 순서」를 칸으로 나눠 보여 줍니다(진행 막대와 단계는 상태 줄에서만 보여 줍니다). 점검 창도 시트 상태 줄과 같은 내용을 색깔 카드와 진행 막대로 크게 보여 주고, 15초마다 저절로 갱신됩니다. 사용 방법은 접어 두었습니다.'],
   ['2026-11-28', '시리즈 점검', '점검 순서를 바꿈: 준비 → 검색 → 저장 (예전 방식으로 하던 중간 점검은 처음부터 다시 합니다)', '① 준비: 검색을 시작하기 전에 모든 시리즈의 출판사·판본을 YES24 에서 먼저 확인합니다. 예전에는 점검 한 번에 20개씩만 확인해서, 확인 전에 검색된 시리즈는 출판사 필터 없이 다른 출판사 책까지 후보로 걸렸습니다. ② 검색: 그 뒤에 후속권·중간 누락을 검색합니다. ③ 저장: 결과 시트를 다 쓴 뒤에야 진행 위치를 앞으로 옮깁니다(시트를 쓰다 시간이 끝나도 결과가 빠지지 않습니다). 한 번에 점검하는 시간도 줄여 여유를 두었습니다. 예전 방식으로 하다 만 점검은 이어가지 않고 처음부터 다시 합니다.'],
@@ -15340,6 +15359,8 @@ function verifyYes24Connection() {
     "unifiedBarPendingKey_": unifiedBarPendingKey_,
     "unifiedClickWithConfirm_": unifiedClickWithConfirm_,
     "unifiedBarConfirmDetail_": unifiedBarConfirmDetail_,
+    "unifiedShowBarBusy_": unifiedShowBarBusy_,
+    "unifiedRestoreBarLookSafe_": unifiedRestoreBarLookSafe_,
     "unifiedRestoreBarLook_": unifiedRestoreBarLook_,
     "unifiedRevertPendingBars_": unifiedRevertPendingBars_,
     "unifiedRunBarAction_": unifiedRunBarAction_,

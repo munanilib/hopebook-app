@@ -257,7 +257,8 @@ function unifiedHandleBarClick_(sheet, range) {
   // 서점 전달용 목록 만들기는 데이터를 지우거나 옮기지 않고 목록만 새로 만드는 일이라, 한 번 누르면 바로 실행합니다.
   if (bar.once) {
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+    unifiedShowBarBusy_(sheet, bar);
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
   }
   return unifiedClickWithConfirm_(sheet, bar);
 }
@@ -277,9 +278,10 @@ function unifiedClickWithConfirm_(sheet, bar) {
 
   if (pendingAt && Date.now() - pendingAt < UNIFIED_BAR_PENDING_SECONDS * 1000) {
     cache.remove(key);
-    unifiedRestoreBarLook_(sheet, bar);
+    // 일이 끝날 때까지 막대에 「처리 중」을 보여 줍니다. (구입 기록·검토함·대시보드를 고치느라 몇 초 걸려도 멈춘 것으로 보이지 않게)
+    unifiedShowBarBusy_(sheet, bar);
     UNIFIED_BAR_NO_DIALOG = true;
-    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; }
+    try { return unifiedRunBarAction_(sheet, bar); } finally { UNIFIED_BAR_NO_DIALOG = false; unifiedRestoreBarLookSafe_(sheet, bar); }
   }
 
   if (cache) cache.put(key, String(Date.now()), UNIFIED_BAR_PENDING_SECONDS + 5);
@@ -317,6 +319,22 @@ function unifiedBarConfirmDetail_(bar) {
 }
 
 // 막대를 원래 글자·색으로 되돌립니다.
+// 막대를 「처리 중」으로 바꾸고 바로 화면에 반영합니다.
+function unifiedShowBarBusy_(sheet, bar) {
+  try {
+    sheet.getRange(4, bar.c1)
+      .setValue('⏳  처리하는 중입니다… 잠시만 기다려 주세요')
+      .setBackground('#1F5A8A')
+      .setFontColor('#FFFFFF');
+    SpreadsheetApp.flush();
+  } catch (error) {}
+}
+
+// 일이 끝난 뒤 막대를 원래 모양으로 되돌립니다. (실패해도 일 자체의 결과에는 영향이 없게 합니다)
+function unifiedRestoreBarLookSafe_(sheet, bar) {
+  try { unifiedRestoreBarLook_(sheet, bar); } catch (error) {}
+}
+
 function unifiedRestoreBarLook_(sheet, bar) {
   var style = UNIFIED_BAR_STYLE[bar.kind] || UNIFIED_BAR_STYLE.send;
   sheet.getRange(4, bar.c1)
