@@ -305,9 +305,9 @@ function refreshMissingSeriesBooks() {
       checkedAt: new Date()
     });
     if (incomplete) {
-      seriesWriteStatus_('wait', '⏳ 대기 중 · ' + searchResult.nextOffset + ' / ' + searchResult.totalSpecCount + '건 진행 · ' + seriesNowText_() + ' 저장 · 약 1분 뒤 저절로 이어서 점검합니다');
+      seriesWriteStatus_('wait', '⏳ 대기 중 · ' + seriesProgressText_(searchResult.nextOffset, searchResult.totalSpecCount) + ' · ' + seriesNowText_() + ' 저장 · 약 1분 뒤 저절로 이어서 점검합니다');
     } else {
-      seriesWriteStatus_('done', '✅ 전체 확인 완료 · ' + seriesNowText_());
+      seriesWriteStatus_('done', '✅ 전체 확인 완료 · ' + seriesProgressText_(searchResult.totalSpecCount, searchResult.totalSpecCount) + ' · ' + seriesNowText_());
     }
 
     spreadsheet.setActiveSheet(spreadsheet.getSheetByName(SERIES_FINDER_SHEET));
@@ -871,6 +871,15 @@ var SERIES_STATUS_STYLES = {
   stop:  { bg: '#EEEEEE', fg: '#555555' },
   error: { bg: '#FDECEC', fg: '#A33B36' }
 };
+// 진행 막대: [██████░░░░░░░░░░░░░░] 30.0% (4000/13741건)
+function seriesProgressText_(done, total) {
+  total = Number(total) || 0;
+  if (total <= 0) return '';
+  done = Math.max(0, Math.min(total, Number(done) || 0));
+  var percent = done / total * 100;
+  var filled = Math.round(percent / 5);
+  return '[' + new Array(filled + 1).join('█') + new Array(20 - filled + 1).join('░') + '] ' + percent.toFixed(1) + '% (' + done + '/' + total + '건)';
+}
 function seriesNowText_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Seoul', 'M월 d일 HH:mm');
 }
@@ -898,7 +907,7 @@ function seriesShowStateStatus_() {
   if (!resume || !(Number(resume.total) > 0)) return;
   var runAt = Number(properties.getProperty(SERIES_RUN_AT_PROPERTY) || 0);
   if (runAt && Date.now() - runAt < 7 * 60 * 1000) return;   // 지금 돌고 있는 점검이 쓴 「점검 중」 줄을 덮지 않습니다
-  var progress = Number(resume.offset || 0) + ' / ' + Number(resume.total) + '건 진행';
+  var progress = seriesProgressText_(Number(resume.offset || 0), Number(resume.total));
   var hasTrigger = false;
   try {
     hasTrigger = ScriptApp.getProjectTriggers().some(function(trigger) {
@@ -1128,6 +1137,11 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
       responses.push({spec: chunk[index], response: response});
     });
 
+    if ((start / SERIES_SEARCH_CHUNK) % 10 === 0) {
+      try {
+        seriesWriteStatus_('run', '🟢 점검 중 · ' + seriesProgressText_(Math.min(startOffset + start + chunk.length, totalSpecCount), totalSpecCount) + ' · ' + seriesNowText_() + ' 갱신');
+      } catch (ignore) {}
+    }
     seriesSpreadsheet_().toast(
       Math.min(startOffset + start + chunk.length, totalSpecCount) +
         ' / ' + totalSpecCount + '건 확인 중',
