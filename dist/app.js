@@ -4147,7 +4147,7 @@ function doGet(e) {
 }
 
 // 이 코드가 만들어진 때(빌드가 채워 줍니다). 화면에 보여 주고, 열어 둔 화면이 옛 버전인지 알아보는 데 씁니다.
-var HR_BUILD_ID = 'vf2f6275';
+var HR_BUILD_ID = 'v860ec1c';
 
 function HR_getBuildId() {
   return HR_BUILD_ID;
@@ -10487,6 +10487,7 @@ function refreshMissingSeriesBooks() {
       seriesCancelAutoContinue_();
     }
 
+    PropertiesService.getScriptProperties().deleteProperty(SERIES_ERROR_RETRY_PROPERTY);
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_RETRY_PROPERTY);   // 정상 진행되면 한도 재시도 횟수 초기화
     PropertiesService.getScriptProperties().deleteProperty(SERIES_QUOTA_NEXT_PROPERTY);
     seriesBuildResultSheet_(candidates, {
@@ -10545,6 +10546,18 @@ function refreshMissingSeriesBooks() {
         console.warn('한도 뒤 이어가기 예약 실패: ' + scheduleError);
       }
     }
+    // 키 문제가 아닌 일시적인 오류(YES24 서버 불안정·요청 많음 등)는 멈추지 않고 5분 뒤 다시 시도합니다.
+    if (!/API 키/.test(errorText)) {
+      try {
+        var retryInfo = seriesScheduleErrorRetry_(errorText);
+        if (retryInfo) {
+          seriesSpreadsheet_().toast('일시적인 오류로 잠시 멈췄습니다. ' + retryInfo.whenText + '에 다시 시도합니다.', '시리즈 점검 일시 정지', 12);
+          return;
+        }
+      } catch (retryError) {
+        console.warn('오류 뒤 다시 시도 예약 실패: ' + retryError);
+      }
+    }
     seriesWriteStatus_('error', '⚠ 오류로 멈췄습니다 · ' + seriesNowText_() + ' · ' + errorText.split('\n')[0].slice(0, 120));
     seriesSpreadsheet_().toast(errorText, '시리즈 점검 오류', 12);
     throw error;
@@ -10591,6 +10604,26 @@ function seriesScheduleQuotaResume_(message) {
   var whenText = Utilities.formatDate(when, zone, 'M월 d일 HH:mm') + ' 무렵';
   properties.setProperty(SERIES_QUOTA_NEXT_PROPERTY, JSON.stringify({ at: when.getTime(), text: whenText }));
   return { when: when, whenText: whenText };
+}
+
+var SERIES_ERROR_RETRY_PROPERTY = 'YES24_SERIES_ERROR_RETRY';
+var SERIES_ERROR_RETRY_MAX = 6;
+var SERIES_ERROR_RETRY_DELAY_MS = 5 * 60 * 1000;
+// 일시적인 오류 뒤 5분 뒤에 다시 시도하도록 예약합니다. 연달아 6번 실패하면 예약하지 않고 null 을 돌려줍니다.
+function seriesScheduleErrorRetry_(message) {
+  var properties = PropertiesService.getScriptProperties();
+  var retries = Number(properties.getProperty(SERIES_ERROR_RETRY_PROPERTY) || 0);
+  if (retries >= SERIES_ERROR_RETRY_MAX) {
+    properties.deleteProperty(SERIES_ERROR_RETRY_PROPERTY);
+    return null;
+  }
+  properties.setProperty(SERIES_ERROR_RETRY_PROPERTY, String(retries + 1));
+  seriesCancelAutoContinue_();
+  ScriptApp.newTrigger(SERIES_AUTO_CONTINUE_HANDLER).timeBased().after(SERIES_ERROR_RETRY_DELAY_MS).create();
+  var when = new Date(Date.now() + SERIES_ERROR_RETRY_DELAY_MS);
+  var whenText = Utilities.formatDate(when, Session.getScriptTimeZone() || 'Asia/Seoul', 'HH:mm') + ' 무렵';
+  seriesWriteStatus_('wait', '⏳ 일시적인 오류로 잠시 쉬는 중 · ' + whenText + ' 다시 시도합니다 (' + (retries + 1) + '/' + SERIES_ERROR_RETRY_MAX + '번째) · ' + String(message || '').split('\n')[0].slice(0, 80));
+  return { whenText: whenText };
 }
 
 function seriesGetYes24Key_() { return getConfiguredYes24Key_() || String(PropertiesService.getScriptProperties().getProperty('SERIES_YES24_KEY') || '').trim(); }
@@ -11236,7 +11269,26 @@ function seriesSearchYes24_(groups, holdings, apiKey, resumeOffset, runStartedAt
       };
     });
 
-    var batch = yes24FetchAll_(requests);
+    // 한 묶음(5건) 중 한 건이라도 YES24 가 일시적으로 거절하면 yes24FetchAll_ 이 오류를 던집니다.
+    // 예전에는 그 오류 하나로 지금까지 몇 분간 한 검색이 전부 버려지고 점검이 그대로 멈췄습니다.
+    // 일시적인 오류는 잠깐 쉬었다 다시 시도하고, 그래도 안 되면 지금까지 한 만큼만 저장하고 이어서 점검하게 합니다.
+    var batch = null;
+    var fetchFailure = null;
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        batch = yes24FetchAll_(requests);
+        break;
+      } catch (fetchError) {
+        fetchFailure = fetchError;
+        var fetchMessage = String(fetchError && fetchError.message ? fetchError.message : fetchError);
+        if (seriesIsQuotaError_(fetchMessage) || /API 키/.test(fetchMessage)) break;   // 한도·키 문제는 다시 해도 소용없습니다
+        Utilities.sleep(3000 * attempt);
+      }
+    }
+    if (!batch) {
+      if (!responses.length) throw fetchFailure;   // 이번에 한 검색이 하나도 없으면 오류로 알립니다
+      break;                                       // 한 만큼은 저장하고, 나머지는 이어서 점검합니다
+    }
     seriesRecordApiUsage_(batch.length);
     batch.forEach(function(response, index) {
       responses.push({spec: chunk[index], response: response});
@@ -14352,6 +14404,7 @@ var HR_UPDATE_LOG_SHEET = '업데이트 내용';
 
 // [날짜, 분류, 제목, 내용]  — 최신 것이 위
 var HR_UPDATE_LOG = [
+  ['2026-11-28', '시리즈 점검', '자꾸 멈추던 문제 고침 (일시적 YES24 거절에 점검이 통째로 버려지던 문제)', 'YES24 가 한 묶음 중 한 건만 일시적으로 거절해도 점검이 오류로 끝나고, 그때까지 몇 분간 한 검색이 모두 버려지던 문제를 고쳤습니다. 이제 잠깐 쉬었다 다시 시도하고, 그래도 안 되면 지금까지 한 만큼은 저장한 채 이어서 점검합니다. 키 문제가 아닌 오류로 끝나도 5분 뒤 저절로 다시 시도합니다(연달아 6번까지). 시트 맨 위 상태 줄에 이유가 보입니다.'],
   ['2026-11-28', '시리즈 점검', '점검 상태를 시트 맨 위에 크게 표시', '시리즈 점검 결과 시트 맨 위 둘째 줄에 지금 상태가 색깔로 보입니다. 🟢 점검 중(시작 시각) · ⏳ 대기 중(약 1분 뒤 자동으로 이어감) · ⏳ 한도로 쉬는 중(이어갈 시각) · ✅ 전체 확인 완료 · ⏹ 멈춤 · ⚠ 오류. 점검이 중간에 멈춘 채 예약이 없으면 시트나 점검 창을 열 때 스스로 다시 예약합니다.'],
   ['2026-11-28', '시리즈 점검', '한도 뒤 자동 이어가기 보강', 'YES24 응답에 들어 있는 한도 오류 문구도 알아보도록 넓혔고, 시리즈 점검 창에 「한도 때문에 ○월 ○일 ○○:○○ 무렵에 저절로 이어서 점검하도록 예약되어 있습니다」가 보이게 했습니다. 예약이 안 되어 있으면 이 문구가 보이지 않습니다.'],
   ['2026-11-27', '시리즈 점검', 'YES24 하루 한도에 닿으면 풀릴 때 저절로 이어서 점검', '점검 도중 YES24 하루 조회 한도에 닿으면 오류로 끝나지 않고 잠시 멈춥니다. 우리 쪽 안전 한도에 닿았으면 다음 날 00:10 무렵, YES24가 직접 한도를 알려 왔으면 1시간 뒤에 저절로 이어서 점검합니다(시트를 열어 두지 않아도 됩니다). 진행 위치는 그대로 보존됩니다. 계속 막혀 있으면 6번까지만 다시 시도하고 알려 드립니다. 멈추려면 「⏹ 시리즈 점검 멈추기」를 누르세요.'],
@@ -15430,6 +15483,7 @@ function verifyYes24Connection() {
     "seriesIsQuotaError_": seriesIsQuotaError_,
     "seriesQuotaResumeTime_": seriesQuotaResumeTime_,
     "seriesScheduleQuotaResume_": seriesScheduleQuotaResume_,
+    "seriesScheduleErrorRetry_": seriesScheduleErrorRetry_,
     "seriesGetYes24Key_": seriesGetYes24Key_,
     "seriesSpreadsheet_": seriesSpreadsheet_,
     "seriesReadHoldings_": seriesReadHoldings_,
